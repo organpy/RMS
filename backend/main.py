@@ -8,6 +8,7 @@ full API surface for the registration and payment system.
 from fastapi import FastAPI
 
 from .config import Settings, get_settings
+from .routers import classes_router, groups_router, members_router
 
 
 def create_app() -> FastAPI:
@@ -21,6 +22,10 @@ def create_app() -> FastAPI:
         """Simple health check endpoint used during scaffolding."""
 
         return {"status": "ok", "message": "Hello World"}
+
+    app.include_router(members_router)
+    app.include_router(classes_router)
+    app.include_router(groups_router)
 
     return app
 
