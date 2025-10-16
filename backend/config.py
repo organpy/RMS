@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     app_name: str = Field(default="Registration Management System")
     api_host: str = Field(default="127.0.0.1")
     api_port: int = Field(default=8000)
+    database_url: str = Field(default="sqlite:///./data/app.db")
+    database_echo: bool = Field(default=False)
 
     model_config = SettingsConfigDict(
         env_file=".env",
