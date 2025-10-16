@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Optional, Tuple
 
 from sqlalchemy import func, or_, select
@@ -30,6 +31,7 @@ class MemberCRUD:
         search: Optional[str] = None,
         skip: int = 0,
         limit: int = 25,
+        include_archived: bool = False,
     ) -> Tuple[list[Member], int]:
         """Return members filtered by the provided parameters."""
 
@@ -43,6 +45,9 @@ class MemberCRUD:
         )
         count_stmt = select(func.count()).select_from(Member)
 
+        if not include_archived:
+            stmt = stmt.where(Member.archived_at.is_(None))
+            count_stmt = count_stmt.where(Member.archived_at.is_(None))
         if status is not None:
             stmt = stmt.where(Member.status == status)
             count_stmt = count_stmt.where(Member.status == status)
@@ -94,8 +99,13 @@ class MemberCRUD:
         self.session.refresh(member)
         return member
 
-    def delete(self, member: Member) -> None:
-        """Delete a member record. Currently performs a hard delete."""
+    def delete(self, member: Member) -> Member:
+        """Soft delete a member by archiving the record."""
 
-        self.session.delete(member)
+        member.archived_at = datetime.now(timezone.utc)
+        if member.status != MemberStatus.INACTIVE:
+            member.status = MemberStatus.INACTIVE
+        self.session.add(member)
         self.session.commit()
+        self.session.refresh(member)
+        return member

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import CheckConstraint, Date, Enum as SQLEnum, ForeignKey, String
+from sqlalchemy import CheckConstraint, Date, DateTime, Enum as SQLEnum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
@@ -53,6 +53,7 @@ class Member(TimestampMixin, Base):
         nullable=False,
     )
     joined_at: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    archived_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     business: Mapped["Business"] = relationship(back_populates="members")
     class_course: Mapped[Optional["ClassCourse"]] = relationship(back_populates="members")
