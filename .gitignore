@@ -40,3 +40,6 @@ Thumbs.db
 # PDFs and generated assets
 receipts/
 *.pdf
+
+# Other
+offline_registration_system_plan.md
