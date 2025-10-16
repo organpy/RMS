@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api/members", tags=["Members"])
 
 def _get_member_or_404(member_id: int, crud: MemberCRUD):
     member = crud.get(member_id)
-    if member is None:
+    if member is None or member.archived_at is not None:
         raise NotFoundError("Member not found")
     return member
 
@@ -37,6 +37,7 @@ def list_members(
     search: str | None = Query(default=None, min_length=1, max_length=100),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=25, ge=1, le=100),
+    include_archived: bool = Query(default=False, description="Include archived members in the results"),
     db: Session = Depends(get_db),
 ) -> MemberListResponse:
     """Return members filtered and paginated according to the supplied query parameters."""
@@ -49,6 +50,7 @@ def list_members(
         search=search,
         skip=skip,
         limit=limit,
+        include_archived=include_archived,
     )
     data = [serialize_member(member) for member in members]
     meta = PaginationMeta(total=total, skip=skip, limit=limit)

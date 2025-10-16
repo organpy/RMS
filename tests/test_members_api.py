@@ -56,6 +56,7 @@ def test_create_member_success(client, business, class_and_group):
     assert data["first_name"] == "Jordan"
     assert data["class_info"]["name"] == "Pilates Intro"
     assert data["group_info"]["name"] == "Morning Cohort"
+    assert data["archived_at"] is None
 
     list_response = client.get("/api/members")
     assert list_response.status_code == 200
@@ -91,3 +92,10 @@ def test_update_member_status(client, business, class_and_group):
     after_delete = client.get("/api/members")
     assert after_delete.status_code == 200
     assert after_delete.json()["meta"]["total"] == 0
+
+    archived_listing = client.get("/api/members", params={"include_archived": "true"})
+    assert archived_listing.status_code == 200
+    archived_payload = archived_listing.json()
+    assert archived_payload["meta"]["total"] == 1
+    assert archived_payload["data"][0]["archived_at"] is not None
+    assert archived_payload["data"][0]["status"] == "inactive"

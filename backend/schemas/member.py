@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
@@ -69,6 +69,7 @@ class MemberResponse(TimestampedSchema, MemberBase):
     business_id: int
     class_id: Optional[int] = None
     group_id: Optional[int] = None
+    archived_at: Optional[datetime] = None
     class_info: Optional[ClassSummary] = None
     group_info: Optional[GroupSummary] = None
 
@@ -91,5 +92,6 @@ class MemberSearchFilters(BaseModel):
     search: Optional[SearchStr] = None
     skip: int = Field(default=0, ge=0)
     limit: int = Field(default=25, ge=1, le=100)
+    include_archived: bool = False
 
     model_config = ConfigDict(extra="forbid")
