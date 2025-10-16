@@ -60,3 +60,6 @@ Thumbs.db
 # PDFs and generated assets
 receipts/
 *.pdf
+
+# Docs excluded from commits
+offline_registration_system_plan.md
