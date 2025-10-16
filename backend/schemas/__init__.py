@@ -10,6 +10,13 @@ from .member import (
 from .class_course import ClassCreate, ClassResponse, ClassUpdate, ClassListResponse
 from .common import ClassSummary, ErrorResponse, GroupSummary, PaginationMeta, TimestampedSchema
 from .group import GroupCreate, GroupResponse, GroupUpdate, GroupListResponse
+from .payment import (
+    PaymentCreate,
+    PaymentListResponse,
+    PaymentResponse,
+    PaymentSearchFilters,
+    PaymentUpdate,
+)
 
 __all__ = [
     "MemberCreate",
@@ -30,4 +37,9 @@ __all__ = [
     "GroupSummary",
     "PaginationMeta",
     "TimestampedSchema",
+    "PaymentCreate",
+    "PaymentUpdate",
+    "PaymentResponse",
+    "PaymentListResponse",
+    "PaymentSearchFilters",
 ]
