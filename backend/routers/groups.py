@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from backend.crud.group import GroupCRUD
@@ -12,6 +12,7 @@ from backend.schemas.common import PaginationMeta
 from backend.schemas.group import GroupCreate, GroupListResponse, GroupResponse, GroupUpdate
 from backend.schemas.member import MemberListResponse
 from .utils import serialize_member
+from backend.exceptions import NotFoundError
 
 router = APIRouter(prefix="/api/groups", tags=["Groups"])
 
@@ -19,7 +20,7 @@ router = APIRouter(prefix="/api/groups", tags=["Groups"])
 def _get_group_or_404(group_id: int, crud: GroupCRUD):
     group = crud.get(group_id)
     if group is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+        raise NotFoundError("Group not found")
     return group
 
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from backend.crud.member import MemberCRUD
@@ -17,6 +17,7 @@ from backend.schemas.member import (
     MemberUpdate,
 )
 from .utils import serialize_member
+from backend.exceptions import NotFoundError
 
 router = APIRouter(prefix="/api/members", tags=["Members"])
 
@@ -24,7 +25,7 @@ router = APIRouter(prefix="/api/members", tags=["Members"])
 def _get_member_or_404(member_id: int, crud: MemberCRUD):
     member = crud.get(member_id)
     if member is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
+        raise NotFoundError("Member not found")
     return member
 
 
