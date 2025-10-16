@@ -201,6 +201,10 @@ This document outlines the complete phase-by-phase plan for building a modern of
 - ✅ Request validation working
 - ✅ API tests passing (pytest)
 
+**Progress Save – Oct 17, 2025 (morning):** Member/class/group APIs are live with structured logging, custom error handlers, soft-delete support for members, and green pytest coverage. Payment and receipt services are next.
+
+**Progress Save – Oct 17, 2025 (evening):** Payment schemas and CRUD helpers are implemented with fresh unit coverage. Phase 2 deliverables are officially complete and the codebase is prepped to kick off Phase 3 payment services.
+
 ---
 
 ## PHASE 3: Payment System & Receipt Generation (Week 3)
