@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+.python-version
+.venv/
+venv/
+
+# Environment files
+.env
+.env.*
+
+# SQLite databases and backups
+*.db
+*.sqlite3
+/backups/
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+*.log
+
+# Build artifacts
+__build__/
+build/
+*.egg
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# PDFs and generated assets
+receipts/
+*.pdf
