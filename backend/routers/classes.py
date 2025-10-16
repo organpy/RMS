@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from backend.crud.class_course import ClassCourseCRUD
@@ -12,6 +12,7 @@ from backend.schemas.class_course import ClassCreate, ClassListResponse, ClassRe
 from backend.schemas.common import GroupSummary, PaginationMeta
 from backend.schemas.member import MemberListResponse
 from .utils import serialize_member
+from backend.exceptions import NotFoundError
 
 router = APIRouter(prefix="/api/classes", tags=["Classes"])
 
@@ -25,7 +26,7 @@ def _serialize_class(class_course) -> ClassResponse:
 def _get_class_or_404(class_id: int, crud: ClassCourseCRUD):
     class_course = crud.get(class_id)
     if class_course is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class not found")
+        raise NotFoundError("Class not found")
     return class_course
 
 

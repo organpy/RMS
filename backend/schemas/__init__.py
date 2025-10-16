@@ -8,6 +8,7 @@ from .member import (
     MemberUpdate,
 )
 from .class_course import ClassCreate, ClassResponse, ClassUpdate, ClassListResponse
+from .common import ClassSummary, ErrorResponse, GroupSummary, PaginationMeta, TimestampedSchema
 from .group import GroupCreate, GroupResponse, GroupUpdate, GroupListResponse
 
 __all__ = [
@@ -24,4 +25,9 @@ __all__ = [
     "GroupUpdate",
     "GroupResponse",
     "GroupListResponse",
+    "ErrorResponse",
+    "ClassSummary",
+    "GroupSummary",
+    "PaginationMeta",
+    "TimestampedSchema",
 ]

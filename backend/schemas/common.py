@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -43,3 +43,11 @@ class GroupSummary(BaseModel):
     id: int
     name: str
     description: Optional[str] = None
+
+
+class ErrorResponse(BaseModel):
+    """Standard error payload returned by the API."""
+
+    detail: str
+    code: str
+    errors: Optional[Any] = None
