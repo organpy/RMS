@@ -1,5 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
@@ -34,6 +37,35 @@ const memberStatusOptions = [
   { value: 'SUSPENDED', label: 'Suspended' },
 ]
 
+const optionalText = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') return undefined
+    const trimmed = value.trim()
+    return trimmed === '' ? undefined : trimmed
+  },
+  z.string().optional(),
+)
+
+const memberFormSchema = z.object({
+  first_name: z.string().trim().min(1, 'First name is required'),
+  last_name: z.string().trim().min(1, 'Last name is required'),
+  email: z
+    .string()
+    .trim()
+    .min(1, 'Email is required')
+    .email('Enter a valid email address'),
+  membership_plan: optionalText,
+  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']),
+})
+
+const memberFormDefaults = {
+  first_name: '',
+  last_name: '',
+  email: '',
+  membership_plan: '',
+  status: 'ACTIVE',
+}
+
 export default function Members() {
   const [status, setStatus] = useState('ALL')
   const [query, setQuery] = useState('')
@@ -42,6 +74,16 @@ export default function Members() {
 
   const queryClient = useQueryClient()
   const { toast } = useToast()
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(memberFormSchema),
+    defaultValues: memberFormDefaults,
+  })
 
   const {
     data,
@@ -155,6 +197,12 @@ export default function Members() {
     },
   })
 
+  useEffect(() => {
+    if (!isCreateOpen) {
+      reset({ ...memberFormDefaults })
+    }
+  }, [isCreateOpen, reset])
+
   const filteredMembers = useMemo(() => {
     if (!data?.members) return []
     if (!query) return data.members
@@ -187,24 +235,21 @@ export default function Members() {
     )
   }
 
-  const handleCreateSubmit = (event) => {
-    event.preventDefault()
-    const form = event.currentTarget
-    const formData = new FormData(form)
+  const handleCreateSubmit = handleSubmit((values) => {
     const payload = {
-      first_name: formData.get('first_name')?.toString().trim() || undefined,
-      last_name: formData.get('last_name')?.toString().trim() || undefined,
-      email: formData.get('email')?.toString().trim() || undefined,
-      membership_plan: formData.get('membership_plan')?.toString().trim() || undefined,
-      status: formData.get('status')?.toString() || 'ACTIVE',
+      first_name: values.first_name,
+      last_name: values.last_name,
+      email: values.email,
+      membership_plan: values.membership_plan ?? undefined,
+      status: values.status,
     }
 
     createMemberMutation.mutate(payload, {
       onSuccess: () => {
-        form.reset()
+        reset({ ...memberFormDefaults })
       },
     })
-  }
+  })
 
   const handleChangeStatus = (id, nextStatus) => {
     updateStatusMutation.mutate({ id, status: nextStatus })
@@ -283,39 +328,95 @@ export default function Members() {
               <DialogTitle>Add a member</DialogTitle>
               <DialogDescription>Capture the essentials and we&apos;ll sync the rest once the backend is ready.</DialogDescription>
             </DialogHeader>
-            <form className="space-y-4" onSubmit={handleCreateSubmit}>
+            <form className="space-y-4" onSubmit={handleCreateSubmit} noValidate>
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="space-y-1 text-sm">
-                  <span className="font-medium text-slate-700">First name</span>
-                  <Input name="first_name" placeholder="Alex" required />
-                </label>
-                <label className="space-y-1 text-sm">
-                  <span className="font-medium text-slate-700">Last name</span>
-                  <Input name="last_name" placeholder="Johnson" required />
-                </label>
+                <div className="space-y-1 text-sm">
+                  <label className="font-medium text-slate-700" htmlFor="member-first-name">
+                    First name
+                  </label>
+                  <Input
+                    id="member-first-name"
+                    placeholder="Alex"
+                    disabled={createMemberMutation.isPending}
+                    aria-invalid={Boolean(errors.first_name)}
+                    {...register('first_name')}
+                  />
+                  {errors.first_name ? (
+                    <p className="text-xs text-destructive">{errors.first_name.message}</p>
+                  ) : null}
+                </div>
+                <div className="space-y-1 text-sm">
+                  <label className="font-medium text-slate-700" htmlFor="member-last-name">
+                    Last name
+                  </label>
+                  <Input
+                    id="member-last-name"
+                    placeholder="Johnson"
+                    disabled={createMemberMutation.isPending}
+                    aria-invalid={Boolean(errors.last_name)}
+                    {...register('last_name')}
+                  />
+                  {errors.last_name ? (
+                    <p className="text-xs text-destructive">{errors.last_name.message}</p>
+                  ) : null}
+                </div>
               </div>
-              <label className="space-y-1 text-sm">
-                <span className="font-medium text-slate-700">Email</span>
-                <Input name="email" type="email" placeholder="alex@example.com" required />
-              </label>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="space-y-1 text-sm">
-                  <span className="font-medium text-slate-700">Membership plan</span>
-                  <Input name="membership_plan" placeholder="Premium" />
+              <div className="space-y-1 text-sm">
+                <label className="font-medium text-slate-700" htmlFor="member-email">
+                  Email
                 </label>
-                <label className="space-y-1 text-sm">
-                  <span className="font-medium text-slate-700">Status</span>
-                  <Select name="status" defaultValue="ACTIVE">
+                <Input
+                  id="member-email"
+                  type="email"
+                  placeholder="alex@example.com"
+                  disabled={createMemberMutation.isPending}
+                  aria-invalid={Boolean(errors.email)}
+                  {...register('email')}
+                />
+                {errors.email ? <p className="text-xs text-destructive">{errors.email.message}</p> : null}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1 text-sm">
+                  <label className="font-medium text-slate-700" htmlFor="member-plan">
+                    Membership plan
+                  </label>
+                  <Input
+                    id="member-plan"
+                    placeholder="Premium"
+                    disabled={createMemberMutation.isPending}
+                    {...register('membership_plan')}
+                  />
+                </div>
+                <div className="space-y-1 text-sm">
+                  <label className="font-medium text-slate-700" htmlFor="member-status">
+                    Status
+                  </label>
+                  <Select
+                    id="member-status"
+                    disabled={createMemberMutation.isPending}
+                    aria-invalid={Boolean(errors.status)}
+                    {...register('status')}
+                  >
                     {memberStatusOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
                     ))}
                   </Select>
-                </label>
+                  {errors.status ? (
+                    <p className="text-xs text-destructive">{errors.status.message}</p>
+                  ) : null}
+                </div>
               </div>
               <DialogFooter>
-                <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setCreateOpen(false)
+                    reset({ ...memberFormDefaults })
+                  }}
+                >
                   Cancel
                 </Button>
                 <Button type="submit" disabled={createMemberMutation.isPending}>
