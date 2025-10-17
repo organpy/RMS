@@ -1,0 +1,68 @@
+"""Routes for managing business branding and application settings."""
+
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
+from sqlalchemy.orm import Session
+
+from backend.database import get_db
+from backend.schemas.settings import (
+    BackupConfigResponse,
+    BackupEnvironmentSchema,
+    BusinessSettingsResponse,
+    BusinessSettingsUpdate,
+)
+from backend.services.settings_service import SettingsService
+
+router = APIRouter(prefix="/api/settings", tags=["Settings"])
+
+
+def get_settings_service(db: Session = Depends(get_db)) -> SettingsService:
+    return SettingsService(db)
+
+
+@router.get("", response_model=BusinessSettingsResponse)
+async def read_business_settings(
+    service: SettingsService = Depends(get_settings_service),
+) -> BusinessSettingsResponse:
+    """Return the persisted business branding settings."""
+
+    business = await run_in_threadpool(service.get_business)
+    return BusinessSettingsResponse.model_validate(business, from_attributes=True)
+
+
+@router.put("", response_model=BusinessSettingsResponse)
+async def update_business_settings(
+    payload: BusinessSettingsUpdate,
+    service: SettingsService = Depends(get_settings_service),
+) -> BusinessSettingsResponse:
+    """Persist updates to the business branding settings."""
+
+    business = await run_in_threadpool(service.update_business, payload.model_dump(exclude_none=True))
+    return BusinessSettingsResponse.model_validate(business, from_attributes=True)
+
+
+@router.post("/logo", response_model=BusinessSettingsResponse, status_code=status.HTTP_201_CREATED)
+async def upload_logo(
+    file: UploadFile = File(...),
+    service: SettingsService = Depends(get_settings_service),
+) -> BusinessSettingsResponse:
+    """Upload a new logo asset and update the business settings."""
+
+    content = await file.read()
+    business = await run_in_threadpool(service.store_logo, filename=file.filename or "logo", content=content)
+    await file.close()
+    return BusinessSettingsResponse.model_validate(business, from_attributes=True)
+
+
+@router.get("/backup-config", response_model=BackupConfigResponse)
+async def read_backup_configuration(
+    service: SettingsService = Depends(get_settings_service),
+) -> BackupConfigResponse:
+    """Return the configuration payload used for offline backups."""
+
+    backup = await run_in_threadpool(service.generate_backup_configuration)
+    business = BusinessSettingsResponse.model_validate(backup.business, from_attributes=True)
+    environment = BackupEnvironmentSchema(**backup.environment)
+    return BackupConfigResponse(business=business, environment=environment)

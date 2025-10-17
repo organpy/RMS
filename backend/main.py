@@ -18,6 +18,7 @@ from .routers import (
     members_router,
     payments_router,
     receipts_router,
+    settings_router,
 )
 
 
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
     app.include_router(receipts_router)
     app.include_router(analytics_router)
     app.include_router(dashboard_router)
+    app.include_router(settings_router)
     register_exception_handlers(app)
 
     return app

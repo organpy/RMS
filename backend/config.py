@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     payment_due_interval_days: int = Field(default=30, ge=1)
     payment_inactive_grace_days: int = Field(default=14, ge=0)
     receipt_output_dir: str = Field(default="data/receipts")
+    branding_assets_dir: str = Field(default="data/logos")
 
     model_config = SettingsConfigDict(
         env_file=".env",

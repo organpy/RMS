@@ -311,6 +311,8 @@ This document outlines the complete phase-by-phase plan for building a modern of
 - ✅ Settings API complete
 - ✅ Alert system working
 
+**Progress Save – Oct 17, 2025 (night):** Settings service + router landed with hex-color validation, logo upload persistence, backup-config export, and companion unit/API tests. Dashboard + analytics suites re-run (27 tests) now include settings coverage.
+
 ---
 
 ## PHASE 5: Frontend Foundation (Week 5)
