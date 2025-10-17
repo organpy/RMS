@@ -169,3 +169,44 @@ def test_dashboard_alerts_endpoint(client, db_session, business):
     assert len(payload["overdue"]) == 1
     assert payload["overdue"][0]["next_due_date"] == (today - timedelta(days=4)).isoformat()
     assert payload["overdue"][0]["status"] == PaymentStatus.OVERDUE.value
+
+
+def test_dashboard_recent_activity_endpoint(client, db_session, business):
+    base_date = date(2025, 10, 1)
+
+    member_one = _member(db_session, business.id, status=MemberStatus.ACTIVE)
+    member_two = _member(db_session, business.id, status=MemberStatus.INACTIVE)
+
+    _payment(
+        db_session,
+        member_one.id,
+        payment_date=base_date,
+        next_due_date=base_date + timedelta(days=30),
+        status=PaymentStatus.PAID,
+        receipt_suffix="recent-old",
+    )
+    mid_payment = _payment(
+        db_session,
+        member_one.id,
+        payment_date=base_date + timedelta(days=5),
+        next_due_date=base_date + timedelta(days=35),
+        status=PaymentStatus.UNPAID,
+        receipt_suffix="recent-mid",
+    )
+    latest_payment = _payment(
+        db_session,
+        member_two.id,
+        payment_date=base_date + timedelta(days=10),
+        next_due_date=base_date + timedelta(days=40),
+        status=PaymentStatus.OVERDUE,
+        receipt_suffix="recent-latest",
+    )
+
+    response = client.get("/api/dashboard/recent-activity", params={"limit": 2})
+    assert response.status_code == 200
+
+    payload = response.json()
+    assert len(payload["payments"]) == 2
+    assert payload["payments"][0]["payment_id"] == latest_payment.id
+    assert payload["payments"][0]["status"] == PaymentStatus.OVERDUE.value
+    assert payload["payments"][1]["payment_id"] == mid_payment.id

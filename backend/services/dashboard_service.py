@@ -11,7 +11,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.models.member import Member, MemberStatus
-from backend.models.payment import Payment, PaymentStatus
+from backend.models.payment import Payment, PaymentMethod, PaymentStatus
+from backend.models.class_course import ClassCourse
 
 _OPEN_PAYMENT_STATUSES: tuple[PaymentStatus, ...] = (
     PaymentStatus.UNPAID,
@@ -49,6 +50,21 @@ class DashboardAlerts:
 
     due_today: List[AlertPayment]
     overdue: List[AlertPayment]
+
+
+@dataclass(frozen=True)
+class RecentPayment:
+    """Projection of recent payment activity."""
+
+    payment_id: int
+    member_id: int
+    member_name: str
+    class_name: Optional[str]
+    payment_date: date
+    amount: Decimal
+    method: PaymentMethod
+    status: PaymentStatus
+    receipt_number: Optional[str]
 
 
 class DashboardService:
@@ -89,6 +105,12 @@ class DashboardService:
         due_today = self._alert_payments(Payment.next_due_date == target_date, limit)
         overdue = self._alert_payments(Payment.next_due_date < target_date, limit)
         return DashboardAlerts(due_today=due_today, overdue=overdue)
+
+    def get_recent_activity(self, *, limit: int = 10) -> List[RecentPayment]:
+        """Return the most recent payment activity records."""
+
+        limit = max(1, limit)
+        return self._recent_payments(limit)
 
     # ---------------------------------------------------------------------
     # Internal helpers
@@ -170,3 +192,55 @@ class DashboardService:
                 )
             )
         return alerts
+
+    def _recent_payments(self, limit: int) -> List[RecentPayment]:
+        """Internal helper to fetch recent payments with member and class information."""
+
+        stmt = (
+            select(
+                Payment.id,
+                Member.id,
+                Member.first_name,
+                Member.last_name,
+                ClassCourse.name,
+                Payment.payment_date,
+                Payment.amount,
+                Payment.method,
+                Payment.status,
+                Payment.receipt_number,
+            )
+            .join(Member, Member.id == Payment.member_id)
+            .outerjoin(ClassCourse, ClassCourse.id == Member.class_id)
+            .where(Member.archived_at.is_(None))
+            .order_by(Payment.payment_date.desc(), Payment.id.desc())
+            .limit(limit)
+        )
+        rows = self.session.execute(stmt).all()
+        recent: List[RecentPayment] = []
+        for (
+            payment_id,
+            member_id,
+            first_name,
+            last_name,
+            class_name,
+            payment_date,
+            amount,
+            method,
+            status,
+            receipt_number,
+        ) in rows:
+            member_name = " ".join(part for part in [first_name, last_name] if part)
+            recent.append(
+                RecentPayment(
+                    payment_id=payment_id,
+                    member_id=member_id,
+                    member_name=member_name,
+                    class_name=class_name,
+                    payment_date=payment_date,
+                    amount=Decimal(amount),
+                    method=method,
+                    status=status,
+                    receipt_number=receipt_number,
+                )
+            )
+        return recent

@@ -21,6 +21,9 @@ from .dashboard import (
     DashboardAlertPayment,
     DashboardAlertsQuery,
     DashboardAlertsResponse,
+    DashboardRecentActivityQuery,
+    DashboardRecentActivityResponse,
+    DashboardRecentPayment,
     DashboardWidgetsQuery,
     DashboardWidgetsResponse,
 )
@@ -57,4 +60,7 @@ __all__ = [
     "DashboardAlertsResponse",
     "DashboardAlertsQuery",
     "DashboardAlertPayment",
+    "DashboardRecentActivityResponse",
+    "DashboardRecentActivityQuery",
+    "DashboardRecentPayment",
 ]
