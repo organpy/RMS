@@ -24,8 +24,22 @@ from .dashboard import (
     DashboardRecentActivityQuery,
     DashboardRecentActivityResponse,
     DashboardRecentPayment,
+    DashboardQuickStatsQuery,
+    DashboardQuickStatsResponse,
     DashboardWidgetsQuery,
     DashboardWidgetsResponse,
+)
+from .analytics import (
+    ClassPopularityEntrySchema,
+    ClassPopularityQuery,
+    ClassPopularityResponse,
+    PaymentTrendPointSchema,
+    PaymentTrendQuery,
+    PaymentTrendResponse,
+    TimeSeriesPointSchema,
+    TimeSeriesQuery,
+    TimeSeriesResponse,
+    YearlySeriesQuery,
 )
 from .receipt import ReceiptListResponse, ReceiptResponse
 
@@ -63,4 +77,16 @@ __all__ = [
     "DashboardRecentActivityResponse",
     "DashboardRecentActivityQuery",
     "DashboardRecentPayment",
+    "DashboardQuickStatsResponse",
+    "DashboardQuickStatsQuery",
+    "TimeSeriesResponse",
+    "TimeSeriesPointSchema",
+    "TimeSeriesQuery",
+    "YearlySeriesQuery",
+    "PaymentTrendResponse",
+    "PaymentTrendPointSchema",
+    "PaymentTrendQuery",
+    "ClassPopularityResponse",
+    "ClassPopularityEntrySchema",
+    "ClassPopularityQuery",
 ]

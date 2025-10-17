@@ -93,3 +93,29 @@ class DashboardRecentActivityQuery(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     limit: int = Field(default=10, ge=1, le=50)
+
+
+class DashboardQuickStatsResponse(BaseModel):
+    """Summary statistics returned by the quick-stats endpoint."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total_members: int = Field(ge=0)
+    active_members: int = Field(ge=0)
+    inactive_members: int = Field(ge=0)
+    suspended_members: int = Field(ge=0)
+    due_today: int = Field(ge=0)
+    overdue: int = Field(ge=0)
+    total_revenue_30_days: Decimal = Field(ge=Decimal("0"))
+    upcoming_due_total: Decimal = Field(ge=Decimal("0"))
+    upcoming_due: list[DashboardAlertPayment] = Field(default_factory=list)
+
+
+class DashboardQuickStatsQuery(BaseModel):
+    """Optional query parameters for retrieving quick stats."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reference_date: Optional[date] = None
+    upcoming_days: int = Field(default=7, ge=1, le=30)
+    limit: int = Field(default=5, ge=1, le=25)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import List, Optional
 
@@ -50,6 +50,21 @@ class DashboardAlerts:
 
     due_today: List[AlertPayment]
     overdue: List[AlertPayment]
+
+
+@dataclass(frozen=True)
+class DashboardQuickStats:
+    """Snapshot of key dashboard statistics and upcoming dues."""
+
+    total_members: int
+    active_members: int
+    inactive_members: int
+    suspended_members: int
+    due_today: int
+    overdue: int
+    total_revenue_30_days: Decimal
+    upcoming_due: List[AlertPayment]
+    upcoming_due_total: Decimal
 
 
 @dataclass(frozen=True)
@@ -111,6 +126,47 @@ class DashboardService:
 
         limit = max(1, limit)
         return self._recent_payments(limit)
+
+    def get_quick_stats(
+        self,
+        *,
+        reference_date: Optional[date] = None,
+        upcoming_days: int = 7,
+        limit: int = 5,
+    ) -> DashboardQuickStats:
+        """Return headline stats plus upcoming due payments for the dashboard."""
+
+        target_date = reference_date or date.today()
+        upcoming_days = max(1, upcoming_days)
+        limit = max(1, limit)
+
+        status_counts = self._member_status_counts()
+        total_members = sum(status_counts.values())
+
+        due_today = self._payment_count(Payment.next_due_date == target_date)
+        overdue = self._payment_count(Payment.next_due_date < target_date)
+
+        revenue_window_start = target_date - timedelta(days=30)
+        total_revenue_30_days = self._sum_payments_between(revenue_window_start, target_date)
+
+        upcoming_due = self._upcoming_due_payments(
+            target_date + timedelta(days=1),
+            target_date + timedelta(days=upcoming_days),
+            limit,
+        )
+        upcoming_due_total = sum((item.amount for item in upcoming_due), Decimal("0"))
+
+        return DashboardQuickStats(
+            total_members=total_members,
+            active_members=status_counts.get(MemberStatus.ACTIVE, 0),
+            inactive_members=status_counts.get(MemberStatus.INACTIVE, 0),
+            suspended_members=status_counts.get(MemberStatus.SUSPENDED, 0),
+            due_today=due_today,
+            overdue=overdue,
+            total_revenue_30_days=total_revenue_30_days,
+            upcoming_due=upcoming_due,
+            upcoming_due_total=upcoming_due_total,
+        )
 
     # ---------------------------------------------------------------------
     # Internal helpers
@@ -244,3 +300,51 @@ class DashboardService:
                 )
             )
         return recent
+
+    def _sum_payments_between(self, start_date: date, end_date: date) -> Decimal:
+        stmt = (
+            select(func.coalesce(func.sum(Payment.amount), 0))
+            .where(Payment.payment_date >= start_date)
+            .where(Payment.payment_date <= end_date)
+            .where(Payment.status != PaymentStatus.REFUNDED)
+        )
+        total = self.session.execute(stmt).scalar_one()
+        if isinstance(total, Decimal):
+            return total
+        return Decimal(str(total))
+
+    def _upcoming_due_payments(self, start_date: date, end_date: date, limit: int) -> List[AlertPayment]:
+        stmt = (
+            select(
+                Payment.id,
+                Member.id,
+                Member.first_name,
+                Member.last_name,
+                Payment.next_due_date,
+                Payment.amount,
+                Payment.status,
+            )
+            .join(Member, Member.id == Payment.member_id)
+            .where(Member.archived_at.is_(None))
+            .where(Payment.next_due_date.is_not(None))
+            .where(Payment.status.in_(_OPEN_PAYMENT_STATUSES))
+            .where(Payment.next_due_date >= start_date)
+            .where(Payment.next_due_date <= end_date)
+            .order_by(Payment.next_due_date.asc(), Payment.id.asc())
+            .limit(limit)
+        )
+        rows = self.session.execute(stmt).all()
+        upcoming: List[AlertPayment] = []
+        for payment_id, member_id, first_name, last_name, next_due, amount, status in rows:
+            member_name = " ".join(part for part in [first_name, last_name] if part)
+            upcoming.append(
+                AlertPayment(
+                    payment_id=payment_id,
+                    member_id=member_id,
+                    member_name=member_name,
+                    next_due_date=next_due,
+                    amount=Decimal(amount),
+                    status=status,
+                )
+            )
+        return upcoming
