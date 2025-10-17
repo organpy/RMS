@@ -17,6 +17,7 @@ from .payment import (
     PaymentSearchFilters,
     PaymentUpdate,
 )
+from .receipt import ReceiptListResponse, ReceiptResponse
 
 __all__ = [
     "MemberCreate",
@@ -42,4 +43,6 @@ __all__ = [
     "PaymentResponse",
     "PaymentListResponse",
     "PaymentSearchFilters",
+    "ReceiptResponse",
+    "ReceiptListResponse",
 ]

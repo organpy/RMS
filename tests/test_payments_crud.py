@@ -63,6 +63,7 @@ def test_list_payments_filters(db_session, member):
             "member_id": member.id,
             "amount": Decimal("20.00"),
             "payment_date": today - timedelta(days=10),
+            "next_due_date": today + timedelta(days=20),
             "status": PaymentStatus.PAID,
             "method": PaymentMethod.CASH,
         }
@@ -72,6 +73,7 @@ def test_list_payments_filters(db_session, member):
             "member_id": member.id,
             "amount": Decimal("25.00"),
             "payment_date": today - timedelta(days=45),
+            "next_due_date": today - timedelta(days=5),
             "status": PaymentStatus.OVERDUE,
             "method": PaymentMethod.TRANSFER,
         }
@@ -85,6 +87,10 @@ def test_list_payments_filters(db_session, member):
     payments_by_method, total_by_method = crud.list(method=PaymentMethod.CASH)
     assert total_by_method == 1
     assert payments_by_method[0].method == PaymentMethod.CASH
+
+    due_today_payments, due_today_total = crud.list(due_on=today + timedelta(days=20))
+    assert due_today_total == 1
+    assert due_today_payments[0].method == PaymentMethod.CASH
 
 
 def test_update_payment(db_session, member):
