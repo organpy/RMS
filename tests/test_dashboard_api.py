@@ -111,3 +111,61 @@ def test_dashboard_widgets_defaults_to_today(client, db_session, business):
     response = client.get("/api/dashboard/widgets")
     assert response.status_code == 200
     assert response.json()["due_today"] == 1
+
+
+def test_dashboard_alerts_endpoint(client, db_session, business):
+    today = date(2025, 10, 17)
+
+    member_due_one = _member(db_session, business.id, status=MemberStatus.ACTIVE)
+    member_due_two = _member(db_session, business.id, status=MemberStatus.ACTIVE)
+    member_overdue = _member(db_session, business.id, status=MemberStatus.INACTIVE)
+    _member(db_session, business.id, status=MemberStatus.ACTIVE, archived=True)
+
+    _payment(
+        db_session,
+        member_due_one.id,
+        payment_date=today - timedelta(days=15),
+        next_due_date=today,
+        status=PaymentStatus.UNPAID,
+        receipt_suffix="alert-due-one",
+    )
+    _payment(
+        db_session,
+        member_due_two.id,
+        payment_date=today - timedelta(days=7),
+        next_due_date=today,
+        status=PaymentStatus.UNPAID,
+        receipt_suffix="alert-due-two",
+    )
+    _payment(
+        db_session,
+        member_overdue.id,
+        payment_date=today - timedelta(days=50),
+        next_due_date=today - timedelta(days=4),
+        status=PaymentStatus.OVERDUE,
+        receipt_suffix="alert-overdue-old",
+    )
+    _payment(
+        db_session,
+        member_overdue.id,
+        payment_date=today - timedelta(days=30),
+        next_due_date=today - timedelta(days=2),
+        status=PaymentStatus.OVERDUE,
+        receipt_suffix="alert-overdue-recent",
+    )
+
+    response = client.get(
+        "/api/dashboard/alerts",
+        params={"reference_date": today.isoformat(), "limit": 1},
+    )
+    assert response.status_code == 200
+
+    payload = response.json()
+    assert len(payload["due_today"]) == 1
+    assert payload["due_today"][0]["member_id"] == member_due_one.id
+    assert payload["due_today"][0]["next_due_date"] == today.isoformat()
+    assert payload["due_today"][0]["status"] == PaymentStatus.UNPAID.value
+
+    assert len(payload["overdue"]) == 1
+    assert payload["overdue"][0]["next_due_date"] == (today - timedelta(days=4)).isoformat()
+    assert payload["overdue"][0]["status"] == PaymentStatus.OVERDUE.value

@@ -40,6 +40,7 @@ def _create_payment(
     payment_date: date,
     next_due_date: date,
     status: PaymentStatus,
+    suffix: str = "base",
 ) -> Payment:
     payment = Payment(
         member_id=member_id,
@@ -48,6 +49,7 @@ def _create_payment(
         next_due_date=next_due_date,
         status=status,
         method=PaymentMethod.CASH,
+        receipt_number=f"receipt-dashboard-{member_id}-{suffix}",
     )
     db_session.add(payment)
     db_session.commit()
@@ -69,6 +71,7 @@ def test_widget_counts(db_session, business):
         payment_date=today - timedelta(days=30),
         next_due_date=today,
         status=PaymentStatus.UNPAID,
+        suffix="due",
     )
     _create_payment(
         db_session,
@@ -76,6 +79,7 @@ def test_widget_counts(db_session, business):
         payment_date=today - timedelta(days=60),
         next_due_date=today - timedelta(days=5),
         status=PaymentStatus.OVERDUE,
+        suffix="overdue",
     )
     _create_payment(
         db_session,
@@ -83,6 +87,7 @@ def test_widget_counts(db_session, business):
         payment_date=today - timedelta(days=10),
         next_due_date=today - timedelta(days=3),
         status=PaymentStatus.PAID,
+        suffix="paid",
     )
 
     result = service.get_widget_counts(reference_date=today)
@@ -111,6 +116,7 @@ def test_widget_counts_ignore_archived_members(db_session, business):
         payment_date=today - timedelta(days=30),
         next_due_date=today,
         status=PaymentStatus.UNPAID,
+        suffix="archived",
     )
 
     result = service.get_widget_counts(reference_date=today)
@@ -119,3 +125,57 @@ def test_widget_counts_ignore_archived_members(db_session, business):
     assert result.due_today == 0
     assert result.overdue == 0
     assert result.overdue_inactive == 0
+
+
+def test_get_alerts_limits_and_orders_results(db_session, business):
+    service = DashboardService(db_session)
+    today = date(2025, 10, 17)
+
+    member_due_one = _create_member(db_session, business.id, status=MemberStatus.ACTIVE)
+    member_due_two = _create_member(db_session, business.id, status=MemberStatus.ACTIVE)
+    member_overdue = _create_member(db_session, business.id, status=MemberStatus.INACTIVE)
+    _create_member(db_session, business.id, status=MemberStatus.ACTIVE, archived=True)
+
+    _create_payment(
+        db_session,
+        member_due_one.id,
+        payment_date=today - timedelta(days=15),
+        next_due_date=today,
+        status=PaymentStatus.UNPAID,
+        suffix="due-one",
+    )
+    _create_payment(
+        db_session,
+        member_due_two.id,
+        payment_date=today - timedelta(days=10),
+        next_due_date=today,
+        status=PaymentStatus.UNPAID,
+        suffix="due-two",
+    )
+    _create_payment(
+        db_session,
+        member_overdue.id,
+        payment_date=today - timedelta(days=60),
+        next_due_date=today - timedelta(days=5),
+        status=PaymentStatus.OVERDUE,
+        suffix="overdue-old",
+    )
+    _create_payment(
+        db_session,
+        member_overdue.id,
+        payment_date=today - timedelta(days=40),
+        next_due_date=today - timedelta(days=2),
+        status=PaymentStatus.OVERDUE,
+        suffix="overdue-recent",
+    )
+
+    alerts = service.get_alerts(reference_date=today, limit=1)
+
+    assert len(alerts.due_today) == 1
+    assert alerts.due_today[0].member_id == member_due_one.id
+    assert alerts.due_today[0].next_due_date == today
+    assert alerts.due_today[0].status == PaymentStatus.UNPAID
+
+    assert len(alerts.overdue) == 1
+    assert alerts.overdue[0].next_due_date == today - timedelta(days=5)
+    assert alerts.overdue[0].status == PaymentStatus.OVERDUE

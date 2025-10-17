@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Optional
+from decimal import Decimal
+from typing import List, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -28,6 +29,26 @@ class DashboardWidgets:
     due_today: int
     overdue: int
     overdue_inactive: int
+
+
+@dataclass(frozen=True)
+class AlertPayment:
+    """Small projection for payment alerts shown on the dashboard."""
+
+    payment_id: int
+    member_id: int
+    member_name: str
+    next_due_date: date
+    amount: Decimal
+    status: PaymentStatus
+
+
+@dataclass(frozen=True)
+class DashboardAlerts:
+    """Aggregated alert buckets for due-today and overdue payments."""
+
+    due_today: List[AlertPayment]
+    overdue: List[AlertPayment]
 
 
 class DashboardService:
@@ -54,6 +75,20 @@ class DashboardService:
             overdue=overdue,
             overdue_inactive=overdue_inactive,
         )
+
+    def get_alerts(
+        self,
+        *,
+        reference_date: Optional[date] = None,
+        limit: int = 5,
+    ) -> DashboardAlerts:
+        """Return payment alerts for due-today and overdue buckets."""
+
+        target_date = reference_date or date.today()
+        limit = max(1, limit)
+        due_today = self._alert_payments(Payment.next_due_date == target_date, limit)
+        overdue = self._alert_payments(Payment.next_due_date < target_date, limit)
+        return DashboardAlerts(due_today=due_today, overdue=overdue)
 
     # ---------------------------------------------------------------------
     # Internal helpers
@@ -98,3 +133,40 @@ class DashboardService:
             .where(Payment.status.in_(_OPEN_PAYMENT_STATUSES))
         )
         return int(self.session.execute(stmt).scalar_one())
+
+    def _alert_payments(self, filter_clause, limit: int) -> List[AlertPayment]:
+        """Return a limited number of payments matching the alert criteria."""
+
+        stmt = (
+            select(
+                Payment.id,
+                Member.id,
+                Member.first_name,
+                Member.last_name,
+                Payment.next_due_date,
+                Payment.amount,
+                Payment.status,
+            )
+            .join(Member, Member.id == Payment.member_id)
+            .where(Member.archived_at.is_(None))
+            .where(Payment.next_due_date.is_not(None))
+            .where(Payment.status.in_(_OPEN_PAYMENT_STATUSES))
+            .where(filter_clause)
+            .order_by(Payment.next_due_date.asc(), Payment.id.asc())
+            .limit(limit)
+        )
+        rows = self.session.execute(stmt).all()
+        alerts: List[AlertPayment] = []
+        for payment_id, member_id, first_name, last_name, next_due, amount, status in rows:
+            member_name = " ".join(part for part in [first_name, last_name] if part)
+            alerts.append(
+                AlertPayment(
+                    payment_id=payment_id,
+                    member_id=member_id,
+                    member_name=member_name,
+                    next_due_date=next_due,
+                    amount=Decimal(amount),
+                    status=status,
+                )
+            )
+        return alerts
