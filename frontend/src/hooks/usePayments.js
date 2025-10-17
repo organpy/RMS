@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { del, get, post, put } from '../services/api'
-import { useFetch } from './useFetch'
 
 const PAYMENTS_ENDPOINT = '/api/payments'
 const RECEIPTS_ENDPOINT = '/api/receipts'
@@ -16,12 +16,19 @@ export function usePayments(filters = {}) {
     return query.toString()
   }, [filters])
 
-  const fetcher = async () => {
-    const response = await get(`${PAYMENTS_ENDPOINT}${queryString ? `?${queryString}` : ''}`)
-    return response
-  }
+  const query = useQuery({
+    queryKey: ['payments', queryString],
+    queryFn: async () => get(`${PAYMENTS_ENDPOINT}${queryString ? `?${queryString}` : ''}`),
+    keepPreviousData: true,
+  })
 
-  return useFetch(fetcher, [queryString])
+  return {
+    data: query.data,
+    loading: query.isPending,
+    error: query.error,
+    refresh: query.refetch,
+    isFetching: query.isFetching,
+  }
 }
 
 export function createPayment(payload) {
