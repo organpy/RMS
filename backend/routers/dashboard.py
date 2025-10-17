@@ -13,6 +13,9 @@ from backend.schemas.dashboard import (
     DashboardAlertPayment,
     DashboardAlertsQuery,
     DashboardAlertsResponse,
+    DashboardRecentActivityQuery,
+    DashboardRecentActivityResponse,
+    DashboardRecentPayment,
     DashboardWidgetsQuery,
     DashboardWidgetsResponse,
 )
@@ -50,3 +53,16 @@ async def read_dashboard_alerts(
     due_today = [DashboardAlertPayment.model_validate(asdict(item)) for item in alerts.due_today]
     overdue = [DashboardAlertPayment.model_validate(asdict(item)) for item in alerts.overdue]
     return DashboardAlertsResponse(due_today=due_today, overdue=overdue)
+
+
+@router.get("/recent-activity", response_model=DashboardRecentActivityResponse)
+async def read_dashboard_recent_activity(
+    query: DashboardRecentActivityQuery = Depends(),
+    db: Session = Depends(get_db),
+) -> DashboardRecentActivityResponse:
+    """Return the most recent payment activity records."""
+
+    service = DashboardService(db)
+    payments = await run_in_threadpool(service.get_recent_activity, limit=query.limit)
+    payload = [DashboardRecentPayment.model_validate(asdict(item)) for item in payments]
+    return DashboardRecentActivityResponse(payments=payload)

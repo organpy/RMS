@@ -41,15 +41,18 @@ def _create_payment(
     next_due_date: date,
     status: PaymentStatus,
     suffix: str = "base",
+    amount: Decimal = Decimal("50.00"),
+    method: PaymentMethod = PaymentMethod.CASH,
+    receipt_number: str | None = None,
 ) -> Payment:
     payment = Payment(
         member_id=member_id,
-        amount=Decimal("50.00"),
+        amount=amount,
         payment_date=payment_date,
         next_due_date=next_due_date,
         status=status,
-        method=PaymentMethod.CASH,
-        receipt_number=f"receipt-dashboard-{member_id}-{suffix}",
+        method=method,
+        receipt_number=receipt_number or f"receipt-dashboard-{member_id}-{suffix}",
     )
     db_session.add(payment)
     db_session.commit()
@@ -179,3 +182,51 @@ def test_get_alerts_limits_and_orders_results(db_session, business):
     assert len(alerts.overdue) == 1
     assert alerts.overdue[0].next_due_date == today - timedelta(days=5)
     assert alerts.overdue[0].status == PaymentStatus.OVERDUE
+
+
+def test_recent_activity_returns_latest_payments(db_session, business):
+    service = DashboardService(db_session)
+    base_date = date(2025, 10, 1)
+
+    class_member = _create_member(db_session, business.id, status=MemberStatus.ACTIVE)
+    other_member = _create_member(db_session, business.id, status=MemberStatus.INACTIVE)
+
+    _create_payment(
+        db_session,
+        class_member.id,
+        payment_date=base_date,
+        next_due_date=base_date + timedelta(days=30),
+        status=PaymentStatus.PAID,
+        suffix="old",
+        amount=Decimal("40.00"),
+        method=PaymentMethod.CARD,
+    )
+    second = _create_payment(
+        db_session,
+        class_member.id,
+        payment_date=base_date + timedelta(days=10),
+        next_due_date=base_date + timedelta(days=40),
+        status=PaymentStatus.UNPAID,
+        suffix="mid",
+        amount=Decimal("45.00"),
+        method=PaymentMethod.TRANSFER,
+    )
+    latest = _create_payment(
+        db_session,
+        other_member.id,
+        payment_date=base_date + timedelta(days=15),
+        next_due_date=base_date + timedelta(days=45),
+        status=PaymentStatus.OVERDUE,
+        suffix="new",
+        amount=Decimal("55.00"),
+        method=PaymentMethod.CASH,
+    )
+
+    recent = service.get_recent_activity(limit=2)
+
+    assert len(recent) == 2
+    assert recent[0].payment_id == latest.id
+    assert recent[0].amount == Decimal("55.00")
+    assert recent[0].method == PaymentMethod.CASH
+    assert recent[1].payment_id == second.id
+    assert recent[1].status == PaymentStatus.UNPAID

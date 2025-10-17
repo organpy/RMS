@@ -8,7 +8,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.models.payment import PaymentStatus
+from backend.models.payment import PaymentMethod, PaymentStatus
 
 
 class DashboardWidgetsResponse(BaseModel):
@@ -61,3 +61,35 @@ class DashboardAlertsQuery(BaseModel):
 
     reference_date: Optional[date] = None
     limit: int = Field(default=5, ge=1, le=25)
+
+
+class DashboardRecentPayment(BaseModel):
+    """Recent payment entry for dashboard activity feed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    payment_id: int = Field(gt=0)
+    member_id: int = Field(gt=0)
+    member_name: str = Field(min_length=1)
+    class_name: Optional[str] = None
+    payment_date: date
+    amount: Decimal = Field(ge=Decimal("0"))
+    method: PaymentMethod
+    status: PaymentStatus
+    receipt_number: Optional[str] = Field(default=None, max_length=200)
+
+
+class DashboardRecentActivityResponse(BaseModel):
+    """Payload returned by the recent activity endpoint."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    payments: list[DashboardRecentPayment]
+
+
+class DashboardRecentActivityQuery(BaseModel):
+    """Optional query parameters accepted by the recent activity endpoint."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    limit: int = Field(default=10, ge=1, le=50)
