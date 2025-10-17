@@ -16,8 +16,10 @@ export function usePayments(filters = {}) {
     return query.toString()
   }, [filters])
 
+  const queryKey = ['payments', queryString]
+
   const query = useQuery({
-    queryKey: ['payments', queryString],
+    queryKey,
     queryFn: async () => get(`${PAYMENTS_ENDPOINT}${queryString ? `?${queryString}` : ''}`),
     keepPreviousData: true,
   })
@@ -28,6 +30,7 @@ export function usePayments(filters = {}) {
     error: query.error,
     refresh: query.refetch,
     isFetching: query.isFetching,
+    queryKey,
   }
 }
 

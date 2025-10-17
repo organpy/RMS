@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import Card from '../components/ui/Card'
 import Spinner from '../components/ui/Spinner'
-import Alert from '../components/ui/Alert'
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import Table from '../components/ui/Table'
 import Select from '../components/ui/Select'
+import { Skeleton } from '../components/ui/skeleton'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { useBusiness } from '../context/BusinessContext'
 
@@ -19,7 +20,7 @@ const rangeOptions = [
 export default function Analytics() {
   const [months, setMonths] = useState(12)
   const { business } = useBusiness()
-  const { data, loading, error, refresh } = useAnalytics({
+  const { data, loading, error, refresh, isFetching } = useAnalytics({
     revenueMonths: months,
     revenueYears: 5,
     memberGrowthMonths: months,
@@ -38,22 +39,23 @@ export default function Analytics() {
 
   const overview = useMemo(() => computeOverview(data), [data])
 
+  const isRefreshing = isFetching && Boolean(data)
+
   if (loading && !data) {
-    return (
-      <div className="flex h-full flex-1 items-center justify-center">
-        <Spinner size="lg" className="text-primary" />
-      </div>
-    )
+    return <AnalyticsSkeleton />
   }
 
   if (error) {
     return (
-      <Alert
-        variant="danger"
-        title="Unable to load analytics"
-        description={error.detail ?? error.message ?? 'Please try again later.'}
-        actions={<Button onClick={refresh}>Retry</Button>}
-      />
+      <div className="flex h-full flex-1 items-center justify-center">
+        <div className="w-full max-w-lg space-y-4">
+          <Alert variant="destructive">
+            <AlertTitle>Unable to load analytics</AlertTitle>
+            <AlertDescription>{error.detail ?? error.message ?? 'Please try again later.'}</AlertDescription>
+          </Alert>
+          <Button onClick={refresh}>Retry</Button>
+        </div>
+      </div>
     )
   }
 
@@ -79,6 +81,13 @@ export default function Analytics() {
           </Button>
         </div>
       </section>
+
+      {isRefreshing ? (
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+          <Spinner size="sm" className="text-primary" />
+          Refreshing analytics…
+        </div>
+      ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -266,5 +275,61 @@ function StatCard({ label, value, hint, variant = 'info' }) {
         </p>
       ) : null}
     </Card>
+  )
+}
+
+function AnalyticsSkeleton() {
+  return (
+    <div className="space-y-6">
+      <section className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-28" />
+          <Skeleton className="h-10 w-24" />
+        </div>
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Card key={index} className="space-y-3">
+            <Skeleton className="h-3 w-32" />
+            <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-4 w-20" />
+          </Card>
+        ))}
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <Card key={index} className="space-y-4">
+            <Skeleton className="h-3 w-40" />
+            {Array.from({ length: 5 }).map((__, innerIndex) => (
+              <Skeleton key={innerIndex} className="h-10 w-full" />
+            ))}
+          </Card>
+        ))}
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <Card key={index} className="space-y-4">
+            <Skeleton className="h-3 w-40" />
+            {Array.from({ length: 6 }).map((__, innerIndex) => (
+              <Skeleton key={innerIndex} className="h-8 w-full" />
+            ))}
+          </Card>
+        ))}
+      </section>
+
+      <Card className="space-y-4">
+        <Skeleton className="h-3 w-40" />
+        {Array.from({ length: 5 }).map((_, index) => (
+          <Skeleton key={index} className="h-10 w-full" />
+        ))}
+      </Card>
+    </div>
   )
 }

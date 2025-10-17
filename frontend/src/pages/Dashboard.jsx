@@ -1,8 +1,9 @@
 import Card from '../components/ui/Card'
 import Spinner from '../components/ui/Spinner'
-import Alert from '../components/ui/Alert'
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
+import { Skeleton } from '../components/ui/skeleton'
 import { useDashboard } from '../hooks/useDashboard'
 import { useBusiness } from '../context/BusinessContext'
 
@@ -17,24 +18,24 @@ const widgetLabels = [
 
 export default function Dashboard() {
   const { business } = useBusiness()
-  const { data, loading, error, refresh } = useDashboard({ alertsLimit: 5, recentLimit: 6, upcomingDays: 7 })
+  const { data, loading, error, refresh, isFetching } = useDashboard({ alertsLimit: 5, recentLimit: 6, upcomingDays: 7 })
+  const isRefreshing = isFetching && Boolean(data)
 
   if (loading && !data) {
-    return (
-      <div className="flex h-full flex-1 items-center justify-center">
-        <Spinner size="lg" className="text-primary" />
-      </div>
-    )
+    return <DashboardSkeleton />
   }
 
   if (error) {
     return (
-      <Alert
-        variant="danger"
-        title="Unable to load dashboard"
-        description={error.detail ?? 'Please try again later.'}
-        actions={<Button onClick={refresh}>Retry</Button>}
-      />
+      <div className="flex h-full flex-1 items-center justify-center">
+        <div className="w-full max-w-lg space-y-4">
+          <Alert variant="destructive">
+            <AlertTitle>Unable to load dashboard</AlertTitle>
+            <AlertDescription>{error.detail ?? 'Please try again later.'}</AlertDescription>
+          </Alert>
+          <Button onClick={refresh}>Retry</Button>
+        </div>
+      </div>
     )
   }
 
@@ -59,6 +60,13 @@ export default function Dashboard() {
           <Button size="sm">Record Payment</Button>
         </div>
       </section>
+
+      {isRefreshing ? (
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+          <Spinner size="sm" className="text-primary" />
+          Updating insights…
+        </div>
+      ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {widgetLabels.map(({ key, label }) => (
@@ -248,4 +256,68 @@ function formatDate(value) {
     return '—'
   }
   return parsed.toLocaleDateString()
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-8">
+      <section className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <Skeleton className="h-10 w-32" />
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <Card key={index} className="space-y-3">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-8 w-20" />
+            <Skeleton className="h-5 w-16" />
+          </Card>
+        ))}
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="space-y-2">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-5 w-16" />
+              </div>
+            ))}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+          <div className="space-y-3">
+            <Skeleton className="h-4 w-40" />
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Skeleton key={index} className="h-14 w-full" />
+            ))}
+          </div>
+        </Card>
+        <Card className="space-y-4">
+          <Skeleton className="h-4 w-40" />
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-12 w-full" />
+          ))}
+        </Card>
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <Card key={index} className="space-y-4">
+            <Skeleton className="h-4 w-40" />
+            {Array.from({ length: 4 }).map((__, innerIndex) => (
+              <Skeleton key={innerIndex} className="h-12 w-full" />
+            ))}
+          </Card>
+        ))}
+      </section>
+    </div>
+  )
 }
