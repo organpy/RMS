@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -9,7 +9,6 @@ import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import Spinner from '../components/ui/Spinner'
-import Table from '../components/ui/Table'
 import { useMembers, createMember, updateMemberStatus } from '../hooks/useMembers'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert'
 import {
@@ -23,6 +22,15 @@ import {
 } from '../components/ui/dialog'
 import { Skeleton } from '../components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
+import DataTable from '../components/data/DataTable'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 
 const statusOptions = [
   { value: 'ALL', label: 'All statuses' },
@@ -251,66 +259,111 @@ export default function Members() {
     })
   })
 
-  const handleChangeStatus = (id, nextStatus) => {
-    updateStatusMutation.mutate({ id, status: nextStatus })
-  }
+  const handleChangeStatus = useCallback(
+    (id, nextStatus) => {
+      updateStatusMutation.mutate({ id, status: nextStatus })
+    },
+    [updateStatusMutation],
+  )
 
-  const handleLogPayment = (member) => {
-    toast({
-      title: 'Log payment coming soon',
-      description: `A dedicated flow for ${member.first_name} ${member.last_name} will ship in Phase 6.`,
-    })
-  }
+  const handleLogPayment = useCallback(
+    (member) => {
+      toast({
+        title: 'Log payment coming soon',
+        description: `A dedicated flow for ${member.first_name} ${member.last_name} will ship in Phase 6.`,
+      })
+    },
+    [toast],
+  )
 
-  const columns = [
-    {
-      key: 'name',
-      header: 'Member',
-      render: (member) => (
-        <div>
-          <p className="text-sm font-semibold text-slate-900">
-            {member.first_name} {member.last_name}
-          </p>
-          <p className="text-xs text-slate-500">{member.email}</p>
-        </div>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (member) => <Badge variant={badgeVariantForStatus(member.status)}>{member.status}</Badge>,
-    },
-    {
-      key: 'plan',
-      header: 'Plan',
-      render: (member) => (
-        <div>
-          <p className="text-sm text-slate-900">{member.membership_plan ?? 'Not assigned'}</p>
-          <p className="text-xs text-slate-500">Joined {formatDate(member.join_date)}</p>
-        </div>
-      ),
-    },
-    {
-      key: 'billing',
-      header: 'Billing',
-      render: (member) => (
-        <div className="text-sm text-slate-900">Due {formatDate(member.next_payment_due)}</div>
-      ),
-    },
-    {
-      key: 'actions',
-      header: '',
-      align: 'right',
-      render: (member) => (
-        <MemberRowActions
-          member={member}
-          onChangeStatus={handleChangeStatus}
-          onLogPayment={handleLogPayment}
-          isUpdating={pendingMemberId === member.id && updateStatusMutation.isPending}
-        />
-      ),
-    },
-  ]
+  const columns = useMemo(
+    () => [
+      {
+        id: 'name',
+        accessorFn: (member) => `${member.first_name ?? ''} ${member.last_name ?? ''}`.trim(),
+        header: 'Member',
+        cell: ({ row }) => {
+          const member = row.original
+          return (
+            <div>
+              <p className="text-sm font-semibold text-slate-900">
+                {member.first_name} {member.last_name}
+              </p>
+              <p className="text-xs text-slate-500">{member.email}</p>
+            </div>
+          )
+        },
+        meta: {
+          exportValue: (member) => `${member.first_name ?? ''} ${member.last_name ?? ''}`.trim(),
+        },
+        size: 260,
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row }) => {
+          const member = row.original
+          return <Badge variant={badgeVariantForStatus(member.status)}>{member.status}</Badge>
+        },
+        meta: {
+          exportValue: (member) => member.status ?? '',
+        },
+        size: 120,
+      },
+      {
+        id: 'plan',
+        accessorFn: (member) => member.membership_plan ?? '',
+        header: 'Plan',
+        cell: ({ row }) => {
+          const member = row.original
+          return (
+            <div>
+              <p className="text-sm text-slate-900">{member.membership_plan ?? 'Not assigned'}</p>
+              <p className="text-xs text-slate-500">Joined {formatDate(member.join_date)}</p>
+            </div>
+          )
+        },
+        meta: {
+          exportValue: (member) => member.membership_plan ?? '',
+        },
+        size: 200,
+      },
+      {
+        accessorKey: 'next_payment_due',
+        id: 'billing',
+        header: 'Billing',
+        cell: ({ row }) => {
+          const member = row.original
+          return <div className="text-sm text-slate-900">Due {formatDate(member.next_payment_due)}</div>
+        },
+        meta: {
+          exportValue: (member) => formatDate(member.next_payment_due),
+        },
+        size: 160,
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => (
+          <MemberRowActions
+            member={row.original}
+            onChangeStatus={handleChangeStatus}
+            onLogPayment={handleLogPayment}
+            isUpdating={pendingMemberId === row.original.id && updateStatusMutation.isPending}
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+        meta: {
+          headerClassName: 'text-right',
+          cellClassName: 'text-right',
+          exportValue: () => '',
+        },
+        size: 200,
+      },
+    ],
+    [handleChangeStatus, handleLogPayment, pendingMemberId, updateStatusMutation.isPending],
+  )
 
   return (
     <div className="space-y-6">
@@ -435,35 +488,36 @@ export default function Members() {
         </div>
       ) : null}
 
-      <Card>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="w-full flex-1 sm:w-auto">
+      <DataTable
+        columns={columns}
+        data={filteredMembers}
+        exportFileName="members-export.csv"
+        emptyState={{ title: 'No members found', description: 'Try adjusting filters or add a new member.' }}
+        toolbarContent={(
+          <>
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search members"
+              className="w-full sm:w-64"
             />
-          </div>
-          <Select value={status} onChange={(event) => setStatus(event.target.value)}>
-            {statusOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-          <Button variant="secondary" onClick={refresh}>
-            Refresh
-          </Button>
-        </div>
-      </Card>
-
-      <Card>
-        <Table
-          columns={columns}
-          data={filteredMembers}
-          emptyState={{ title: 'No members found', description: 'Try adjusting filters or add a new member.' }}
-        />
-      </Card>
+            <Select
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              className="w-full sm:w-48"
+            >
+              {statusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+            <Button variant="secondary" onClick={refresh} disabled={isFetching}>
+              Refresh
+            </Button>
+          </>
+        )}
+      />
     </div>
   )
 }
@@ -491,22 +545,91 @@ function formatDate(value) {
 }
 
 function MemberRowActions({ member, onChangeStatus, onLogPayment, isUpdating }) {
-  const nextStatus = member.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'
+  const nextStatus = (member.status ?? '').toUpperCase() === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'
 
   return (
-    <div className="flex flex-wrap justify-end gap-2">
-      <Button variant="ghost" size="sm" onClick={() => onLogPayment(member)}>
-        Log payment
-      </Button>
-      <Button
-        size="sm"
-        variant={nextStatus === 'SUSPENDED' ? 'danger' : 'secondary'}
-        onClick={() => onChangeStatus(member.id, nextStatus)}
-        disabled={isUpdating}
-      >
-        {isUpdating ? 'Updating…' : nextStatus === 'SUSPENDED' ? 'Suspend' : 'Activate'}
-      </Button>
+    <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end">
+      <MemberDetailsSheet
+        member={member}
+        onChangeStatus={onChangeStatus}
+        onLogPayment={onLogPayment}
+        isUpdating={isUpdating}
+        nextStatus={nextStatus}
+      />
+      <div className="hidden items-center gap-2 sm:flex">
+        <Button variant="ghost" size="sm" onClick={() => onLogPayment(member)}>
+          Log payment
+        </Button>
+        <Button
+          size="sm"
+          variant={nextStatus === 'SUSPENDED' ? 'danger' : 'secondary'}
+          onClick={() => onChangeStatus(member.id, nextStatus)}
+          disabled={isUpdating}
+        >
+          {isUpdating ? 'Updating…' : nextStatus === 'SUSPENDED' ? 'Suspend' : 'Activate'}
+        </Button>
+      </div>
     </div>
+  )
+}
+
+function MemberDetailsSheet({ member, onChangeStatus, onLogPayment, isUpdating, nextStatus }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Button variant="outline" size="sm" className="w-full sm:hidden">
+          View
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="bottom" className="h-[85vh] overflow-y-auto sm:hidden">
+        <SheetHeader>
+          <SheetTitle>
+            {member.first_name} {member.last_name}
+          </SheetTitle>
+          {member.email ? <SheetDescription>{member.email}</SheetDescription> : null}
+        </SheetHeader>
+        <div className="mt-6 space-y-4 text-sm text-slate-600">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
+            <p className="mt-1 font-medium text-foreground">{member.status ?? 'Unknown'}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Membership plan</p>
+            <p className="mt-1 font-medium text-foreground">{member.membership_plan ?? 'Not assigned'}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Joined</p>
+            <p className="mt-1 font-medium text-foreground">{formatDate(member.join_date)}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Next payment due</p>
+            <p className="mt-1 font-medium text-foreground">{formatDate(member.next_payment_due)}</p>
+          </div>
+        </div>
+        <div className="mt-6 flex flex-col gap-2">
+          <Button
+            onClick={() => {
+              onLogPayment(member)
+              setOpen(false)
+            }}
+          >
+            Log payment
+          </Button>
+          <Button
+            variant={nextStatus === 'SUSPENDED' ? 'danger' : 'secondary'}
+            disabled={isUpdating}
+            onClick={() => {
+              onChangeStatus(member.id, nextStatus)
+              setOpen(false)
+            }}
+          >
+            {isUpdating ? 'Updating…' : nextStatus === 'SUSPENDED' ? 'Suspend member' : 'Activate member'}
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }
 

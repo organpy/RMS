@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import Spinner from '../components/ui/Spinner'
-import Table from '../components/ui/Table'
 import Select from '../components/ui/Select'
 import Input from '../components/ui/Input'
 import {
@@ -24,6 +23,15 @@ import { useBusiness } from '../context/BusinessContext'
 import { useToast } from '@/hooks/use-toast'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import DataTable from '../components/data/DataTable'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 
 const statusOptions = [
   { value: 'ALL', label: 'All statuses' },
@@ -248,10 +256,14 @@ export default function Payments() {
     )
   }
 
-  const formatter = new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: business?.currency ?? 'USD',
-  })
+  const formatter = useMemo(
+    () =>
+      new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: business?.currency ?? 'USD',
+      }),
+    [business?.currency],
+  )
 
   const filteredPayments = data?.payments?.filter((payment) => {
     if (!query) return true
@@ -260,48 +272,6 @@ export default function Payments() {
       .filter(Boolean)
       .some((value) => value.toLowerCase().includes(normalizedQuery))
   })
-
-  const columns = [
-    {
-      key: 'member',
-      header: 'Member',
-      render: (payment) => (
-        <div>
-          <p className="text-sm font-semibold text-slate-900">{payment.member_name}</p>
-          <p className="text-xs text-slate-500">{payment.membership_plan ?? 'General membership'}</p>
-        </div>
-      ),
-    },
-    {
-      key: 'date',
-      header: 'Date',
-      render: (payment) => formatDate(payment.payment_date),
-    },
-    {
-      key: 'amount',
-      header: 'Amount',
-      align: 'right',
-      render: (payment) => formatter.format(Number(payment.amount)),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (payment) => <Badge variant={badgeVariantForStatus(payment.status)}>{payment.status}</Badge>,
-    },
-    {
-      key: 'actions',
-      header: '',
-      align: 'right',
-      render: (payment) => (
-        <PaymentRowActions
-          payment={payment}
-          onSendReminder={handleSendReminder}
-          onMarkPaid={handleMarkAsPaid}
-          isUpdating={pendingPaymentId === payment.id && updatePaymentMutation.isPending}
-        />
-      ),
-    },
-  ]
 
   const handleCreateSubmit = handleSubmit((values) => {
     const payload = {
@@ -319,16 +289,131 @@ export default function Payments() {
     })
   })
 
-  const handleMarkAsPaid = (payment) => {
-    updatePaymentMutation.mutate({ id: payment.id, status: 'PAID' })
-  }
+  const handleMarkAsPaid = useCallback(
+    (payment) => {
+      updatePaymentMutation.mutate({ id: payment.id, status: 'PAID' })
+    },
+    [updatePaymentMutation],
+  )
 
-  const handleSendReminder = (payment) => {
-    toast({
-      title: 'Reminder queued',
-      description: `We&apos;ll notify ${payment.member_name} about the outstanding invoice.`,
-    })
-  }
+  const handleSendReminder = useCallback(
+    (payment) => {
+      toast({
+        title: 'Reminder queued',
+        description: `We&apos;ll notify ${payment.member_name} about the outstanding invoice.`,
+      })
+    },
+    [toast],
+  )
+
+  const columns = useMemo(
+    () => [
+      {
+        id: 'member',
+        accessorFn: (payment) => payment.member_name ?? '',
+        header: 'Member',
+        cell: ({ row }) => {
+          const payment = row.original
+          return (
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{payment.member_name}</p>
+              <p className="text-xs text-slate-500">{payment.membership_plan ?? 'General membership'}</p>
+            </div>
+          )
+        },
+        meta: {
+          exportValue: (payment) => payment.member_name ?? '',
+        },
+        size: 240,
+      },
+      {
+        accessorKey: 'membership_plan',
+        header: 'Plan',
+        cell: ({ row }) => {
+          const payment = row.original
+          return (
+            <div>
+              <p className="text-sm text-slate-900">{payment.membership_plan ?? 'General membership'}</p>
+              <p className="text-xs text-slate-500">
+                {payment.receipt_number ? `Receipt ${payment.receipt_number}` : 'No receipt on file'}
+              </p>
+            </div>
+          )
+        },
+        meta: {
+          exportValue: (payment) => payment.membership_plan ?? '',
+        },
+        size: 220,
+      },
+      {
+        accessorKey: 'payment_date',
+        header: 'Date',
+        cell: ({ row }) => formatDate(row.original.payment_date),
+        meta: {
+          exportValue: (payment) => formatDate(payment.payment_date),
+        },
+        size: 140,
+      },
+      {
+        id: 'amount',
+        accessorFn: (payment) => Number(payment.amount ?? 0),
+        header: 'Amount',
+        cell: ({ row }) => {
+          const value = Number(row.getValue('amount') ?? 0)
+          return <span className="font-medium text-slate-900">{formatter.format(value)}</span>
+        },
+        meta: {
+          headerClassName: 'text-right',
+          cellClassName: 'text-right',
+          exportValue: (payment) => formatter.format(Number(payment.amount ?? 0)),
+        },
+        size: 140,
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row }) => {
+          const payment = row.original
+          return <Badge variant={badgeVariantForStatus(payment.status)}>{payment.status}</Badge>
+        },
+        meta: {
+          exportValue: (payment) => payment.status ?? '',
+        },
+        size: 130,
+      },
+      {
+        accessorKey: 'receipt_number',
+        header: 'Receipt',
+        cell: ({ row }) => row.original.receipt_number ?? '—',
+        meta: {
+          exportValue: (payment) => payment.receipt_number ?? '',
+        },
+        size: 160,
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => (
+          <PaymentRowActions
+            payment={row.original}
+            onSendReminder={handleSendReminder}
+            onMarkPaid={handleMarkAsPaid}
+            isUpdating={pendingPaymentId === row.original.id && updatePaymentMutation.isPending}
+            formatter={formatter}
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+        meta: {
+          headerClassName: 'text-right',
+          cellClassName: 'text-right',
+          exportValue: () => '',
+        },
+        size: 200,
+      },
+    ],
+    [formatter, handleMarkAsPaid, handleSendReminder, pendingPaymentId, updatePaymentMutation.isPending],
+  )
 
   return (
     <div className="space-y-6">
@@ -458,29 +543,6 @@ export default function Payments() {
         </div>
       ) : null}
 
-      <Card>
-        <div className="flex flex-wrap items-center gap-3">
-          <Select value={period} onChange={(event) => setPeriod(event.target.value)}>
-            {periodOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-          <Select value={status} onChange={(event) => setStatus(event.target.value)}>
-            {statusOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search payments" />
-          <Button variant="secondary" onClick={refresh}>
-            Refresh
-          </Button>
-        </div>
-      </Card>
-
       <section className="grid gap-6 lg:grid-cols-3">
         <Card title="Summary" subtitle={`Based on the last ${period} days`}>
           <dl className="grid gap-3">
@@ -500,16 +562,50 @@ export default function Payments() {
         </Card>
       </section>
 
-      <Card>
-        <Table
-          columns={columns}
-          data={filteredPayments ?? []}
-          emptyState={{
-            title: 'No payments found',
-            description: 'Try adjusting filters or record a new payment.',
-          }}
-        />
-      </Card>
+      <DataTable
+        columns={columns}
+        data={filteredPayments ?? []}
+        exportFileName="payments-export.csv"
+        emptyState={{
+          title: 'No payments found',
+          description: 'Try adjusting filters or record a new payment.',
+        }}
+        toolbarContent={(
+          <>
+            <Select
+              value={period}
+              onChange={(event) => setPeriod(event.target.value)}
+              className="w-full sm:w-48"
+            >
+              {periodOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              className="w-full sm:w-48"
+            >
+              {statusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search payments"
+              className="w-full sm:w-64"
+            />
+            <Button variant="secondary" onClick={refresh} disabled={isFetching}>
+              Refresh
+            </Button>
+          </>
+        )}
+      />
     </div>
   )
 }
@@ -547,23 +643,95 @@ function formatDate(value) {
   return parsed.toLocaleDateString()
 }
 
-function PaymentRowActions({ payment, onSendReminder, onMarkPaid, isUpdating }) {
+function PaymentRowActions({ payment, onSendReminder, onMarkPaid, isUpdating, formatter }) {
   const isPaid = (payment.status ?? '').toUpperCase() === 'PAID'
 
   return (
-    <div className="flex flex-wrap justify-end gap-2">
-      <Button variant="ghost" size="sm" onClick={() => onSendReminder(payment)}>
-        Send reminder
-      </Button>
-      <Button
-        size="sm"
-        variant={isPaid ? 'secondary' : 'primary'}
-        onClick={() => onMarkPaid(payment)}
-        disabled={isPaid || isUpdating}
-      >
-        {isPaid ? 'Paid' : isUpdating ? 'Marking…' : 'Mark as paid'}
-      </Button>
+    <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end">
+      <PaymentDetailsSheet
+        payment={payment}
+        onSendReminder={onSendReminder}
+        onMarkPaid={onMarkPaid}
+        isUpdating={isUpdating}
+        formatter={formatter}
+      />
+      <div className="hidden items-center gap-2 sm:flex">
+        <Button variant="ghost" size="sm" onClick={() => onSendReminder(payment)}>
+          Send reminder
+        </Button>
+        <Button
+          size="sm"
+          variant={isPaid ? 'secondary' : 'primary'}
+          onClick={() => onMarkPaid(payment)}
+          disabled={isPaid || isUpdating}
+        >
+          {isPaid ? 'Paid' : isUpdating ? 'Marking…' : 'Mark as paid'}
+        </Button>
+      </div>
     </div>
+  )
+}
+
+function PaymentDetailsSheet({ payment, onSendReminder, onMarkPaid, isUpdating, formatter }) {
+  const [open, setOpen] = useState(false)
+  const isPaid = (payment.status ?? '').toUpperCase() === 'PAID'
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Button variant="outline" size="sm" className="w-full sm:hidden">
+          View
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="bottom" className="h-[85vh] overflow-y-auto sm:hidden">
+        <SheetHeader>
+          <SheetTitle>{payment.member_name}</SheetTitle>
+          {payment.membership_plan ? (
+            <SheetDescription>{payment.membership_plan}</SheetDescription>
+          ) : null}
+        </SheetHeader>
+        <div className="mt-6 space-y-4 text-sm text-slate-600">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Amount</p>
+            <p className="mt-1 font-medium text-foreground">
+              {formatter.format(Number(payment.amount ?? 0))}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
+            <p className="mt-1 font-medium text-foreground">{payment.status ?? 'Unknown'}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Date</p>
+            <p className="mt-1 font-medium text-foreground">{formatDate(payment.payment_date)}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Receipt</p>
+            <p className="mt-1 font-medium text-foreground">{payment.receipt_number ?? '—'}</p>
+          </div>
+        </div>
+        <div className="mt-6 flex flex-col gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              onSendReminder(payment)
+              setOpen(false)
+            }}
+          >
+            Send reminder
+          </Button>
+          <Button
+            onClick={() => {
+              onMarkPaid(payment)
+              setOpen(false)
+            }}
+            disabled={isPaid || isUpdating}
+          >
+            {isPaid ? 'Already paid' : isUpdating ? 'Marking…' : 'Mark as paid'}
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }
 
