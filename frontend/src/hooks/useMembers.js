@@ -15,8 +15,10 @@ export function useMembers(filters = {}) {
     return query.toString()
   }, [filters])
 
+  const queryKey = ['members', queryString]
+
   const query = useQuery({
-    queryKey: ['members', queryString],
+    queryKey,
     queryFn: async () => get(`${MEMBERS_ENDPOINT}${queryString ? `?${queryString}` : ''}`),
     keepPreviousData: true,
   })
@@ -27,6 +29,7 @@ export function useMembers(filters = {}) {
     error: query.error,
     refresh: query.refetch,
     isFetching: query.isFetching,
+    queryKey,
   }
 }
 

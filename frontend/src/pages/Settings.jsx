@@ -2,7 +2,7 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
-import Alert from '../components/ui/Alert'
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert'
 import Spinner from '../components/ui/Spinner'
 import { useBusiness } from '../context/BusinessContext'
 import { useTheme } from '../context/ThemeContext'
@@ -28,12 +28,15 @@ export default function Settings() {
 
   if (status.error && !business) {
     return (
-      <Alert
-        variant="danger"
-        title="Unable to load settings"
-        description={status.error.detail ?? 'Please try again later.'}
-        actions={<Button onClick={refresh}>Retry</Button>}
-      />
+      <div className="flex h-full flex-1 items-center justify-center">
+        <div className="w-full max-w-lg space-y-4">
+          <Alert variant="destructive">
+            <AlertTitle>Unable to load settings</AlertTitle>
+            <AlertDescription>{status.error.detail ?? 'Please try again later.'}</AlertDescription>
+          </Alert>
+          <Button onClick={refresh}>Retry</Button>
+        </div>
+      </div>
     )
   }
 
@@ -55,11 +58,12 @@ export default function Settings() {
       </section>
 
       {status.error ? (
-        <Alert
-          variant="warning"
-          title="Using cached settings"
-          description="We could not refresh settings from the server, showing the last known values instead."
-        />
+        <Alert variant="warning">
+          <AlertTitle>Using cached settings</AlertTitle>
+          <AlertDescription>
+            We could not refresh settings from the server, showing the last known values instead.
+          </AlertDescription>
+        </Alert>
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-2">
