@@ -59,26 +59,6 @@ export default function Payments() {
     days: Number(period),
   })
 
-  const isRefreshing = isFetching && Boolean(data)
-
-  if (loading && !data) {
-    return <PaymentsSkeleton />
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-full flex-1 items-center justify-center">
-        <div className="w-full max-w-lg space-y-4">
-          <Alert variant="destructive">
-            <AlertTitle>Unable to load payments</AlertTitle>
-            <AlertDescription>{error.detail ?? 'Please try again later.'}</AlertDescription>
-          </Alert>
-          <Button onClick={refresh}>Retry</Button>
-        </div>
-      </div>
-    )
-  }
-
   const createPaymentMutation = useMutation({
     mutationFn: createPayment,
     onMutate: async (payload) => {
@@ -180,6 +160,26 @@ export default function Payments() {
       queryClient.invalidateQueries({ queryKey })
     },
   })
+
+  const isRefreshing = isFetching && Boolean(data)
+
+  if (loading && !data) {
+    return <PaymentsSkeleton />
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-full flex-1 items-center justify-center">
+        <div className="w-full max-w-lg space-y-4">
+          <Alert variant="destructive">
+            <AlertTitle>Unable to load payments</AlertTitle>
+            <AlertDescription>{error.detail ?? 'Please try again later.'}</AlertDescription>
+          </Alert>
+          <Button onClick={refresh}>Retry</Button>
+        </div>
+      </div>
+    )
+  }
 
   const formatter = new Intl.NumberFormat(undefined, {
     style: 'currency',
