@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from backend.models.member import Member
+from backend.models.payment import Payment
 from backend.schemas.common import ClassSummary, GroupSummary
 from backend.schemas.member import MemberResponse
+from backend.schemas.payment import PaymentResponse
 
 
 def serialize_member(member: Member) -> MemberResponse:
@@ -16,3 +18,9 @@ def serialize_member(member: Member) -> MemberResponse:
     if getattr(member, "group", None) is not None:
         response.group_info = GroupSummary.model_validate(member.group, from_attributes=True)
     return response
+
+
+def serialize_payment(payment: Payment) -> PaymentResponse:
+    """Convert a Payment ORM instance into a response schema."""
+
+    return PaymentResponse.model_validate(payment, from_attributes=True)

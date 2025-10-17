@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from .config import Settings, get_settings
 from .error_handlers import register_exception_handlers
 from .logging_config import configure_logging
-from .routers import classes_router, groups_router, members_router
+from .routers import classes_router, groups_router, members_router, payments_router, receipts_router
 
 
 def create_app() -> FastAPI:
@@ -29,6 +29,8 @@ def create_app() -> FastAPI:
     app.include_router(members_router)
     app.include_router(classes_router)
     app.include_router(groups_router)
+    app.include_router(payments_router)
+    app.include_router(receipts_router)
     register_exception_handlers(app)
 
     return app

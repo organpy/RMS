@@ -31,6 +31,9 @@ class PaymentCRUD:
         member_id: Optional[int] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
+        due_before: Optional[date] = None,
+        due_after: Optional[date] = None,
+        due_on: Optional[date] = None,
         skip: int = 0,
         limit: int = 50,
     ) -> Tuple[list[Payment], int]:
@@ -50,6 +53,14 @@ class PaymentCRUD:
             conditions.append(Payment.payment_date >= start_date)
         if end_date is not None:
             conditions.append(Payment.payment_date <= end_date)
+        if due_before is not None:
+            conditions.append(Payment.next_due_date.is_not(None))
+            conditions.append(Payment.next_due_date < due_before)
+        if due_after is not None:
+            conditions.append(Payment.next_due_date.is_not(None))
+            conditions.append(Payment.next_due_date > due_after)
+        if due_on is not None:
+            conditions.append(Payment.next_due_date == due_on)
 
         if conditions:
             compound = and_(*conditions)
