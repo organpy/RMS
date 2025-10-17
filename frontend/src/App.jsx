@@ -13,6 +13,7 @@ import Analytics from './pages/Analytics'
 import Settings from './pages/Settings'
 import NotFound from './pages/NotFound'
 import Spinner from './components/ui/Spinner'
+import { Toaster } from './components/ui/toaster'
 import { queryClient } from './lib/queryClient'
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
           </BusinessProvider>
         </AuthProvider>
       </ThemeProvider>
+      <Toaster />
       <ReactQueryDevtools initialIsOpen={false} position="bottom-right" buttonPosition="bottom-left" />
     </QueryClientProvider>
   )
