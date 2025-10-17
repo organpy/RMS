@@ -6,6 +6,7 @@ full API surface for the registration and payment system.
 """
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from .config import Settings, get_settings
 from .error_handlers import register_exception_handlers
@@ -28,6 +29,14 @@ def create_app() -> FastAPI:
     configure_logging()
     settings = get_settings()
     app = FastAPI(title=settings.app_name)
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allowed_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     @app.get("/api/health", tags=["Health"])
     def read_health() -> dict[str, str]:
