@@ -16,6 +16,8 @@ from backend.schemas.dashboard import (
     DashboardRecentActivityQuery,
     DashboardRecentActivityResponse,
     DashboardRecentPayment,
+    DashboardQuickStatsQuery,
+    DashboardQuickStatsResponse,
     DashboardWidgetsQuery,
     DashboardWidgetsResponse,
 )
@@ -66,3 +68,22 @@ async def read_dashboard_recent_activity(
     payments = await run_in_threadpool(service.get_recent_activity, limit=query.limit)
     payload = [DashboardRecentPayment.model_validate(asdict(item)) for item in payments]
     return DashboardRecentActivityResponse(payments=payload)
+
+
+@router.get("/quick-stats", response_model=DashboardQuickStatsResponse)
+async def read_dashboard_quick_stats(
+    query: DashboardQuickStatsQuery = Depends(),
+    db: Session = Depends(get_db),
+) -> DashboardQuickStatsResponse:
+    """Return quick statistics including upcoming dues."""
+
+    service = DashboardService(db)
+    stats = await run_in_threadpool(
+        service.get_quick_stats,
+        reference_date=query.reference_date,
+        upcoming_days=query.upcoming_days,
+        limit=query.limit,
+    )
+    stats_dict = asdict(stats)
+    stats_dict["upcoming_due"] = [DashboardAlertPayment.model_validate(asdict(item)).model_dump() for item in stats.upcoming_due]
+    return DashboardQuickStatsResponse.model_validate(stats_dict)

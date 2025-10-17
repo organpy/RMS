@@ -230,3 +230,53 @@ def test_recent_activity_returns_latest_payments(db_session, business):
     assert recent[0].method == PaymentMethod.CASH
     assert recent[1].payment_id == second.id
     assert recent[1].status == PaymentStatus.UNPAID
+
+
+def test_quick_stats_summarizes_counts_and_upcoming_due(db_session, business):
+    service = DashboardService(db_session)
+    today = date(2025, 10, 17)
+
+    active = _create_member(db_session, business.id, status=MemberStatus.ACTIVE)
+    inactive = _create_member(db_session, business.id, status=MemberStatus.INACTIVE)
+    suspended = _create_member(db_session, business.id, status=MemberStatus.SUSPENDED)
+
+    _create_payment(
+        db_session,
+        active.id,
+        payment_date=today - timedelta(days=5),
+        next_due_date=today,
+        status=PaymentStatus.UNPAID,
+        suffix="due-today",
+        amount=Decimal("60.00"),
+    )
+    _create_payment(
+        db_session,
+        inactive.id,
+        payment_date=today - timedelta(days=20),
+        next_due_date=today - timedelta(days=2),
+        status=PaymentStatus.OVERDUE,
+        suffix="overdue",
+        amount=Decimal("70.00"),
+    )
+    upcoming_payment = _create_payment(
+        db_session,
+        suspended.id,
+        payment_date=today - timedelta(days=3),
+        next_due_date=today + timedelta(days=3),
+        status=PaymentStatus.UNPAID,
+        suffix="upcoming",
+        amount=Decimal("80.00"),
+    )
+
+    stats = service.get_quick_stats(reference_date=today, upcoming_days=5, limit=3)
+
+    assert stats.total_members == 3
+    assert stats.active_members == 1
+    assert stats.inactive_members == 1
+    assert stats.suspended_members == 1
+    assert stats.due_today == 1
+    assert stats.overdue == 1
+    assert stats.total_revenue_30_days == Decimal("210.00")
+    assert len(stats.upcoming_due) == 1
+    assert stats.upcoming_due[0].payment_id == upcoming_payment.id
+    assert stats.upcoming_due_total == Decimal("80.00")

@@ -210,3 +210,39 @@ def test_dashboard_recent_activity_endpoint(client, db_session, business):
     assert payload["payments"][0]["payment_id"] == latest_payment.id
     assert payload["payments"][0]["status"] == PaymentStatus.OVERDUE.value
     assert payload["payments"][1]["payment_id"] == mid_payment.id
+
+
+def test_dashboard_quick_stats_endpoint(client, db_session, business):
+    today = date(2025, 10, 17)
+
+    active = _member(db_session, business.id, status=MemberStatus.ACTIVE)
+    inactive = _member(db_session, business.id, status=MemberStatus.INACTIVE)
+
+    _payment(
+        db_session,
+        active.id,
+        payment_date=today - timedelta(days=5),
+        next_due_date=today,
+        status=PaymentStatus.UNPAID,
+        receipt_suffix="qs-due",
+    )
+    _payment(
+        db_session,
+        inactive.id,
+        payment_date=today - timedelta(days=2),
+        next_due_date=today + timedelta(days=3),
+        status=PaymentStatus.UNPAID,
+        receipt_suffix="qs-upcoming",
+    )
+
+    response = client.get(
+        "/api/dashboard/quick-stats",
+        params={"reference_date": today.isoformat(), "upcoming_days": 7, "limit": 2},
+    )
+    assert response.status_code == 200
+
+    payload = response.json()
+    assert payload["total_members"] == 2
+    assert payload["due_today"] == 1
+    assert Decimal(payload["upcoming_due_total"]) >= Decimal("0")
+    assert len(payload["upcoming_due"]) == 1
