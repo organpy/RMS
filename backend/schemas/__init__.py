@@ -17,7 +17,13 @@ from .payment import (
     PaymentSearchFilters,
     PaymentUpdate,
 )
-from .dashboard import DashboardWidgetsQuery, DashboardWidgetsResponse
+from .dashboard import (
+    DashboardAlertPayment,
+    DashboardAlertsQuery,
+    DashboardAlertsResponse,
+    DashboardWidgetsQuery,
+    DashboardWidgetsResponse,
+)
 from .receipt import ReceiptListResponse, ReceiptResponse
 
 __all__ = [
@@ -48,4 +54,7 @@ __all__ = [
     "ReceiptListResponse",
     "DashboardWidgetsResponse",
     "DashboardWidgetsQuery",
+    "DashboardAlertsResponse",
+    "DashboardAlertsQuery",
+    "DashboardAlertPayment",
 ]
