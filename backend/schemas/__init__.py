@@ -42,6 +42,12 @@ from .analytics import (
     YearlySeriesQuery,
 )
 from .receipt import ReceiptListResponse, ReceiptResponse
+from .settings import (
+    BackupConfigResponse,
+    BackupEnvironmentSchema,
+    BusinessSettingsResponse,
+    BusinessSettingsUpdate,
+)
 
 __all__ = [
     "MemberCreate",
@@ -89,4 +95,8 @@ __all__ = [
     "ClassPopularityResponse",
     "ClassPopularityEntrySchema",
     "ClassPopularityQuery",
+    "BusinessSettingsResponse",
+    "BusinessSettingsUpdate",
+    "BackupEnvironmentSchema",
+    "BackupConfigResponse",
 ]
