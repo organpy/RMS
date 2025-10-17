@@ -7,7 +7,9 @@ in Phase 1 as features are implemented.
 """
 
 from functools import lru_cache
-from pydantic import Field
+from typing import Any
+
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,6 +25,19 @@ class Settings(BaseSettings):
     payment_inactive_grace_days: int = Field(default=14, ge=0)
     receipt_output_dir: str = Field(default="data/receipts")
     branding_assets_dir: str = Field(default="data/logos")
+    cors_allowed_origins: list[str] = Field(
+        default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"],
+        description="Origins allowed to access the API via CORS.",
+    )
+
+    @field_validator("cors_allowed_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: Any) -> list[str] | Any:
+        """Allow comma-delimited origin strings in environment configuration."""
+
+        if isinstance(value, str):
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
 
     model_config = SettingsConfigDict(
         env_file=".env",
