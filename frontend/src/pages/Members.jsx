@@ -11,9 +11,9 @@ import { useMembers } from '../hooks/useMembers'
 
 const statusOptions = [
   { value: 'ALL', label: 'All statuses' },
-  { value: 'ACTIVE', label: 'Active' },
-  { value: 'INACTIVE', label: 'Inactive' },
-  { value: 'SUSPENDED', label: 'Suspended' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+  { value: 'suspended', label: 'Suspended' },
 ]
 
 export default function Members() {
