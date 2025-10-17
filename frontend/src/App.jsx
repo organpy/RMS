@@ -1,3 +1,5 @@
+import { QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
@@ -11,16 +13,20 @@ import Analytics from './pages/Analytics'
 import Settings from './pages/Settings'
 import NotFound from './pages/NotFound'
 import Spinner from './components/ui/Spinner'
+import { queryClient } from './lib/queryClient'
 
 function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <BusinessProvider>
-          <AppShell />
-        </BusinessProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <AuthProvider>
+          <BusinessProvider>
+            <AppShell />
+          </BusinessProvider>
+        </AuthProvider>
+      </ThemeProvider>
+      <ReactQueryDevtools initialIsOpen={false} position="bottom-right" buttonPosition="bottom-left" />
+    </QueryClientProvider>
   )
 }
 

@@ -1,5 +1,5 @@
+import { useQuery } from '@tanstack/react-query'
 import { get } from '../services/api'
-import { useFetch } from './useFetch'
 
 const ANALYTICS_BASE = '/api/analytics'
 
@@ -21,25 +21,35 @@ export function useAnalytics({
   paymentTrendMonths = 6,
   classPopularityLimit = 5,
 } = {}) {
-  const fetcher = async () => {
-    const [monthlyRevenue, yearlyRevenue, memberGrowth, paymentTrends, classPopularity] = await Promise.all([
-      get(route('/revenue-monthly', { last_periods: revenueMonths })),
-      get(route('/revenue-yearly', { last_years: revenueYears })),
-      get(route('/members-growth', { last_periods: memberGrowthMonths })),
-      get(route('/payment-trends', { last_months: paymentTrendMonths })),
-      get(route('/class-popularity', { limit: classPopularityLimit })),
-    ])
+  const query = useQuery({
+    queryKey: ['analytics', revenueMonths, revenueYears, memberGrowthMonths, paymentTrendMonths, classPopularityLimit],
+    queryFn: async () => {
+      const [monthlyRevenue, yearlyRevenue, memberGrowth, paymentTrends, classPopularity] = await Promise.all([
+        get(route('/revenue-monthly', { last_periods: revenueMonths })),
+        get(route('/revenue-yearly', { last_years: revenueYears })),
+        get(route('/members-growth', { last_periods: memberGrowthMonths })),
+        get(route('/payment-trends', { last_months: paymentTrendMonths })),
+        get(route('/class-popularity', { limit: classPopularityLimit })),
+      ])
 
-    return {
-      monthlyRevenue,
-      yearlyRevenue,
-      memberGrowth,
-      paymentTrends,
-      classPopularity,
-    }
+      return {
+        monthlyRevenue,
+        yearlyRevenue,
+        memberGrowth,
+        paymentTrends,
+        classPopularity,
+      }
+    },
+    keepPreviousData: true,
+  })
+
+  return {
+    data: query.data,
+    loading: query.isPending,
+    error: query.error,
+    refresh: query.refetch,
+    isFetching: query.isFetching,
   }
-
-  return useFetch(fetcher, [revenueMonths, revenueYears, memberGrowthMonths, paymentTrendMonths, classPopularityLimit])
 }
 
 export async function exportAnalyticsSummary() {

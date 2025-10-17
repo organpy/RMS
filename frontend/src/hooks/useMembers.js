@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { get, post, put } from '../services/api'
-import { useFetch } from './useFetch'
 
 const MEMBERS_ENDPOINT = '/api/members'
 
@@ -15,12 +15,19 @@ export function useMembers(filters = {}) {
     return query.toString()
   }, [filters])
 
-  const fetcher = async () => {
-    const response = await get(`${MEMBERS_ENDPOINT}${queryString ? `?${queryString}` : ''}`)
-    return response
-  }
+  const query = useQuery({
+    queryKey: ['members', queryString],
+    queryFn: async () => get(`${MEMBERS_ENDPOINT}${queryString ? `?${queryString}` : ''}`),
+    keepPreviousData: true,
+  })
 
-  return useFetch(fetcher, [queryString])
+  return {
+    data: query.data,
+    loading: query.isPending,
+    error: query.error,
+    refresh: query.refetch,
+    isFetching: query.isFetching,
+  }
 }
 
 export function createMember(payload) {

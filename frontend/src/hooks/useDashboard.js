@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { get } from '../services/api'
-import { useFetch } from './useFetch'
 
 const DASHBOARD_WIDGETS_ENDPOINT = '/api/dashboard/widgets'
 const DASHBOARD_ALERTS_ENDPOINT = '/api/dashboard/alerts'
@@ -54,21 +54,31 @@ export function useDashboard({
     return query.toString()
   }, [referenceDate, upcomingDays, alertsLimit])
 
-  const fetcher = async () => {
-    const [widgets, alerts, recentActivity, quickStats] = await Promise.all([
-      get(`${DASHBOARD_WIDGETS_ENDPOINT}${params ? `?${params}` : ''}`),
-      get(`${DASHBOARD_ALERTS_ENDPOINT}${alertsParams ? `?${alertsParams}` : ''}`),
-      get(`${DASHBOARD_RECENT_ENDPOINT}${recentParams ? `?${recentParams}` : ''}`),
-      get(`${DASHBOARD_QUICK_ENDPOINT}${quickParams ? `?${quickParams}` : ''}`),
-    ])
+  const query = useQuery({
+    queryKey: ['dashboard', params, alertsParams, recentParams, quickParams],
+    queryFn: async () => {
+      const [widgets, alerts, recentActivity, quickStats] = await Promise.all([
+        get(`${DASHBOARD_WIDGETS_ENDPOINT}${params ? `?${params}` : ''}`),
+        get(`${DASHBOARD_ALERTS_ENDPOINT}${alertsParams ? `?${alertsParams}` : ''}`),
+        get(`${DASHBOARD_RECENT_ENDPOINT}${recentParams ? `?${recentParams}` : ''}`),
+        get(`${DASHBOARD_QUICK_ENDPOINT}${quickParams ? `?${quickParams}` : ''}`),
+      ])
 
-    return {
-      widgets,
-      alerts,
-      recentActivity,
-      quickStats,
-    }
+      return {
+        widgets,
+        alerts,
+        recentActivity,
+        quickStats,
+      }
+    },
+    keepPreviousData: true,
+  })
+
+  return {
+    data: query.data,
+    loading: query.isPending,
+    error: query.error,
+    refresh: query.refetch,
+    isFetching: query.isFetching,
   }
-
-  return useFetch(fetcher, [params, alertsParams, recentParams, quickParams])
 }
