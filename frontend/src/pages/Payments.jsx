@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
@@ -21,6 +22,8 @@ import { Skeleton } from '../components/ui/skeleton'
 import { usePayments, createPayment, updatePayment } from '../hooks/usePayments'
 import { useBusiness } from '../context/BusinessContext'
 import { useToast } from '@/hooks/use-toast'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 
 const statusOptions = [
   { value: 'ALL', label: 'All statuses' },
@@ -36,6 +39,54 @@ const periodOptions = [
   { value: '90', label: 'Last 90 days' },
 ]
 
+const paymentStatusOptions = statusOptions.filter((option) => option.value !== 'ALL')
+
+const optionalText = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') return undefined
+    const trimmed = value.trim()
+    return trimmed === '' ? undefined : trimmed
+  },
+  z.string().optional(),
+)
+
+const optionalDateInput = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') return undefined
+    const trimmed = value.trim()
+    return trimmed === '' ? undefined : trimmed
+  },
+  z
+    .string()
+    .refine((val) => !Number.isNaN(new Date(val).getTime()), 'Choose a valid date')
+    .optional(),
+)
+
+const amountSchema = z
+  .string()
+  .trim()
+  .min(1, 'Amount is required')
+  .refine((value) => !Number.isNaN(Number(value)), 'Enter a valid number')
+  .transform((value) => Number(value))
+  .refine((value) => Number.isFinite(value), 'Enter a valid number')
+  .refine((value) => value >= 0, 'Amount must be zero or greater')
+
+const paymentFormSchema = z.object({
+  member_name: z.string().trim().min(1, 'Member name is required'),
+  membership_plan: optionalText,
+  amount: amountSchema,
+  status: z.enum(['PAID', 'PENDING', 'FAILED', 'OVERDUE']),
+  payment_date: optionalDateInput,
+})
+
+const paymentFormDefaults = {
+  member_name: '',
+  membership_plan: '',
+  amount: '',
+  status: 'PAID',
+  payment_date: '',
+}
+
 export default function Payments() {
   const [status, setStatus] = useState('ALL')
   const [period, setPeriod] = useState('30')
@@ -46,6 +97,16 @@ export default function Payments() {
   const { business } = useBusiness()
   const { toast } = useToast()
   const queryClient = useQueryClient()
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(paymentFormSchema),
+    defaultValues: paymentFormDefaults,
+  })
 
   const {
     data,
@@ -163,6 +224,12 @@ export default function Payments() {
 
   const isRefreshing = isFetching && Boolean(data)
 
+  useEffect(() => {
+    if (!isCreateOpen) {
+      reset({ ...paymentFormDefaults })
+    }
+  }, [isCreateOpen, reset])
+
   if (loading && !data) {
     return <PaymentsSkeleton />
   }
@@ -236,25 +303,21 @@ export default function Payments() {
     },
   ]
 
-  const handleCreateSubmit = (event) => {
-    event.preventDefault()
-    const form = event.currentTarget
-    const formData = new FormData(form)
-
+  const handleCreateSubmit = handleSubmit((values) => {
     const payload = {
-      member_name: formData.get('member_name')?.toString().trim() || undefined,
-      membership_plan: formData.get('membership_plan')?.toString().trim() || undefined,
-      amount: Number(formData.get('amount')) || 0,
-      status: formData.get('status')?.toString() || 'PAID',
-      payment_date: formData.get('payment_date')?.toString() || new Date().toISOString(),
+      member_name: values.member_name,
+      membership_plan: values.membership_plan ?? undefined,
+      amount: values.amount,
+      status: values.status,
+      payment_date: values.payment_date ? new Date(values.payment_date).toISOString() : new Date().toISOString(),
     }
 
     createPaymentMutation.mutate(payload, {
       onSuccess: () => {
-        form.reset()
+        reset({ ...paymentFormDefaults })
       },
     })
-  }
+  })
 
   const handleMarkAsPaid = (payment) => {
     updatePaymentMutation.mutate({ id: payment.id, status: 'PAID' })
@@ -283,38 +346,100 @@ export default function Payments() {
               <DialogTitle>Record a payment</DialogTitle>
               <DialogDescription>Track an offline payment and keep your revenue metrics fresh.</DialogDescription>
             </DialogHeader>
-            <form className="space-y-4" onSubmit={handleCreateSubmit}>
-              <label className="space-y-1 text-sm">
-                <span className="font-medium text-slate-700">Member name</span>
-                <Input name="member_name" placeholder="Jordan Mitchell" required />
-              </label>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="space-y-1 text-sm">
-                  <span className="font-medium text-slate-700">Amount</span>
-                  <Input name="amount" type="number" step="0.01" placeholder="49.99" required />
+            <form className="space-y-4" onSubmit={handleCreateSubmit} noValidate>
+              <div className="space-y-1 text-sm">
+                <label className="font-medium text-slate-700" htmlFor="payment-member-name">
+                  Member name
                 </label>
-                <label className="space-y-1 text-sm">
-                  <span className="font-medium text-slate-700">Status</span>
-                  <Select name="status" defaultValue="PAID">
-                    <option value="PAID">Paid</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="FAILED">Failed</option>
-                    <option value="OVERDUE">Overdue</option>
-                  </Select>
-                </label>
+                <Input
+                  id="payment-member-name"
+                  placeholder="Jordan Mitchell"
+                  disabled={createPaymentMutation.isPending}
+                  aria-invalid={Boolean(errors.member_name)}
+                  {...register('member_name')}
+                />
+                {errors.member_name ? (
+                  <p className="text-xs text-destructive">{errors.member_name.message}</p>
+                ) : null}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="space-y-1 text-sm">
-                  <span className="font-medium text-slate-700">Membership plan</span>
-                  <Input name="membership_plan" placeholder="Premium" />
-                </label>
-                <label className="space-y-1 text-sm">
-                  <span className="font-medium text-slate-700">Payment date</span>
-                  <Input name="payment_date" type="date" />
-                </label>
+                <div className="space-y-1 text-sm">
+                  <label className="font-medium text-slate-700" htmlFor="payment-amount">
+                    Amount
+                  </label>
+                  <Input
+                    id="payment-amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    inputMode="decimal"
+                    placeholder="49.99"
+                    disabled={createPaymentMutation.isPending}
+                    aria-invalid={Boolean(errors.amount)}
+                    {...register('amount')}
+                  />
+                  {errors.amount ? (
+                    <p className="text-xs text-destructive">{errors.amount.message}</p>
+                  ) : null}
+                </div>
+                <div className="space-y-1 text-sm">
+                  <label className="font-medium text-slate-700" htmlFor="payment-status">
+                    Status
+                  </label>
+                  <Select
+                    id="payment-status"
+                    disabled={createPaymentMutation.isPending}
+                    aria-invalid={Boolean(errors.status)}
+                    {...register('status')}
+                  >
+                    {paymentStatusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                  {errors.status ? (
+                    <p className="text-xs text-destructive">{errors.status.message}</p>
+                  ) : null}
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1 text-sm">
+                  <label className="font-medium text-slate-700" htmlFor="payment-plan">
+                    Membership plan
+                  </label>
+                  <Input
+                    id="payment-plan"
+                    placeholder="Premium"
+                    disabled={createPaymentMutation.isPending}
+                    {...register('membership_plan')}
+                  />
+                </div>
+                <div className="space-y-1 text-sm">
+                  <label className="font-medium text-slate-700" htmlFor="payment-date">
+                    Payment date
+                  </label>
+                  <Input
+                    id="payment-date"
+                    type="date"
+                    disabled={createPaymentMutation.isPending}
+                    aria-invalid={Boolean(errors.payment_date)}
+                    {...register('payment_date')}
+                  />
+                  {errors.payment_date ? (
+                    <p className="text-xs text-destructive">{errors.payment_date.message}</p>
+                  ) : null}
+                </div>
               </div>
               <DialogFooter>
-                <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setCreateOpen(false)
+                    reset({ ...paymentFormDefaults })
+                  }}
+                >
                   Cancel
                 </Button>
                 <Button type="submit" disabled={createPaymentMutation.isPending}>
