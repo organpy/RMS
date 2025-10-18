@@ -458,6 +458,20 @@ export default function Members() {
   const someVisibleSelected = selectedMemberIds.length > 0 && !allVisibleSelected
   const hasSelection = selectedMemberIds.length > 0
 
+  const selectionSummary = useMemo(() => {
+    if (!hasSelection) return ''
+    const statusCounts = decoratedMembers.reduce((acc, member) => {
+      if (!selectedMemberIdsSet.has(member.id)) return acc
+      const status = normalizeMemberStatus(member.status)
+      acc[status] = (acc[status] ?? 0) + 1
+      return acc
+    }, {})
+
+    const statusEntries = Object.entries(statusCounts).map(([status, count]) => `${count} ${formatStatusDisplay(status, count)}`)
+
+    return statusEntries.length ? statusEntries.join(', ') : ''
+  }, [decoratedMembers, hasSelection, selectedMemberIdsSet])
+
   const isRefreshing = isFetching && members.length > 0
 
   const totalCount = meta?.total ?? members.length
@@ -1023,6 +1037,7 @@ export default function Members() {
           onSendReminder={handleBulkSendReminder}
           onClear={clearSelection}
           disabled={isBulkUpdating || isBulkNotifying}
+          summary={selectionSummary}
         />
       ) : null}
 
@@ -1126,6 +1141,19 @@ function normalizeMemberStatus(status) {
   return ['ACTIVE', 'INACTIVE', 'SUSPENDED'].includes(normalized) ? normalized : 'ACTIVE'
 }
 
+function formatStatusDisplay(status, count) {
+  switch (status) {
+    case 'ACTIVE':
+      return `active member${count === 1 ? '' : 's'}`
+    case 'INACTIVE':
+      return `inactive member${count === 1 ? '' : 's'}`
+    case 'SUSPENDED':
+      return `suspended member${count === 1 ? '' : 's'}`
+    default:
+      return `member${count === 1 ? '' : 's'}`
+  }
+}
+
 function badgeVariantForStatus(status) {
   switch ((status ?? '').toUpperCase()) {
     case 'ACTIVE':
@@ -1219,12 +1247,16 @@ function MemberRowActions({
   )
 }
 
-function BulkActionsBar({ count, onMarkActive, onMarkInactive, onSuspend, onSendReminder, onClear, disabled }) {
+function BulkActionsBar({ count, summary, onMarkActive, onMarkInactive, onSuspend, onSendReminder, onClear, disabled }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary">
-      <p className="font-medium">
-        {count} member{count === 1 ? '' : 's'} selected
-      </p>
+    <div className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="font-medium">
+          {count} member{count === 1 ? '' : 's'} selected
+        </p>
+        {summary ? <p className="text-xs text-primary/80">Status breakdown: {summary}</p> : null}
+        <p className="mt-1 text-xs text-primary/70">Keep this selection to batch future exports and messaging actions as they roll out.</p>
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" onClick={onMarkActive} disabled={disabled}>
           Mark active
