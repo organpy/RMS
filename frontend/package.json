@@ -8,7 +8,12 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "shadcn": "shadcn-ui"
+    "shadcn": "shadcn-ui",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run lint && npm run test",
+    "storybook": "storybook dev -p 6006",
+    "storybook:build": "storybook build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -41,11 +46,23 @@
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.4",
+    "@storybook/addon-a11y": "^8.2.6",
+    "@storybook/addon-essentials": "^8.2.6",
+    "@storybook/addon-interactions": "^8.2.6",
+  "@storybook/react": "^8.2.6",
+  "@storybook/react-webpack5": "^8.2.6",
+    "@storybook/test": "^8.2.6",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.6.1",
     "eslint": "^9.36.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.22",
     "globals": "^16.4.0",
+    "jsdom": "^26.0.0",
     "shadcn-ui": "^0.9.5",
+    "storybook": "^8.2.6",
+    "vitest": "^2.1.8",
     "vite": "^7.1.7"
   }
 }
