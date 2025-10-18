@@ -2,21 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import Card from '../components/ui/Card'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import Spinner from '../components/ui/Spinner'
-import { useMembers, createMember, updateMemberStatus } from '../hooks/useMembers'
+import { useMembers, createMember, updateMember, updateMemberStatus } from '../hooks/useMembers'
 import { useMemberFilters } from '../hooks/useMemberFilters'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -26,14 +24,6 @@ import { useToast } from '@/hooks/use-toast'
 import DataTable from '../components/data/DataTable'
 import Checkbox from '../components/ui/Checkbox'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -42,6 +32,8 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { useCommand } from '@/hooks/useCommand'
+import { MemberForm } from '../components/members/MemberForm'
+import { memberFormDefaults, memberFormSchema } from '../components/members/memberFormSchema'
 
 const statusOptions = [
   { value: 'ALL', label: 'All statuses' },
@@ -49,41 +41,6 @@ const statusOptions = [
   { value: 'inactive', label: 'Inactive' },
   { value: 'suspended', label: 'Suspended' },
 ]
-
-const memberStatusOptions = [
-  { value: 'ACTIVE', label: 'Active' },
-  { value: 'INACTIVE', label: 'Inactive' },
-  { value: 'SUSPENDED', label: 'Suspended' },
-]
-
-const optionalText = z.preprocess(
-  (value) => {
-    if (typeof value !== 'string') return undefined
-    const trimmed = value.trim()
-    return trimmed === '' ? undefined : trimmed
-  },
-  z.string().optional(),
-)
-
-const memberFormSchema = z.object({
-  first_name: z.string().trim().min(1, 'First name is required'),
-  last_name: z.string().trim().min(1, 'Last name is required'),
-  email: z
-    .string()
-    .trim()
-    .min(1, 'Email is required')
-    .email('Enter a valid email address'),
-  membership_plan: optionalText,
-  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']),
-})
-
-const memberFormDefaults = {
-  first_name: '',
-  last_name: '',
-  email: '',
-  membership_plan: '',
-  status: 'ACTIVE',
-}
 
 export default function Members() {
   const [status, setStatus] = useState('ALL')
@@ -93,6 +50,9 @@ export default function Members() {
   const [page, setPage] = useState(1)
   const pageSize = 10
   const [isCreateOpen, setCreateOpen] = useState(false)
+  const [isEditOpen, setEditOpen] = useState(false)
+  const [editingMember, setEditingMember] = useState(null)
+  const [isDesktop, setIsDesktop] = useState(false)
   const [pendingMemberId, setPendingMemberId] = useState(null)
   const [selectedMemberIds, setSelectedMemberIds] = useState([])
   const [isBulkUpdating, setBulkUpdating] = useState(false)
@@ -212,12 +172,12 @@ export default function Members() {
 
   const groupSelectPlaceholder = normalizedClassId ? 'All groups in class' : 'All groups'
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm({
+  const createForm = useForm({
+    resolver: zodResolver(memberFormSchema),
+    defaultValues: memberFormDefaults,
+  })
+
+  const editForm = useForm({
     resolver: zodResolver(memberFormSchema),
     defaultValues: memberFormDefaults,
   })
@@ -239,7 +199,7 @@ export default function Members() {
         description: `${nextMember?.first_name ?? 'New'} ${nextMember?.last_name ?? 'member'} was created.`,
       })
       setCreateOpen(false)
-      reset({ ...memberFormDefaults })
+      createForm.reset({ ...memberFormDefaults })
       setPage(1)
       queryClient.invalidateQueries({ queryKey: ['members'] })
     },
@@ -249,6 +209,54 @@ export default function Members() {
         title: 'Unable to add member',
         description: mutationError?.detail ?? 'Please try again later.',
       })
+    },
+  })
+
+  const updateMemberMutation = useMutation({
+    mutationFn: ({ id, values }) => updateMember(id, values),
+    onMutate: async ({ id, values }) => {
+      await queryClient.cancelQueries({ queryKey })
+      const previous = queryClient.getQueryData(queryKey)
+
+      queryClient.setQueryData(queryKey, (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          members: (old.members ?? []).map((member) =>
+            member.id === id ? { ...member, ...values } : member,
+          ),
+        }
+      })
+
+      setEditingMember((current) => (current && current.id === id ? { ...current, ...values } : current))
+
+      return { previous }
+    },
+    onSuccess: (result, { values }) => {
+      const displayName = `${values.first_name ?? ''} ${values.last_name ?? ''}`.trim() || 'Member'
+
+      toast({
+        title: 'Member updated',
+        description: `${displayName} details saved.`,
+      })
+
+      setEditOpen(false)
+      if (result) {
+        setEditingMember(result)
+      }
+    },
+    onError: (mutationError, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous)
+      }
+      toast({
+        variant: 'destructive',
+        title: 'Unable to update member',
+        description: mutationError?.detail ?? 'Please try again later.',
+      })
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['members'] })
     },
   })
 
@@ -295,9 +303,30 @@ export default function Members() {
 
   useEffect(() => {
     if (!isCreateOpen) {
-      reset({ ...memberFormDefaults })
+      createForm.reset({ ...memberFormDefaults })
     }
-  }, [isCreateOpen, reset])
+  }, [createForm, isCreateOpen])
+
+  useEffect(() => {
+    if (!isEditOpen) {
+      editForm.reset({ ...memberFormDefaults })
+      setEditingMember(null)
+    }
+  }, [editForm, isEditOpen])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    const mediaQuery = window.matchMedia('(min-width: 640px)')
+    const handleChange = (event) => setIsDesktop(event.matches)
+
+    setIsDesktop(mediaQuery.matches)
+    mediaQuery.addEventListener('change', handleChange)
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange)
+    }
+  }, [])
 
   const filteredMembers = useMemo(() => {
     if (!members?.length) return members
@@ -368,17 +397,20 @@ export default function Members() {
     [setPage],
   )
 
-  const handleCreateSubmit = handleSubmit((values) => {
-    const payload = {
-      first_name: values.first_name,
-      last_name: values.last_name,
-      email: values.email,
-      membership_plan: values.membership_plan ?? undefined,
-      status: values.status,
-    }
+  const handleCreateMember = useCallback(
+    (values) => {
+      const payload = {
+        first_name: values.first_name,
+        last_name: values.last_name,
+        email: values.email,
+        membership_plan: values.membership_plan ?? undefined,
+        status: values.status,
+      }
 
-    createMemberMutation.mutate(payload)
-  })
+      createMemberMutation.mutate(payload)
+    },
+    [createMemberMutation],
+  )
 
   const handleChangeStatus = useCallback(
     (id, nextStatus) => {
@@ -396,6 +428,49 @@ export default function Members() {
     },
     [toast],
   )
+
+  const handleOpenEdit = useCallback(
+    (member) => {
+      if (!member) return
+      setEditingMember(member)
+      editForm.reset({
+        first_name: member.first_name ?? '',
+        last_name: member.last_name ?? '',
+        email: member.email ?? '',
+        membership_plan: member.membership_plan ?? '',
+        status: normalizeMemberStatus(member.status),
+      })
+      setEditOpen(true)
+    },
+    [editForm],
+  )
+
+  const handleEditMember = useCallback(
+    (values) => {
+      if (!editingMember) return
+
+      const payload = {
+        first_name: values.first_name,
+        last_name: values.last_name,
+        email: values.email,
+        membership_plan: values.membership_plan ?? undefined,
+        status: values.status,
+      }
+
+      updateMemberMutation.mutate({ id: editingMember.id, values: payload })
+    },
+    [editingMember, updateMemberMutation],
+  )
+
+  const handleEditOpenChange = useCallback((nextOpen) => {
+    if (!nextOpen) {
+      setEditOpen(false)
+    }
+  }, [])
+
+  const handleCloseEdit = useCallback(() => {
+    setEditOpen(false)
+  }, [])
 
   const handleToggleMemberSelection = useCallback((memberId, checked) => {
     setSelectedMemberIds((previous) => {
@@ -573,7 +648,9 @@ export default function Members() {
             member={row.original}
             onChangeStatus={handleChangeStatus}
             onLogPayment={handleLogPayment}
+            onEdit={handleOpenEdit}
             isUpdating={pendingMemberId === row.original.id && updateStatusMutation.isPending}
+            isEditing={editingMember?.id === row.original.id && updateMemberMutation.isPending}
           />
         ),
         enableSorting: false,
@@ -589,12 +666,15 @@ export default function Members() {
     [
       allVisibleSelected,
       handleChangeStatus,
-      handleLogPayment,
+  handleLogPayment,
+  handleOpenEdit,
       handleSelectAllVisible,
       handleToggleMemberSelection,
       pendingMemberId,
+  editingMember,
       selectedMemberIdsSet,
       someVisibleSelected,
+  updateMemberMutation.isPending,
       updateStatusMutation.isPending,
       visibleMemberIds,
     ],
@@ -634,104 +714,59 @@ export default function Members() {
               <DialogTitle>Add a member</DialogTitle>
               <DialogDescription>Capture the essentials and we&apos;ll sync the rest once the backend is ready.</DialogDescription>
             </DialogHeader>
-            <form className="space-y-4" onSubmit={handleCreateSubmit} noValidate>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1 text-sm">
-                  <label className="font-medium text-slate-700" htmlFor="member-first-name">
-                    First name
-                  </label>
-                  <Input
-                    id="member-first-name"
-                    placeholder="Alex"
-                    disabled={createMemberMutation.isPending}
-                    aria-invalid={Boolean(errors.first_name)}
-                    {...register('first_name')}
-                  />
-                  {errors.first_name ? (
-                    <p className="text-xs text-destructive">{errors.first_name.message}</p>
-                  ) : null}
-                </div>
-                <div className="space-y-1 text-sm">
-                  <label className="font-medium text-slate-700" htmlFor="member-last-name">
-                    Last name
-                  </label>
-                  <Input
-                    id="member-last-name"
-                    placeholder="Johnson"
-                    disabled={createMemberMutation.isPending}
-                    aria-invalid={Boolean(errors.last_name)}
-                    {...register('last_name')}
-                  />
-                  {errors.last_name ? (
-                    <p className="text-xs text-destructive">{errors.last_name.message}</p>
-                  ) : null}
-                </div>
-              </div>
-              <div className="space-y-1 text-sm">
-                <label className="font-medium text-slate-700" htmlFor="member-email">
-                  Email
-                </label>
-                <Input
-                  id="member-email"
-                  type="email"
-                  placeholder="alex@example.com"
-                  disabled={createMemberMutation.isPending}
-                  aria-invalid={Boolean(errors.email)}
-                  {...register('email')}
-                />
-                {errors.email ? <p className="text-xs text-destructive">{errors.email.message}</p> : null}
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1 text-sm">
-                  <label className="font-medium text-slate-700" htmlFor="member-plan">
-                    Membership plan
-                  </label>
-                  <Input
-                    id="member-plan"
-                    placeholder="Premium"
-                    disabled={createMemberMutation.isPending}
-                    {...register('membership_plan')}
-                  />
-                </div>
-                <div className="space-y-1 text-sm">
-                  <label className="font-medium text-slate-700" htmlFor="member-status">
-                    Status
-                  </label>
-                  <Select
-                    id="member-status"
-                    disabled={createMemberMutation.isPending}
-                    aria-invalid={Boolean(errors.status)}
-                    {...register('status')}
-                  >
-                    {memberStatusOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Select>
-                  {errors.status ? (
-                    <p className="text-xs text-destructive">{errors.status.message}</p>
-                  ) : null}
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    setCreateOpen(false)
-                    reset({ ...memberFormDefaults })
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createMemberMutation.isPending}>
-                  {createMemberMutation.isPending ? 'Saving…' : 'Create member'}
-                </Button>
-              </DialogFooter>
-            </form>
+            <MemberForm
+              form={createForm}
+              onSubmit={handleCreateMember}
+              onCancel={() => {
+                setCreateOpen(false)
+                createForm.reset({ ...memberFormDefaults })
+              }}
+              isSubmitting={createMemberMutation.isPending}
+              submitLabel="Create member"
+            />
           </DialogContent>
         </Dialog>
+        {isDesktop ? (
+          <Dialog open={isEditOpen} onOpenChange={handleEditOpenChange}>
+            <DialogContent className="max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingMember ? `Edit ${editingMember.first_name} ${editingMember.last_name}` : 'Edit member'}
+                </DialogTitle>
+                <DialogDescription>Update member profile details and status.</DialogDescription>
+              </DialogHeader>
+              <MemberForm
+                form={editForm}
+                onSubmit={handleEditMember}
+                onCancel={handleCloseEdit}
+                isSubmitting={updateMemberMutation.isPending}
+                submitLabel="Save changes"
+                cancelLabel="Close"
+              />
+            </DialogContent>
+          </Dialog>
+        ) : (
+          <Sheet open={isEditOpen} onOpenChange={handleEditOpenChange}>
+            <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>
+                  {editingMember ? `Edit ${editingMember.first_name} ${editingMember.last_name}` : 'Edit member'}
+                </SheetTitle>
+                <SheetDescription>Make quick changes while staying on the members list.</SheetDescription>
+              </SheetHeader>
+              <div className="mt-4">
+                <MemberForm
+                  form={editForm}
+                  onSubmit={handleEditMember}
+                  onCancel={handleCloseEdit}
+                  isSubmitting={updateMemberMutation.isPending}
+                  submitLabel="Save changes"
+                  cancelLabel="Close"
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
+        )}
       </section>
 
       {isRefreshing ? (
@@ -817,6 +852,11 @@ export default function Members() {
   )
 }
 
+function normalizeMemberStatus(status) {
+  const normalized = (status ?? '').toString().toUpperCase()
+  return ['ACTIVE', 'INACTIVE', 'SUSPENDED'].includes(normalized) ? normalized : 'ACTIVE'
+}
+
 function badgeVariantForStatus(status) {
   switch ((status ?? '').toUpperCase()) {
     case 'ACTIVE':
@@ -862,7 +902,7 @@ function formatDate(value) {
   return parsed.toLocaleDateString()
 }
 
-function MemberRowActions({ member, onChangeStatus, onLogPayment, isUpdating }) {
+function MemberRowActions({ member, onChangeStatus, onLogPayment, onEdit, isUpdating, isEditing }) {
   const nextStatus = (member.status ?? '').toUpperCase() === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'
 
   return (
@@ -871,10 +911,20 @@ function MemberRowActions({ member, onChangeStatus, onLogPayment, isUpdating }) 
         member={member}
         onChangeStatus={onChangeStatus}
         onLogPayment={onLogPayment}
+        onEdit={onEdit}
         isUpdating={isUpdating}
+        isEditing={isEditing}
         nextStatus={nextStatus}
       />
       <div className="hidden items-center gap-2 sm:flex">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => onEdit(member)}
+          disabled={isEditing}
+        >
+          {isEditing ? 'Saving…' : 'Edit'}
+        </Button>
         <Button variant="ghost" size="sm" onClick={() => onLogPayment(member)}>
           Log payment
         </Button>
@@ -891,7 +941,7 @@ function MemberRowActions({ member, onChangeStatus, onLogPayment, isUpdating }) 
   )
 }
 
-function MemberDetailsSheet({ member, onChangeStatus, onLogPayment, isUpdating, nextStatus }) {
+function MemberDetailsSheet({ member, onChangeStatus, onLogPayment, onEdit, isUpdating, isEditing, nextStatus }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -927,6 +977,16 @@ function MemberDetailsSheet({ member, onChangeStatus, onLogPayment, isUpdating, 
           </div>
         </div>
         <div className="mt-6 flex flex-col gap-2">
+          <Button
+            variant="secondary"
+            disabled={isEditing}
+            onClick={() => {
+              onEdit(member)
+              setOpen(false)
+            }}
+          >
+            {isEditing ? 'Saving…' : 'Edit member'}
+          </Button>
           <Button
             onClick={() => {
               onLogPayment(member)
