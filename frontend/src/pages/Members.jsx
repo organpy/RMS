@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -28,6 +28,7 @@ const statusOptions = [
 export default function Members() {
   const [status, setStatus] = useState('ALL')
   const [searchTerm, setSearchTerm] = useState('')
+  const location = useLocation()
   const [classFilter, setClassFilter] = useState('ALL')
   const [groupFilter, setGroupFilter] = useState('ALL')
   const [page, setPage] = useState(1)
@@ -87,6 +88,42 @@ export default function Members() {
   useCommand('members.openCreate', handleCommandOpenCreate)
   useCommand('members.filterStatus', handleCommandFilterStatus)
 
+  useEffect(() => {
+    if (!location.state) return
+
+    const { focusClassId, focusClassName, focusGroupId, focusGroupName } = location.state
+
+    let changed = false
+
+    if (focusClassId) {
+      setClassFilter(String(focusClassId))
+      setGroupFilter(focusGroupId ? String(focusGroupId) : 'ALL')
+      setStatus('ALL')
+      setSearchTerm('')
+      changed = true
+    } else if (focusGroupId) {
+      setGroupFilter(String(focusGroupId))
+      setStatus('ALL')
+      setSearchTerm('')
+      changed = true
+    }
+
+    if (changed) {
+      setPage(1)
+      setSelectedMemberIds([])
+      toast({
+        title: 'Filter applied',
+        description:
+          focusGroupName
+            ? `Showing members from ${focusGroupName}.`
+            : focusClassName
+              ? `Showing members enrolled in ${focusClassName}.`
+              : 'Member filters updated.',
+      })
+    }
+
+    navigate(location.pathname, { replace: true, state: null })
+  }, [location, navigate, toast])
   const normalizedClassId = classFilter === 'ALL' ? undefined : Number(classFilter)
   const normalizedGroupId = groupFilter === 'ALL' ? undefined : Number(groupFilter)
 

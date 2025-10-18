@@ -1,3 +1,5 @@
+import { useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Button from '../components/ui/Button'
 import ClassHierarchy from '../components/classes/ClassHierarchy'
 import { useBusiness } from '../context/BusinessContext'
@@ -5,6 +7,7 @@ import { useClasses } from '../hooks/useClasses'
 
 export default function Classes() {
   const { business, status } = useBusiness()
+  const navigate = useNavigate()
 
   const {
     classes = [],
@@ -16,6 +19,34 @@ export default function Classes() {
     businessId: business?.id,
     enabled: !status.loading && Boolean(business?.id),
   })
+
+  const handleOpenClassMembers = useCallback(
+    (classItem) => {
+      if (!classItem?.id) return
+      navigate('/members', {
+        state: {
+          focusClassId: classItem.id,
+          focusClassName: classItem.name,
+        },
+      })
+    },
+    [navigate],
+  )
+
+  const handleOpenGroupMembers = useCallback(
+    (group, classItem) => {
+      if (!group?.id) return
+      navigate('/members', {
+        state: {
+          focusGroupId: group.id,
+          focusGroupName: group.name,
+          focusClassId: classItem?.id,
+          focusClassName: classItem?.name,
+        },
+      })
+    },
+    [navigate],
+  )
 
   return (
     <div className="space-y-6">
@@ -35,6 +66,8 @@ export default function Classes() {
         isFetching={isFetching}
         error={error}
         onRetry={refresh}
+        onOpenClassMembers={handleOpenClassMembers}
+        onOpenGroupMembers={handleOpenGroupMembers}
       />
     </div>
   )

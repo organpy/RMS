@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Optional, Sequence, Tuple
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
@@ -22,7 +22,10 @@ class ClassCourseCRUD:
         """Fetch a class by identifier."""
 
         stmt = select(ClassCourse).options(selectinload(ClassCourse.groups)).where(ClassCourse.id == class_id)
-        return self.session.execute(stmt).scalars().first()
+        class_course = self.session.execute(stmt).scalars().first()
+        if class_course:
+            self._attach_member_counts([class_course])
+        return class_course
 
     def list(
         self,
@@ -40,6 +43,7 @@ class ClassCourseCRUD:
             count_stmt = count_stmt.where(ClassCourse.business_id == business_id)
         stmt = stmt.offset(skip).limit(limit)
         classes = self.session.execute(stmt).scalars().all()
+        self._attach_member_counts(classes)
         total = int(self.session.execute(count_stmt).scalar_one())
         return classes, total
 
@@ -82,3 +86,35 @@ class ClassCourseCRUD:
 
         stmt = select(Group).where(Group.class_id == class_id).order_by(Group.id)
         return self.session.execute(stmt).scalars().all()
+
+    def _attach_member_counts(self, classes: Sequence[ClassCourse]) -> None:
+        """Annotate classes and nested groups with member counts for serialization."""
+
+        if not classes:
+            return
+
+        class_ids = [class_course.id for class_course in classes]
+        if not class_ids:
+            return
+
+        class_counts_stmt = (
+            select(Member.class_id, func.count(Member.id))
+            .where(Member.class_id.in_(class_ids))
+            .group_by(Member.class_id)
+        )
+        class_counts = {row[0]: int(row[1]) for row in self.session.execute(class_counts_stmt)}
+
+        group_ids = [group.id for class_course in classes for group in class_course.groups]
+        group_counts: dict[int, int] = {}
+        if group_ids:
+            group_counts_stmt = (
+                select(Member.group_id, func.count(Member.id))
+                .where(Member.group_id.in_(group_ids))
+                .group_by(Member.group_id)
+            )
+            group_counts = {row[0]: int(row[1]) for row in self.session.execute(group_counts_stmt)}
+
+        for class_course in classes:
+            setattr(class_course, "member_count", class_counts.get(class_course.id, 0))
+            for group in class_course.groups:
+                setattr(group, "member_count", group_counts.get(group.id, 0))
