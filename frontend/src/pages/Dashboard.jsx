@@ -1,11 +1,25 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { ArrowRight, BellRing, CreditCard, Filter, UserPlus } from 'lucide-react'
+
 import Card from '../components/ui/Card'
 import Spinner from '../components/ui/Spinner'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import { Skeleton } from '../components/ui/skeleton'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog'
 import { useDashboard } from '../hooks/useDashboard'
 import { useBusiness } from '../context/BusinessContext'
+import { useToast } from '@/hooks/use-toast'
+import { emitCommand } from '@/lib/commandBus'
 
 const widgetLabels = [
   { key: 'active_members', label: 'Active Members' },
@@ -18,8 +32,42 @@ const widgetLabels = [
 
 export default function Dashboard() {
   const { business } = useBusiness()
-  const { data, loading, error, refresh, isFetching } = useDashboard({ alertsLimit: 5, recentLimit: 6, upcomingDays: 7 })
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { toast } = useToast()
+  const alertsShownRef = useRef(false)
+  const [isAlertsOpen, setAlertsOpen] = useState(false)
+
+  const { data, loading, error, refresh, isFetching } = useDashboard({
+    alertsLimit: 5,
+    recentLimit: 6,
+    upcomingDays: 7,
+    autoRefresh: true,
+  })
+
   const isRefreshing = isFetching && Boolean(data)
+
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: business?.currency ?? 'USD',
+      }),
+    [business?.currency],
+  )
+
+  const totalAlerts = useMemo(() => {
+    const dueToday = data?.alerts?.due_today?.length ?? 0
+    const overdue = data?.alerts?.overdue?.length ?? 0
+    return dueToday + overdue
+  }, [data?.alerts])
+
+  useEffect(() => {
+    if (!alertsShownRef.current && totalAlerts > 0) {
+      alertsShownRef.current = true
+      setAlertsOpen(true)
+    }
+  }, [totalAlerts])
 
   if (loading && !data) {
     return <DashboardSkeleton />
@@ -39,13 +87,179 @@ export default function Dashboard() {
     )
   }
 
-  const currencyFormatter = new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: business?.currency ?? 'USD',
-  })
+  const handleNavigateWithCommand = (path, command, detail = {}) => {
+    const isSameRoute = path ? location.pathname === path : false
+
+    if (command) {
+      emitCommand(command, detail, isSameRoute ? {} : { persist: true })
+    }
+
+    if (path && !isSameRoute) {
+      navigate(path)
+    }
+  }
+
+  const quickActions = [
+    {
+      id: 'add-member',
+      label: 'Add a member',
+      description: 'Capture a new registration without leaving the dashboard.',
+      icon: UserPlus,
+      path: '/members',
+      command: 'members.openCreate',
+      toast: {
+        title: 'Member form queued',
+        description: 'The members page will open with the new member dialog ready.',
+      },
+    },
+    {
+      id: 'record-payment',
+      label: 'Record a payment',
+      description: 'Jump straight into recording a payment and generating a receipt.',
+      icon: CreditCard,
+      path: '/payments',
+      command: 'payments.openCreate',
+      toast: {
+        title: 'Payment dialog ready',
+        description: 'The payments view will open with the record payment form.',
+      },
+    },
+    {
+      id: 'review-overdue',
+      label: 'Review overdue invoices',
+      description: 'See who needs follow up and send reminders in one place.',
+      icon: BellRing,
+      path: '/payments',
+      command: 'payments.filterStatus',
+      detail: {
+        status: 'OVERDUE',
+        message: 'Showing overdue payments from the dashboard quick action.',
+      },
+      toast: {
+        title: 'Overdue filter applied',
+        description: 'Payments will load filtered to overdue invoices.',
+      },
+    },
+    {
+      id: 'check-suspended',
+      label: 'Check suspended members',
+      description: 'Follow up with members whose access is currently paused.',
+      icon: Filter,
+      path: '/members',
+      command: 'members.filterStatus',
+      detail: {
+        status: 'SUSPENDED',
+        message: 'Showing suspended members from the dashboard quick action.',
+      },
+      toast: {
+        title: 'Suspended members queued',
+        description: 'Members will load filtered to suspended accounts.',
+      },
+    },
+  ]
+
+  const widgetActions = {
+    active_members: {
+      path: '/members',
+      command: 'members.filterStatus',
+      detail: { status: 'ACTIVE', message: 'Showing active members from the dashboard widget.' },
+      toast: {
+        title: 'Active members filtered',
+        description: 'Members will load showing active accounts first.',
+      },
+    },
+    inactive_members: {
+      path: '/members',
+      command: 'members.filterStatus',
+      detail: { status: 'INACTIVE', message: 'Showing inactive members from the dashboard widget.' },
+      toast: {
+        title: 'Inactive members filtered',
+        description: 'Members will load showing inactive accounts.',
+      },
+    },
+    suspended_members: {
+      path: '/members',
+      command: 'members.filterStatus',
+      detail: { status: 'SUSPENDED', message: 'Showing suspended members from the dashboard widget.' },
+      toast: {
+        title: 'Suspended members filtered',
+        description: 'Members will focus on suspended accounts.',
+      },
+    },
+    due_today: {
+      path: '/payments',
+      command: 'payments.filterStatus',
+      detail: {
+        status: 'PENDING',
+        period: 1,
+        message: 'Showing payments due today from the dashboard widget.',
+      },
+      toast: {
+        title: 'Payments due today',
+        description: 'Payments will load filtered to invoices due today.',
+      },
+    },
+    overdue: {
+      path: '/payments',
+      command: 'payments.filterStatus',
+      detail: {
+        status: 'OVERDUE',
+        message: 'Showing overdue payments from the dashboard widget.',
+      },
+      toast: {
+        title: 'Overdue payments filtered',
+        description: 'Payments will load filtered to overdue invoices.',
+      },
+    },
+    overdue_inactive: {
+      path: '/members',
+      command: 'members.filterStatus',
+      detail: {
+        status: 'SUSPENDED',
+        message: 'Showing suspended members who may be overdue.',
+      },
+      toast: {
+        title: 'Suspended members queued',
+        description: 'Members will focus on accounts needing outreach.',
+      },
+    },
+  }
+
+  const runQuickAction = (action) => {
+    if (!action) return
+    handleNavigateWithCommand(action.path, action.command, action.detail ?? {})
+    const message = action.toast ?? {
+      title: 'Quick action ready',
+      description: action.description,
+    }
+    toast(message)
+  }
+
+  const handleWidgetClick = (key) => {
+    const action = widgetActions[key]
+    if (!action) return
+    handleNavigateWithCommand(action.path, action.command, action.detail ?? {})
+    if (action.toast) {
+      toast(action.toast)
+    }
+  }
+
+  const recordPaymentAction = quickActions.find((action) => action.id === 'record-payment')
+
+  const dueTodayAlerts = data?.alerts?.due_today ?? []
+  const overdueAlerts = data?.alerts?.overdue ?? []
 
   return (
     <div className="space-y-8">
+      <AlertsDialog
+        open={isAlertsOpen && totalAlerts > 0}
+        onOpenChange={setAlertsOpen}
+        alerts={data?.alerts}
+        formatter={currencyFormatter}
+        onViewDue={() => handleWidgetClick('due_today')}
+        onViewOverdue={() => handleWidgetClick('overdue')}
+      />
+
       <section className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Dashboard Overview</h1>
@@ -57,7 +271,7 @@ export default function Dashboard() {
           <Button variant="secondary" size="sm" onClick={refresh}>
             Refresh Data
           </Button>
-          <Button size="sm">Record Payment</Button>
+          <Button size="sm" onClick={() => runQuickAction(recordPaymentAction)}>Record Payment</Button>
         </div>
       </section>
 
@@ -70,8 +284,30 @@ export default function Dashboard() {
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {widgetLabels.map(({ key, label }) => (
-          <Card key={key} className="border border-transparent transition hover:border-primary/40">
-            <div className="flex items-center justify-between">
+          <Card
+            key={key}
+            className={widgetActions[key] ? 'border border-transparent transition hover:border-primary/50' : undefined}
+          >
+            <div
+              role={widgetActions[key] ? 'button' : undefined}
+              tabIndex={widgetActions[key] ? 0 : undefined}
+              onClick={widgetActions[key] ? () => handleWidgetClick(key) : undefined}
+              onKeyDown={
+                widgetActions[key]
+                  ? (event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        handleWidgetClick(key)
+                      }
+                    }
+                  : undefined
+              }
+              className={
+                widgetActions[key]
+                  ? 'flex items-center justify-between rounded-xl border border-transparent p-1 outline-none transition focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/40'
+                  : 'flex items-center justify-between'
+              }
+            >
               <div>
                 <p className="text-sm text-slate-500">{label}</p>
                 <p className="mt-2 text-3xl font-semibold text-slate-900">{data.widgets?.[key] ?? 0}</p>
@@ -82,11 +318,12 @@ export default function Dashboard() {
         ))}
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-3">
+      <section className="grid gap-6 xl:grid-cols-4">
+        <QuickActionsCard actions={quickActions} onRunAction={runQuickAction} />
         <Card
           title="Quick Stats"
           subtitle="Rollup of membership health and revenue insights"
-          className="lg:col-span-2"
+          className="xl:col-span-2"
         >
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Stat label="Total Members" value={data.quickStats?.total_members ?? 0} />
@@ -128,10 +365,29 @@ export default function Dashboard() {
             </ul>
           </div>
         </Card>
-        <Card title="Payment Alerts" subtitle="Due today and overdue members requiring attention">
+        <Card
+          header={
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Payment Alerts</h2>
+                <p className="text-sm text-slate-500">Due today and overdue members requiring attention</p>
+              </div>
+              {totalAlerts > 0 ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 shadow-none hover:border-primary/60 hover:bg-primary/5 hover:text-primary"
+                  onClick={() => setAlertsOpen(true)}
+                >
+                  View all
+                </Button>
+              ) : null}
+            </div>
+          }
+        >
           <div className="space-y-4">
-            <AlertList title="Due today" items={data.alerts?.due_today ?? []} formatter={currencyFormatter} />
-            <AlertList title="Overdue" items={data.alerts?.overdue ?? []} formatter={currencyFormatter} />
+            <AlertList title="Due today" items={dueTodayAlerts} formatter={currencyFormatter} />
+            <AlertList title="Overdue" items={overdueAlerts} formatter={currencyFormatter} />
           </div>
         </Card>
       </section>
@@ -182,6 +438,78 @@ export default function Dashboard() {
         </Card>
       </section>
     </div>
+  )
+}
+
+function QuickActionsCard({ actions, onRunAction }) {
+  return (
+    <Card
+      title="Quick actions"
+      subtitle="Jump into frequent workflows without digging through menus."
+      className="xl:order-first"
+    >
+      <ul className="space-y-3">
+        {actions.map((action) => {
+          const Icon = action.icon
+          return (
+            <li key={action.id}>
+              <Button
+                variant="ghost"
+                size="lg"
+                className="group flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white py-5 text-left text-sm font-semibold text-slate-900 shadow-none hover:border-primary/60 hover:bg-primary/5"
+                onClick={() => onRunAction(action)}
+              >
+                <span className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="block text-left">
+                    <span className="block text-sm font-semibold text-slate-900">{action.label}</span>
+                    <span className="mt-1 block text-xs font-normal text-slate-500">{action.description}</span>
+                  </span>
+                </span>
+                <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-1 group-hover:text-primary" />
+              </Button>
+            </li>
+          )
+        })}
+      </ul>
+    </Card>
+  )
+}
+
+function AlertsDialog({ open, onOpenChange, alerts, formatter, onViewDue, onViewOverdue }) {
+  const dueToday = alerts?.due_today ?? []
+  const overdue = alerts?.overdue ?? []
+  const hasAlerts = Boolean(dueToday.length || overdue.length)
+
+  return (
+    <Dialog open={open && hasAlerts} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Members that need attention</DialogTitle>
+          <DialogDescription>
+            Follow up with these members to keep renewals and payments on schedule.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-5">
+          <AlertList title="Due today" items={dueToday} formatter={formatter} />
+          <AlertList title="Overdue" items={overdue} formatter={formatter} />
+        </div>
+        <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          {dueToday.length > 0 ? (
+            <Button variant="ghost" className="w-full sm:w-auto" onClick={onViewDue}>
+              View due today
+            </Button>
+          ) : null}
+          {overdue.length > 0 ? (
+            <Button className="w-full sm:w-auto" onClick={onViewOverdue}>
+              Review overdue
+            </Button>
+          ) : null}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
