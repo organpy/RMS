@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Menu, LogOut, Settings as SettingsIcon, User, Command as CommandIcon } from 'lucide-react'
 import Button from '../ui/Button'
@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/command'
 import { toast } from '@/hooks/use-toast'
 import { useBusiness } from '@/context/BusinessContext'
+import { emitCommand } from '@/lib/commandBus'
 
 export default function TopBar() {
   const location = useLocation()
@@ -67,11 +68,14 @@ export default function TopBar() {
       .join('')
   }, [user?.name])
 
-  const handleNavigate = (path) => {
-    navigate(path)
-    setMobileNavOpen(false)
-    setCommandOpen(false)
-  }
+  const handleNavigate = useCallback(
+    (path) => {
+      navigate(path)
+      setMobileNavOpen(false)
+      setCommandOpen(false)
+    },
+    [navigate],
+  )
 
   const handleSignIn = () => {
     toast({
@@ -79,6 +83,76 @@ export default function TopBar() {
       description: 'Hook up AuthProvider.login to complete this action.',
     })
   }
+
+  const runQuickAction = useCallback(
+    ({ path, command, detail }) => {
+      if (path) {
+        const isSamePath = location.pathname === path
+        if (!isSamePath) {
+          handleNavigate(path)
+        } else {
+          setCommandOpen(false)
+        }
+
+        if (command) {
+          emitCommand(command, detail, { persist: !isSamePath })
+        }
+        return
+      }
+
+      if (command) {
+        setCommandOpen(false)
+        emitCommand(command, detail)
+      } else {
+        setCommandOpen(false)
+      }
+    },
+    [handleNavigate, location.pathname],
+  )
+
+  const quickActions = useMemo(
+    () => [
+      {
+        id: 'members-add',
+        label: 'Add new member',
+        description: 'Open the add member dialog in Members.',
+        path: '/members',
+        command: 'members.openCreate',
+      },
+      {
+        id: 'members-suspended',
+        label: 'View suspended members',
+        description: 'Filter the member list to suspended accounts.',
+        path: '/members',
+        command: 'members.filterStatus',
+        detail: { status: 'SUSPENDED', message: 'Showing suspended members.' },
+      },
+      {
+        id: 'payments-add',
+        label: 'Record payment',
+        description: 'Jump to Payments and open the record dialog.',
+        path: '/payments',
+        command: 'payments.openCreate',
+      },
+      {
+        id: 'payments-overdue',
+        label: 'Review overdue payments',
+        description: 'Show overdue payments from the last 30 days.',
+        path: '/payments',
+        command: 'payments.filterStatus',
+        detail: { status: 'OVERDUE', period: 30, message: 'Showing overdue payments from the last 30 days.' },
+      },
+      {
+        id: 'payments-pending',
+        label: 'Follow up on pending payments',
+        description: 'Filter the payments list to pending invoices.',
+        path: '/payments',
+        command: 'payments.filterStatus',
+        detail: { status: 'PENDING', message: 'Showing pending payments requiring follow-up.' },
+      },
+    ],
+    [],
+  )
 
   return (
     <>
@@ -183,12 +257,18 @@ export default function TopBar() {
           )}
         </div>
       </header>
-      <CommandPalette open={isCommandOpen} onOpenChange={setCommandOpen} onNavigate={handleNavigate} />
+      <CommandPalette
+        open={isCommandOpen}
+        onOpenChange={setCommandOpen}
+        onNavigate={handleNavigate}
+        quickActions={quickActions}
+        onExecuteAction={runQuickAction}
+      />
     </>
   )
 }
 
-function CommandPalette({ open, onOpenChange, onNavigate }) {
+function CommandPalette({ open, onOpenChange, onNavigate, quickActions = [], onExecuteAction }) {
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
       <CommandInput placeholder="Jump to a page or search commands" />
@@ -205,6 +285,27 @@ function CommandPalette({ open, onOpenChange, onNavigate }) {
             </CommandItem>
           ))}
         </CommandGroup>
+        {quickActions.length ? (
+          <CommandGroup heading="Quick actions">
+            {quickActions.map((action) => (
+              <CommandItem
+                key={action.id}
+                value={action.label}
+                onSelect={() => {
+                  onOpenChange(false)
+                  onExecuteAction?.(action)
+                }}
+              >
+                <div className="flex flex-col">
+                  <span>{action.label}</span>
+                  {action.description ? (
+                    <span className="text-xs text-muted-foreground">{action.description}</span>
+                  ) : null}
+                </div>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        ) : null}
       </CommandList>
     </CommandDialog>
   )

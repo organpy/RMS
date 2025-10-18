@@ -68,6 +68,7 @@ export function BusinessProvider({ children }) {
   return <BusinessContext.Provider value={value}>{children}</BusinessContext.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useBusiness() {
   const context = useContext(BusinessContext)
   if (!context) {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import Card from '../components/ui/Card'
@@ -32,6 +32,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import { useCommand } from '@/hooks/useCommand'
 
 const statusOptions = [
   { value: 'ALL', label: 'All statuses' },
@@ -105,6 +106,44 @@ export default function Payments() {
   const { business } = useBusiness()
   const { toast } = useToast()
   const queryClient = useQueryClient()
+
+  const handleCommandOpenCreate = useCallback(() => {
+    setCreateOpen(true)
+  }, [])
+
+  const handleCommandFilterStatus = useCallback(
+    ({ status: nextStatus, message, period: nextPeriod }) => {
+      if (!nextStatus && !nextPeriod) return
+
+      if (nextStatus) {
+        const matchingOption = statusOptions.find(
+          (option) => option.value.toUpperCase() === nextStatus.toUpperCase(),
+        )
+        const valueToSet = matchingOption?.value ?? nextStatus
+        setStatus(valueToSet)
+
+        const statusLabel = matchingOption?.label ?? valueToSet.toString()
+        const description =
+          message ??
+          `Showing ${statusLabel.toLowerCase()} payments${nextPeriod ? ` from the last ${nextPeriod} days` : ''}.`
+
+        toast({
+          title: 'Filter applied',
+          description,
+        })
+      }
+
+      if (nextPeriod) {
+        setPeriod(String(nextPeriod))
+      }
+
+      setQuery('')
+    },
+    [toast],
+  )
+
+  useCommand('payments.openCreate', handleCommandOpenCreate)
+  useCommand('payments.filterStatus', handleCommandFilterStatus)
 
   const {
     register,
@@ -237,24 +276,6 @@ export default function Payments() {
       reset({ ...paymentFormDefaults })
     }
   }, [isCreateOpen, reset])
-
-  if (loading && !data) {
-    return <PaymentsSkeleton />
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-full flex-1 items-center justify-center">
-        <div className="w-full max-w-lg space-y-4">
-          <Alert variant="destructive">
-            <AlertTitle>Unable to load payments</AlertTitle>
-            <AlertDescription>{error.detail ?? 'Please try again later.'}</AlertDescription>
-          </Alert>
-          <Button onClick={refresh}>Retry</Button>
-        </div>
-      </div>
-    )
-  }
 
   const formatter = useMemo(
     () =>
@@ -414,6 +435,24 @@ export default function Payments() {
     ],
     [formatter, handleMarkAsPaid, handleSendReminder, pendingPaymentId, updatePaymentMutation.isPending],
   )
+
+  if (loading && !data) {
+    return <PaymentsSkeleton />
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-full flex-1 items-center justify-center">
+        <div className="w-full max-w-lg space-y-4">
+          <Alert variant="destructive">
+            <AlertTitle>Unable to load payments</AlertTitle>
+            <AlertDescription>{error.detail ?? 'Please try again later.'}</AlertDescription>
+          </Alert>
+          <Button onClick={refresh}>Retry</Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

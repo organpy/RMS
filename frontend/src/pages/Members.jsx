@@ -31,6 +31,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import { useCommand } from '@/hooks/useCommand'
 
 const statusOptions = [
   { value: 'ALL', label: 'All statuses' },
@@ -82,6 +83,39 @@ export default function Members() {
 
   const queryClient = useQueryClient()
   const { toast } = useToast()
+
+  const handleCommandOpenCreate = useCallback(() => {
+    setCreateOpen(true)
+  }, [])
+
+  const handleCommandFilterStatus = useCallback(
+    ({ status: nextStatus, message }) => {
+      if (!nextStatus) return
+      const matchingOption = statusOptions.find(
+        (option) => option.value.toUpperCase() === nextStatus.toUpperCase(),
+      )
+      const valueToSet = matchingOption?.value ?? nextStatus
+
+      setStatus(valueToSet)
+      setQuery('')
+
+      const statusLabel = matchingOption?.label
+      const description =
+        message ??
+        (statusLabel
+          ? `Showing ${statusLabel.toLowerCase()} members.`
+          : `Filter applied for ${valueToSet.toString().toLowerCase()} members.`)
+
+      toast({
+        title: 'Filter applied',
+        description,
+      })
+    },
+    [toast],
+  )
+
+  useCommand('members.openCreate', handleCommandOpenCreate)
+  useCommand('members.filterStatus', handleCommandFilterStatus)
 
   const {
     register,
@@ -225,24 +259,6 @@ export default function Members() {
 
   const isRefreshing = isFetching && Boolean(data)
 
-  if (loading && !data) {
-    return <MembersSkeleton />
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-full flex-1 items-center justify-center">
-        <div className="w-full max-w-lg space-y-4">
-          <Alert variant="destructive">
-            <AlertTitle>Unable to load members</AlertTitle>
-            <AlertDescription>{error.detail ?? 'Please try again later.'}</AlertDescription>
-          </Alert>
-          <Button onClick={refresh}>Retry</Button>
-        </div>
-      </div>
-    )
-  }
-
   const handleCreateSubmit = handleSubmit((values) => {
     const payload = {
       first_name: values.first_name,
@@ -364,6 +380,24 @@ export default function Members() {
     ],
     [handleChangeStatus, handleLogPayment, pendingMemberId, updateStatusMutation.isPending],
   )
+
+  if (loading && !data) {
+    return <MembersSkeleton />
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-full flex-1 items-center justify-center">
+        <div className="w-full max-w-lg space-y-4">
+          <Alert variant="destructive">
+            <AlertTitle>Unable to load members</AlertTitle>
+            <AlertDescription>{error.detail ?? 'Please try again later.'}</AlertDescription>
+          </Alert>
+          <Button onClick={refresh}>Retry</Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
