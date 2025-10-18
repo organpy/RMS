@@ -23,6 +23,7 @@ import {
 import { Skeleton } from '../components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import DataTable from '../components/data/DataTable'
+import Checkbox from '../components/ui/Checkbox'
 import {
   Sheet,
   SheetContent,
@@ -80,6 +81,8 @@ export default function Members() {
   const [query, setQuery] = useState('')
   const [isCreateOpen, setCreateOpen] = useState(false)
   const [pendingMemberId, setPendingMemberId] = useState(null)
+  const [selectedMemberIds, setSelectedMemberIds] = useState([])
+  const [isBulkUpdating, setBulkUpdating] = useState(false)
 
   const queryClient = useQueryClient()
   const { toast } = useToast()
@@ -257,6 +260,31 @@ export default function Members() {
     })
   }, [data?.members, query])
 
+  const decoratedMembers = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    return filteredMembers.map((member) => ({
+      ...member,
+      rowClassName: resolveMemberRowClassName(member, today),
+    }))
+  }, [filteredMembers])
+
+  const visibleMemberIds = useMemo(() => decoratedMembers.map((member) => member.id), [decoratedMembers])
+
+  const selectedMemberIdsSet = useMemo(() => new Set(selectedMemberIds), [selectedMemberIds])
+
+  useEffect(() => {
+    setSelectedMemberIds((previous) => {
+      const filtered = previous.filter((id) => visibleMemberIds.includes(id))
+      return filtered.length === previous.length ? previous : filtered
+    })
+  }, [visibleMemberIds])
+
+  const allVisibleSelected = visibleMemberIds.length > 0 && visibleMemberIds.every((id) => selectedMemberIdsSet.has(id))
+  const someVisibleSelected = selectedMemberIds.length > 0 && !allVisibleSelected
+  const hasSelection = selectedMemberIds.length > 0
+
   const isRefreshing = isFetching && Boolean(data)
 
   const handleCreateSubmit = handleSubmit((values) => {
@@ -292,8 +320,111 @@ export default function Members() {
     [toast],
   )
 
+  const handleToggleMemberSelection = useCallback((memberId, checked) => {
+    setSelectedMemberIds((previous) => {
+      if (checked) {
+        if (previous.includes(memberId)) {
+          return previous
+        }
+        return [...previous, memberId]
+      }
+      return previous.filter((id) => id !== memberId)
+    })
+  }, [])
+
+  const handleSelectAllVisible = useCallback(
+    (checked) => {
+      setSelectedMemberIds((previous) => {
+        if (checked) {
+          const merged = new Set([...previous, ...visibleMemberIds])
+          return Array.from(merged)
+        }
+        return previous.filter((id) => !visibleMemberIds.includes(id))
+      })
+    },
+    [visibleMemberIds],
+  )
+
+  const clearSelection = useCallback(() => {
+    setSelectedMemberIds([])
+  }, [])
+
+  const handleBulkChangeStatus = useCallback(
+    async (nextStatus) => {
+      if (!selectedMemberIds.length) return
+
+      const uppercaseStatus = nextStatus.toUpperCase()
+      const idsToUpdate = [...selectedMemberIds]
+
+      setBulkUpdating(true)
+      await queryClient.cancelQueries({ queryKey })
+      const previous = queryClient.getQueryData(queryKey)
+
+      queryClient.setQueryData(queryKey, (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          members: (old.members ?? []).map((member) =>
+            idsToUpdate.includes(member.id) ? { ...member, status: uppercaseStatus } : member,
+          ),
+        }
+      })
+
+      try {
+        await Promise.all(idsToUpdate.map((id) => updateMemberStatus(id, { status: uppercaseStatus })))
+        toast({
+          title: 'Members updated',
+          description: `Marked ${idsToUpdate.length} member${idsToUpdate.length === 1 ? '' : 's'} as ${uppercaseStatus.toLowerCase()}.`,
+        })
+        setSelectedMemberIds([])
+      } catch (mutationError) {
+        if (previous) {
+          queryClient.setQueryData(queryKey, previous)
+        }
+        toast({
+          variant: 'destructive',
+          title: 'Bulk update failed',
+          description: mutationError?.detail ?? 'Please try again later.',
+        })
+      } finally {
+        setBulkUpdating(false)
+        queryClient.invalidateQueries({ queryKey })
+      }
+    },
+    [queryClient, queryKey, selectedMemberIds, toast],
+  )
+
   const columns = useMemo(
     () => [
+      {
+        id: 'select',
+        header: () => (
+          <Checkbox
+            aria-label="Select all members"
+            checked={allVisibleSelected && visibleMemberIds.length > 0}
+            indeterminate={someVisibleSelected}
+            disabled={!visibleMemberIds.length}
+            onChange={(event) => handleSelectAllVisible(event.target.checked)}
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            aria-label={`Select ${row.original.first_name ?? 'member'}`}
+            checked={selectedMemberIdsSet.has(row.original.id)}
+            onChange={(event) => handleToggleMemberSelection(row.original.id, event.target.checked)}
+            className="mx-auto"
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+        meta: {
+          headerClassName: 'w-12 text-center',
+          cellClassName: 'w-12 text-center',
+          exportValue: () => '',
+          skipExport: true,
+        },
+        size: 48,
+      },
       {
         id: 'name',
         accessorFn: (member) => `${member.first_name ?? ''} ${member.last_name ?? ''}`.trim(),
@@ -378,7 +509,18 @@ export default function Members() {
         size: 200,
       },
     ],
-    [handleChangeStatus, handleLogPayment, pendingMemberId, updateStatusMutation.isPending],
+    [
+      allVisibleSelected,
+      handleChangeStatus,
+      handleLogPayment,
+      handleSelectAllVisible,
+      handleToggleMemberSelection,
+      pendingMemberId,
+      selectedMemberIdsSet,
+      someVisibleSelected,
+      updateStatusMutation.isPending,
+      visibleMemberIds,
+    ],
   )
 
   if (loading && !data) {
@@ -522,9 +664,20 @@ export default function Members() {
         </div>
       ) : null}
 
+      {hasSelection ? (
+        <BulkActionsBar
+          count={selectedMemberIds.length}
+          onMarkActive={() => handleBulkChangeStatus('ACTIVE')}
+          onMarkInactive={() => handleBulkChangeStatus('INACTIVE')}
+          onSuspend={() => handleBulkChangeStatus('SUSPENDED')}
+          onClear={clearSelection}
+          disabled={isBulkUpdating}
+        />
+      ) : null}
+
       <DataTable
         columns={columns}
-        data={filteredMembers}
+        data={decoratedMembers}
         exportFileName="members-export.csv"
         emptyState={{ title: 'No members found', description: 'Try adjusting filters or add a new member.' }}
         toolbarContent={(
@@ -567,6 +720,29 @@ function badgeVariantForStatus(status) {
     default:
       return 'info'
   }
+}
+
+function resolveMemberRowClassName(member, today) {
+  const status = (member.status ?? '').toUpperCase()
+  if (status === 'INACTIVE') {
+    return 'bg-slate-50'
+  }
+  if (status === 'SUSPENDED') {
+    return 'bg-amber-50/60'
+  }
+
+  if (member.next_payment_due) {
+    const dueDate = new Date(member.next_payment_due)
+    if (!Number.isNaN(dueDate.getTime())) {
+      const normalizedDue = new Date(dueDate)
+      normalizedDue.setHours(0, 0, 0, 0)
+      if (normalizedDue < today) {
+        return 'bg-rose-50/80'
+      }
+    }
+  }
+
+  return ''
 }
 
 function formatDate(value) {
@@ -664,6 +840,30 @@ function MemberDetailsSheet({ member, onChangeStatus, onLogPayment, isUpdating, 
         </div>
       </SheetContent>
     </Sheet>
+  )
+}
+
+function BulkActionsBar({ count, onMarkActive, onMarkInactive, onSuspend, onClear, disabled }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary">
+      <p className="font-medium">
+        {count} member{count === 1 ? '' : 's'} selected
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="secondary" onClick={onMarkActive} disabled={disabled}>
+          Mark active
+        </Button>
+        <Button size="sm" variant="secondary" onClick={onMarkInactive} disabled={disabled}>
+          Mark inactive
+        </Button>
+        <Button size="sm" variant="danger" onClick={onSuspend} disabled={disabled}>
+          Suspend
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onClear} disabled={disabled}>
+          Clear
+        </Button>
+      </div>
+    </div>
   )
 }
 
