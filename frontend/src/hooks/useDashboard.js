@@ -12,6 +12,8 @@ export function useDashboard({
   alertsLimit = 5,
   recentLimit = 10,
   upcomingDays = 7,
+  autoRefresh = false,
+  refreshIntervalMs = 60 * 60 * 1000,
 } = {}) {
   const params = useMemo(() => {
     const query = new URLSearchParams()
@@ -72,6 +74,7 @@ export function useDashboard({
       }
     },
     keepPreviousData: true,
+    refetchInterval: autoRefresh ? Math.max(refreshIntervalMs, 5 * 60 * 1000) : false,
   })
 
   return {
