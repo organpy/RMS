@@ -102,12 +102,18 @@ export default function Payments() {
   const [query, setQuery] = useState('')
   const [isCreateOpen, setCreateOpen] = useState(false)
   const [pendingPaymentId, setPendingPaymentId] = useState(null)
+  const [prefillMember, setPrefillMember] = useState(null)
 
   const { business } = useBusiness()
   const { toast } = useToast()
   const queryClient = useQueryClient()
 
-  const handleCommandOpenCreate = useCallback(() => {
+  const handleCommandOpenCreate = useCallback((detail = {}) => {
+    setPrefillMember({
+      memberName: detail.member_name ?? detail.memberName ?? '',
+      membershipPlan: detail.membership_plan ?? detail.membershipPlan ?? '',
+      memberId: detail.member_id ?? detail.memberId ?? null,
+    })
     setCreateOpen(true)
   }, [])
 
@@ -274,8 +280,16 @@ export default function Payments() {
   useEffect(() => {
     if (!isCreateOpen) {
       reset({ ...paymentFormDefaults })
+      setPrefillMember(null)
+      return
     }
-  }, [isCreateOpen, reset])
+
+    reset({
+      ...paymentFormDefaults,
+      member_name: prefillMember?.memberName ?? paymentFormDefaults.member_name,
+      membership_plan: prefillMember?.membershipPlan ?? paymentFormDefaults.membership_plan,
+    })
+  }, [isCreateOpen, prefillMember, reset])
 
   const formatter = useMemo(
     () =>
@@ -303,9 +317,15 @@ export default function Payments() {
       payment_date: values.payment_date ? new Date(values.payment_date).toISOString() : new Date().toISOString(),
     }
 
+    if (prefillMember?.memberId) {
+      payload.member_id = prefillMember.memberId
+    }
+
     createPaymentMutation.mutate(payload, {
       onSuccess: () => {
         reset({ ...paymentFormDefaults })
+        setPrefillMember(null)
+        setCreateOpen(false)
       },
     })
   })
