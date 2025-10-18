@@ -3,41 +3,20 @@ import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { zodResolver } from '@hookform/resolvers/zod'
-import Card from '../components/ui/Card'
-import Badge from '../components/ui/Badge'
-import Button from '../components/ui/Button'
-import Input from '../components/ui/Input'
-import Select from '../components/ui/Select'
-import Spinner from '../components/ui/Spinner'
 import { useMembers, createMember, updateMember, updateMemberStatus, deleteMember } from '../hooks/useMembers'
 import { useMemberFilters } from '../hooks/useMemberFilters'
-import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '../components/ui/dialog'
-import { Skeleton } from '../components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
-import DataTable from '../components/data/DataTable'
-import Checkbox from '../components/ui/Checkbox'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
 import { useCommand } from '@/hooks/useCommand'
-import { MemberForm } from '../components/members/MemberForm'
-import { memberFormDefaults, memberFormSchema } from '../components/members/memberFormSchema'
-import { MemberDetailsPanel } from '../components/members/MemberDetailsPanel'
-import { useMemberPaymentHistory } from '../hooks/useMemberPaymentHistory'
 import { emitCommand } from '@/lib/commandBus'
+import { MemberCreateDialog } from '../components/members/MemberCreateDialog'
+import { MemberEditOverlay } from '../components/members/MemberEditOverlay'
+import { MemberDetailsOverlay } from '../components/members/MemberDetailsOverlay'
+import { MemberDeleteDialog } from '../components/members/MemberDeleteDialog'
+import { MemberFilters } from '../components/members/MemberFilters'
+import { MemberTable } from '../components/members/MemberTable'
+import { memberFormDefaults, memberFormSchema } from '../components/members/memberFormSchema'
+import { useMemberPaymentHistory } from '../hooks/useMemberPaymentHistory'
+import { normalizeMemberStatus } from '@/utils/members'
 
 const statusOptions = [
   { value: 'ALL', label: 'All statuses' },
@@ -192,7 +171,7 @@ export default function Members() {
     defaultValues: memberFormDefaults,
   })
 
-  const { members, meta, loading, error, refresh, isFetching, queryKey } = useMembers({
+  const { members = [], meta, loading, error, refresh, isFetching, queryKey } = useMembers({
     status,
     search: searchTerm.trim(),
     page,
@@ -418,65 +397,6 @@ export default function Members() {
     }
   }, [])
 
-  const filteredMembers = useMemo(() => {
-    if (!members?.length) return members
-
-    const normalizedQuery = searchTerm.trim().toLowerCase()
-    if (!normalizedQuery) {
-      return members
-    }
-
-    return members.filter((member) =>
-      [member.first_name, member.last_name, member.email, member.membership_plan]
-        .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(normalizedQuery)),
-    )
-  }, [members, searchTerm])
-
-  const decoratedMembers = useMemo(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    return filteredMembers.map((member) => ({
-      ...member,
-      rowClassName: resolveMemberRowClassName(member, today),
-    }))
-  }, [filteredMembers])
-
-  const visibleMemberIds = useMemo(() => decoratedMembers.map((member) => member.id), [decoratedMembers])
-
-  const selectedMemberIdsSet = useMemo(() => new Set(selectedMemberIds), [selectedMemberIds])
-
-  useEffect(() => {
-    setSelectedMemberIds((previous) => {
-      const filtered = previous.filter((id) => visibleMemberIds.includes(id))
-      return filtered.length === previous.length ? previous : filtered
-    })
-  }, [visibleMemberIds])
-
-  const allVisibleSelected = visibleMemberIds.length > 0 && visibleMemberIds.every((id) => selectedMemberIdsSet.has(id))
-  const someVisibleSelected = selectedMemberIds.length > 0 && !allVisibleSelected
-  const hasSelection = selectedMemberIds.length > 0
-
-  const selectionSummary = useMemo(() => {
-    if (!hasSelection) return ''
-    const statusCounts = decoratedMembers.reduce((acc, member) => {
-      if (!selectedMemberIdsSet.has(member.id)) return acc
-      const status = normalizeMemberStatus(member.status)
-      acc[status] = (acc[status] ?? 0) + 1
-      return acc
-    }, {})
-
-    const statusEntries = Object.entries(statusCounts).map(([status, count]) => `${count} ${formatStatusDisplay(status, count)}`)
-
-    return statusEntries.length ? statusEntries.join(', ') : ''
-  }, [decoratedMembers, hasSelection, selectedMemberIdsSet])
-
-  const isRefreshing = isFetching && members.length > 0
-
-  const totalCount = meta?.total ?? members.length
-  const pageLimit = meta?.limit ?? pageSize
-
   const isDetailStatusUpdating =
     detailMember != null && pendingMemberId === detailMember.id && updateStatusMutation.isPending
   const isDetailDeleting =
@@ -606,9 +526,7 @@ export default function Members() {
   )
 
   const handleEditOpenChange = useCallback((nextOpen) => {
-    if (!nextOpen) {
-      setEditOpen(false)
-    }
+    setEditOpen(nextOpen)
   }, [])
 
   const handleCloseEdit = useCallback(() => {
@@ -652,41 +570,12 @@ export default function Members() {
     [handleChangeStatus],
   )
 
-  const handleToggleMemberSelection = useCallback((memberId, checked) => {
-    setSelectedMemberIds((previous) => {
-      if (checked) {
-        if (previous.includes(memberId)) {
-          return previous
-        }
-        return [...previous, memberId]
-      }
-      return previous.filter((id) => id !== memberId)
-    })
-  }, [])
-
-  const handleSelectAllVisible = useCallback(
-    (checked) => {
-      setSelectedMemberIds((previous) => {
-        if (checked) {
-          const merged = new Set([...previous, ...visibleMemberIds])
-          return Array.from(merged)
-        }
-        return previous.filter((id) => !visibleMemberIds.includes(id))
-      })
-    },
-    [visibleMemberIds],
-  )
-
-  const clearSelection = useCallback(() => {
-    setSelectedMemberIds([])
-  }, [])
-
   const handleBulkChangeStatus = useCallback(
-    async (nextStatus) => {
-      if (!selectedMemberIds.length) return
+    async (nextStatus, memberIds) => {
+      if (!memberIds?.length) return
 
       const uppercaseStatus = nextStatus.toUpperCase()
-      const idsToUpdate = [...selectedMemberIds]
+      const idsToUpdate = [...memberIds]
 
       setBulkUpdating(true)
       await queryClient.cancelQueries({ queryKey })
@@ -723,181 +612,68 @@ export default function Members() {
         queryClient.invalidateQueries({ queryKey })
       }
     },
-    [queryClient, queryKey, selectedMemberIds, toast],
+    [queryClient, queryKey, toast],
   )
 
-  const handleBulkSendReminder = useCallback(async () => {
-    if (!selectedMemberIds.length) return
+  const handleBulkSendReminder = useCallback(
+    async (memberIds) => {
+      if (!memberIds?.length) return
 
-    setBulkNotifying(true)
+      setBulkNotifying(true)
 
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 400))
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 400))
 
-      toast({
-        title: 'Reminders queued',
-        description: `We will remind ${selectedMemberIds.length} member${selectedMemberIds.length === 1 ? '' : 's'} about their outstanding balances once messaging is wired up.`,
-      })
-    } finally {
-      setBulkNotifying(false)
-    }
-  }, [selectedMemberIds, toast])
+        toast({
+          title: 'Reminders queued',
+          description: `We will remind ${memberIds.length} member${memberIds.length === 1 ? '' : 's'} about their outstanding balances once messaging is wired up.`,
+        })
+      } finally {
+        setBulkNotifying(false)
+      }
+    },
+    [toast],
+  )
 
-  const columns = useMemo(
-    () => [
-      {
-        id: 'select',
-        header: () => (
-          <Checkbox
-            aria-label="Select all members"
-            checked={allVisibleSelected && visibleMemberIds.length > 0}
-            indeterminate={someVisibleSelected}
-            disabled={!visibleMemberIds.length}
-            onChange={(event) => handleSelectAllVisible(event.target.checked)}
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            aria-label={`Select ${row.original.first_name ?? 'member'}`}
-            checked={selectedMemberIdsSet.has(row.original.id)}
-            onChange={(event) => handleToggleMemberSelection(row.original.id, event.target.checked)}
-            className="mx-auto"
-          />
-        ),
-        enableSorting: false,
-        enableHiding: false,
-        meta: {
-          headerClassName: 'w-12 text-center',
-          cellClassName: 'w-12 text-center',
-          exportValue: () => '',
-          skipExport: true,
-        },
-        size: 48,
-      },
-      {
-        id: 'name',
-        accessorFn: (member) => `${member.first_name ?? ''} ${member.last_name ?? ''}`.trim(),
-        header: 'Member',
-        cell: ({ row }) => {
-          const member = row.original
-          return (
-            <div>
-              <p className="text-sm font-semibold text-slate-900">
-                {member.first_name} {member.last_name}
-              </p>
-              <p className="text-xs text-slate-500">{member.email}</p>
-            </div>
-          )
-        },
-        meta: {
-          exportValue: (member) => `${member.first_name ?? ''} ${member.last_name ?? ''}`.trim(),
-        },
-        size: 260,
-      },
-      {
-        accessorKey: 'status',
-        header: 'Status',
-        cell: ({ row }) => {
-          const member = row.original
-          return <Badge variant={badgeVariantForStatus(member.status)}>{member.status}</Badge>
-        },
-        meta: {
-          exportValue: (member) => member.status ?? '',
-        },
-        size: 120,
-      },
-      {
-        id: 'plan',
-        accessorFn: (member) => member.membership_plan ?? '',
-        header: 'Plan',
-        cell: ({ row }) => {
-          const member = row.original
-          return (
-            <div>
-              <p className="text-sm text-slate-900">{member.membership_plan ?? 'Not assigned'}</p>
-              <p className="text-xs text-slate-500">Joined {formatDate(member.join_date)}</p>
-            </div>
-          )
-        },
-        meta: {
-          exportValue: (member) => member.membership_plan ?? '',
-        },
-        size: 200,
-      },
-      {
-        accessorKey: 'next_payment_due',
-        id: 'billing',
-        header: 'Billing',
-        cell: ({ row }) => {
-          const member = row.original
-          return <div className="text-sm text-slate-900">Due {formatDate(member.next_payment_due)}</div>
-        },
-        meta: {
-          exportValue: (member) => formatDate(member.next_payment_due),
-        },
-        size: 160,
-      },
-      {
-        id: 'actions',
-        header: 'Actions',
-        cell: ({ row }) => (
-          <MemberRowActions
-            member={row.original}
-            onView={handleViewMember}
-            onChangeStatus={handleChangeStatus}
-            onRecordPayment={handleRecordPayment}
-            onSendReminder={handleSendReminder}
-            onEdit={handleOpenEdit}
-            isUpdating={pendingMemberId === row.original.id && updateStatusMutation.isPending}
-            isEditing={editingMember?.id === row.original.id && updateMemberMutation.isPending}
-          />
-        ),
-        enableSorting: false,
-        enableHiding: false,
-        meta: {
-          headerClassName: 'text-right',
-          cellClassName: 'text-right',
-          exportValue: () => '',
-        },
-        size: 200,
-      },
-    ],
+  const filtersToolbar = useMemo(
+    () => (
+      <MemberFilters
+        searchTerm={searchTerm}
+        onSearchChange={handleSearchChange}
+        status={status}
+        statusOptions={statusOptions}
+        onStatusChange={handleStatusFilterChange}
+        classFilter={classFilter}
+        classOptions={classOptions}
+        onClassChange={handleClassFilterChange}
+        groupFilter={groupFilter}
+        groupSelectOptions={groupSelectOptions}
+        groupSelectPlaceholder={groupSelectPlaceholder}
+        onGroupChange={handleGroupFilterChange}
+        filtersLoading={filtersLoading}
+        hasGroupOptions={Boolean(groupOptions?.length)}
+        onRefresh={refresh}
+        isRefreshing={isFetching}
+      />
+    ),
     [
-      allVisibleSelected,
-      handleChangeStatus,
-      handleOpenEdit,
-      handleRecordPayment,
-      handleSendReminder,
-      handleViewMember,
-      handleSelectAllVisible,
-      handleToggleMemberSelection,
-      pendingMemberId,
-      editingMember,
-      selectedMemberIdsSet,
-      someVisibleSelected,
-      updateMemberMutation.isPending,
-      updateStatusMutation.isPending,
-      visibleMemberIds,
+      classFilter,
+      classOptions,
+      filtersLoading,
+      groupFilter,
+      groupOptions,
+      groupSelectOptions,
+      groupSelectPlaceholder,
+      handleClassFilterChange,
+      handleGroupFilterChange,
+      handleSearchChange,
+      handleStatusFilterChange,
+      isFetching,
+      refresh,
+      searchTerm,
+      status,
     ],
   )
-
-  if (loading && !members.length) {
-    return <MembersSkeleton />
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-full flex-1 items-center justify-center">
-        <div className="w-full max-w-lg space-y-4">
-          <Alert variant="destructive">
-            <AlertTitle>Unable to load members</AlertTitle>
-            <AlertDescription>{error.detail ?? 'Please try again later.'}</AlertDescription>
-          </Alert>
-          <Button onClick={refresh}>Retry</Button>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-6">
@@ -906,416 +682,82 @@ export default function Members() {
           <h1 className="text-2xl font-semibold text-slate-900">Members</h1>
           <p className="mt-1 text-sm text-slate-500">Track member status, billing, and plan information.</p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button>Add Member</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add a member</DialogTitle>
-              <DialogDescription>Capture the essentials and we&apos;ll sync the rest once the backend is ready.</DialogDescription>
-            </DialogHeader>
-            <MemberForm
-              form={createForm}
-              onSubmit={handleCreateMember}
-              onCancel={() => {
-                setCreateOpen(false)
-                createForm.reset({ ...memberFormDefaults })
-              }}
-              isSubmitting={createMemberMutation.isPending}
-              submitLabel="Create member"
-            />
-          </DialogContent>
-        </Dialog>
-        {isDesktop ? (
-          <Dialog open={isEditOpen} onOpenChange={handleEditOpenChange}>
-            <DialogContent className="max-h-[85vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingMember ? `Edit ${editingMember.first_name} ${editingMember.last_name}` : 'Edit member'}
-                </DialogTitle>
-                <DialogDescription>Update member profile details and status.</DialogDescription>
-              </DialogHeader>
-              <MemberForm
-                form={editForm}
-                onSubmit={handleEditMember}
-                onCancel={handleCloseEdit}
-                isSubmitting={updateMemberMutation.isPending}
-                submitLabel="Save changes"
-                cancelLabel="Close"
-              />
-            </DialogContent>
-          </Dialog>
-        ) : (
-          <Sheet open={isEditOpen} onOpenChange={handleEditOpenChange}>
-            <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>
-                  {editingMember ? `Edit ${editingMember.first_name} ${editingMember.last_name}` : 'Edit member'}
-                </SheetTitle>
-                <SheetDescription>Make quick changes while staying on the members list.</SheetDescription>
-              </SheetHeader>
-              <div className="mt-4">
-                <MemberForm
-                  form={editForm}
-                  onSubmit={handleEditMember}
-                  onCancel={handleCloseEdit}
-                  isSubmitting={updateMemberMutation.isPending}
-                  submitLabel="Save changes"
-                  cancelLabel="Close"
-                />
-              </div>
-            </SheetContent>
-          </Sheet>
-        )}
-        {isDesktop ? (
-          <Dialog open={isDetailsOpen} onOpenChange={handleDetailsOpenChange}>
-            <DialogContent className="max-h-[85vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {detailMember ? `${detailMember.first_name} ${detailMember.last_name}` : 'Member details'}
-                </DialogTitle>
-                <DialogDescription>Review recent activity and member insights.</DialogDescription>
-              </DialogHeader>
-              <MemberDetailsPanel
-                member={detailMember}
-                payments={detailPayments}
-                paymentsLoading={detailPaymentsLoading}
-                onEdit={handleOpenEdit}
-                onRecordPayment={handleRecordPayment}
-                onSendReminder={handleSendReminder}
-                onChangeStatus={handleDetailStatusChange}
-                onRequestDelete={handleRequestDelete}
-                onRefreshPayments={refreshDetailPayments}
-                isUpdatingStatus={isDetailStatusUpdating}
-                isDeleting={isDetailDeleting}
-              />
-            </DialogContent>
-          </Dialog>
-        ) : (
-          <Sheet open={isDetailsOpen} onOpenChange={handleDetailsOpenChange}>
-            <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>
-                  {detailMember ? `${detailMember.first_name} ${detailMember.last_name}` : 'Member details'}
-                </SheetTitle>
-                <SheetDescription>Review recent activity and member insights.</SheetDescription>
-              </SheetHeader>
-              <div className="mt-4">
-                <MemberDetailsPanel
-                  member={detailMember}
-                  payments={detailPayments}
-                  paymentsLoading={detailPaymentsLoading}
-                  onEdit={handleOpenEdit}
-                  onRecordPayment={handleRecordPayment}
-                  onSendReminder={handleSendReminder}
-                  onChangeStatus={handleDetailStatusChange}
-                  onRequestDelete={handleRequestDelete}
-                  onRefreshPayments={refreshDetailPayments}
-                  isUpdatingStatus={isDetailStatusUpdating}
-                  isDeleting={isDetailDeleting}
-                />
-              </div>
-            </SheetContent>
-          </Sheet>
-        )}
+        <MemberCreateDialog
+          open={isCreateOpen}
+          onOpenChange={setCreateOpen}
+          form={createForm}
+          onSubmit={handleCreateMember}
+          onCancel={() => setCreateOpen(false)}
+          isSubmitting={createMemberMutation.isPending}
+        />
       </section>
 
-      {isRefreshing ? (
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-          <Spinner size="sm" className="text-primary" />
-          Syncing the latest member data…
-        </div>
-      ) : null}
-
-      {hasSelection ? (
-        <BulkActionsBar
-          count={selectedMemberIds.length}
-          onMarkActive={() => handleBulkChangeStatus('ACTIVE')}
-          onMarkInactive={() => handleBulkChangeStatus('INACTIVE')}
-          onSuspend={() => handleBulkChangeStatus('SUSPENDED')}
-          onSendReminder={handleBulkSendReminder}
-          onClear={clearSelection}
-          disabled={isBulkUpdating || isBulkNotifying}
-          summary={selectionSummary}
-        />
-      ) : null}
-
-      <DataTable
-        columns={columns}
-        data={decoratedMembers}
-        exportFileName="members-export.csv"
-        emptyState={{ title: 'No members found', description: 'Try adjusting filters or add a new member.' }}
+      <MemberTable
+        members={members}
+        searchTerm={searchTerm}
+        loading={loading}
+        error={error}
+        onRetry={refresh}
+        meta={meta}
+        isFetching={isFetching}
         page={page}
-        pageSize={pageLimit}
-        totalCount={totalCount}
+        pageSize={pageSize}
         onPageChange={handlePageChange}
-        isPageLoading={isFetching}
-        toolbarContent={(
-          <>
-            <Input
-              value={searchTerm}
-              onChange={(event) => handleSearchChange(event.target.value)}
-              placeholder="Search members"
-              className="w-full sm:w-64"
-            />
-            <Select
-              value={status}
-              onChange={(event) => handleStatusFilterChange(event.target.value)}
-              className="w-full sm:w-48"
-            >
-              {statusOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
-            <Select
-              value={classFilter}
-              onChange={(event) => handleClassFilterChange(event.target.value)}
-              className="w-full sm:w-48"
-              disabled={filtersLoading}
-            >
-              <option value="ALL">All classes</option>
-              {classOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
-            <Select
-              value={groupFilter}
-              onChange={(event) => handleGroupFilterChange(event.target.value)}
-              className="w-full sm:w-56"
-              disabled={filtersLoading || (!groupOptions?.length && groupFilter === 'ALL')}
-            >
-              <option value="ALL">{groupSelectPlaceholder}</option>
-              {groupSelectOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.displayLabel}
-                </option>
-              ))}
-            </Select>
-            <Button variant="secondary" onClick={refresh} disabled={isFetching}>
-              Refresh
-            </Button>
-          </>
-        )}
+        selectedMemberIds={selectedMemberIds}
+        setSelectedMemberIds={setSelectedMemberIds}
+        onViewMember={handleViewMember}
+        onEditMember={handleOpenEdit}
+        onChangeStatus={handleChangeStatus}
+        onRecordPayment={handleRecordPayment}
+        onSendReminder={handleSendReminder}
+        statusUpdateMemberId={pendingMemberId}
+        isStatusMutating={updateStatusMutation.isPending}
+        editingMemberId={editingMember?.id ?? null}
+        isEditMutating={updateMemberMutation.isPending}
+        onBulkChangeStatus={handleBulkChangeStatus}
+        onBulkSendReminder={handleBulkSendReminder}
+        isBulkUpdating={isBulkUpdating}
+        isBulkNotifying={isBulkNotifying}
+        toolbarContent={filtersToolbar}
       />
 
-      <Dialog
+      <MemberEditOverlay
+        open={isEditOpen}
+        isDesktop={isDesktop}
+        onOpenChange={handleEditOpenChange}
+        member={editingMember}
+        form={editForm}
+        onSubmit={handleEditMember}
+        onCancel={handleCloseEdit}
+        isSubmitting={updateMemberMutation.isPending}
+      />
+
+      <MemberDetailsOverlay
+        open={isDetailsOpen}
+        isDesktop={isDesktop}
+        member={detailMember}
+        payments={detailPayments}
+        paymentsLoading={detailPaymentsLoading}
+        onOpenChange={handleDetailsOpenChange}
+        onEdit={handleOpenEdit}
+        onRecordPayment={handleRecordPayment}
+        onSendReminder={handleSendReminder}
+        onChangeStatus={handleDetailStatusChange}
+        onRequestDelete={handleRequestDelete}
+        onRefreshPayments={refreshDetailPayments}
+        isUpdatingStatus={isDetailStatusUpdating}
+        isDeleting={isDetailDeleting}
+      />
+
+      <MemberDeleteDialog
         open={isDeleteDialogOpen}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) {
-            handleCancelDelete()
-          } else {
-            setDeleteDialogOpen(true)
-          }
-        }}
-      >
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Remove member?</DialogTitle>
-            <DialogDescription>
-              {memberPendingDelete
-                ? `This will archive ${memberPendingDelete.first_name ?? ''} ${memberPendingDelete.last_name ?? ''} and remove them from active views.`
-                : 'This will archive the member and remove them from active views.'}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={handleCancelDelete} disabled={deleteMemberMutation.isPending}>
-              Cancel
-            </Button>
-            <Button type="button" variant="danger" onClick={handleConfirmDelete} disabled={deleteMemberMutation.isPending}>
-              {deleteMemberMutation.isPending ? 'Removing…' : 'Remove member'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        member={memberPendingDelete}
+        onCancel={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+        isPending={deleteMemberMutation.isPending}
+      />
     </div>
   )
+
 }
 
-function normalizeMemberStatus(status) {
-  const normalized = (status ?? '').toString().toUpperCase()
-  return ['ACTIVE', 'INACTIVE', 'SUSPENDED'].includes(normalized) ? normalized : 'ACTIVE'
-}
-
-function formatStatusDisplay(status, count) {
-  switch (status) {
-    case 'ACTIVE':
-      return `active member${count === 1 ? '' : 's'}`
-    case 'INACTIVE':
-      return `inactive member${count === 1 ? '' : 's'}`
-    case 'SUSPENDED':
-      return `suspended member${count === 1 ? '' : 's'}`
-    default:
-      return `member${count === 1 ? '' : 's'}`
-  }
-}
-
-function badgeVariantForStatus(status) {
-  switch ((status ?? '').toUpperCase()) {
-    case 'ACTIVE':
-      return 'success'
-    case 'INACTIVE':
-      return 'secondary'
-    case 'SUSPENDED':
-      return 'warning'
-    default:
-      return 'info'
-  }
-}
-
-function resolveMemberRowClassName(member, today) {
-  const status = (member.status ?? '').toUpperCase()
-  if (status === 'INACTIVE') {
-    return 'bg-slate-50'
-  }
-  if (status === 'SUSPENDED') {
-    return 'bg-amber-50/60'
-  }
-
-  if (member.next_payment_due) {
-    const dueDate = new Date(member.next_payment_due)
-    if (!Number.isNaN(dueDate.getTime())) {
-      const normalizedDue = new Date(dueDate)
-      normalizedDue.setHours(0, 0, 0, 0)
-      if (normalizedDue < today) {
-        return 'bg-rose-50/80'
-      }
-    }
-  }
-
-  return ''
-}
-
-function formatDate(value) {
-  if (!value) return '—'
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return '—'
-  }
-  return parsed.toLocaleDateString()
-}
-
-function MemberRowActions({
-  member,
-  onView,
-  onEdit,
-  onChangeStatus,
-  onRecordPayment,
-  onSendReminder,
-  isUpdating,
-  isEditing,
-}) {
-  const nextStatus = (member.status ?? '').toUpperCase() === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'
-
-  return (
-    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
-      <div className="flex items-center gap-2 sm:hidden">
-        <Button variant="outline" size="sm" className="flex-1" onClick={() => onView(member)}>
-          View details
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => onRecordPayment(member)}>
-          Record
-        </Button>
-      </div>
-      <div className="hidden items-center gap-2 sm:flex">
-        <Button variant="ghost" size="sm" onClick={() => onRecordPayment(member)}>
-          Log payment
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => onSendReminder(member)}>
-          Reminder
-        </Button>
-        <Button variant="secondary" size="sm" onClick={() => onEdit(member)} disabled={isEditing}>
-          {isEditing ? 'Saving…' : 'Edit'}
-        </Button>
-        <Button
-          size="sm"
-          variant={nextStatus === 'SUSPENDED' ? 'danger' : 'secondary'}
-          onClick={() => onChangeStatus(member.id, nextStatus)}
-          disabled={isUpdating}
-        >
-          {isUpdating ? 'Updating…' : nextStatus === 'SUSPENDED' ? 'Suspend' : 'Activate'}
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => onView(member)}>
-          Details
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function BulkActionsBar({ count, summary, onMarkActive, onMarkInactive, onSuspend, onSendReminder, onClear, disabled }) {
-  return (
-    <div className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <p className="font-medium">
-          {count} member{count === 1 ? '' : 's'} selected
-        </p>
-        {summary ? <p className="text-xs text-primary/80">Status breakdown: {summary}</p> : null}
-        <p className="mt-1 text-xs text-primary/70">Keep this selection to batch future exports and messaging actions as they roll out.</p>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="secondary" onClick={onMarkActive} disabled={disabled}>
-          Mark active
-        </Button>
-        <Button size="sm" variant="secondary" onClick={onMarkInactive} disabled={disabled}>
-          Mark inactive
-        </Button>
-        <Button size="sm" variant="danger" onClick={onSuspend} disabled={disabled}>
-          Suspend
-        </Button>
-        <Button size="sm" variant="secondary" onClick={onSendReminder} disabled={disabled}>
-          Send reminders
-        </Button>
-        <Button size="sm" variant="ghost" onClick={onClear} disabled={disabled}>
-          Clear
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function MembersSkeleton() {
-  return (
-    <div className="space-y-6">
-      <section className="flex flex-wrap items-center justify-between gap-4">
-        <div className="space-y-2">
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-72" />
-        </div>
-        <Skeleton className="h-10 w-32" />
-      </section>
-
-      <Card>
-        <div className="flex flex-wrap items-center gap-3">
-          <Skeleton className="h-10 w-full sm:w-64" />
-          <Skeleton className="h-10 w-40" />
-          <Skeleton className="h-10 w-28" />
-          <Skeleton className="h-10 w-28" />
-        </div>
-      </Card>
-
-      <Card>
-        <div className="space-y-4">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div
-              key={index}
-              className="grid gap-4 border-b pb-4 last:border-none last:pb-0 md:grid-cols-[2fr_1fr_1fr_1fr] md:items-center"
-            >
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-3 w-32" />
-              </div>
-              <Skeleton className="h-6 w-24 rounded-full" />
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-8 w-full md:w-44" />
-            </div>
-          ))}
-        </div>
-      </Card>
-    </div>
-  )
-}
