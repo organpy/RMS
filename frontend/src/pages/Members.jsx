@@ -88,7 +88,7 @@ export default function Members() {
   const [status, setStatus] = useState('ALL')
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
-  const [pageSize] = useState(10)
+  const pageSize = 10
   const [isCreateOpen, setCreateOpen] = useState(false)
   const [pendingMemberId, setPendingMemberId] = useState(null)
   const [selectedMemberIds, setSelectedMemberIds] = useState([])
@@ -141,14 +141,12 @@ export default function Members() {
     defaultValues: memberFormDefaults,
   })
 
-  const {
-  members,
-  loading,
-    error,
-    refresh,
-    isFetching,
-    queryKey,
-  } = useMembers({ status, search: searchTerm.trim(), page, pageSize })
+  const { members, meta, loading, error, refresh, isFetching, queryKey } = useMembers({
+    status,
+    search: searchTerm.trim(),
+    page,
+    pageSize,
+  })
 
   const createMemberMutation = useMutation({
     mutationFn: createMember,
@@ -259,6 +257,33 @@ export default function Members() {
   const hasSelection = selectedMemberIds.length > 0
 
   const isRefreshing = isFetching && members.length > 0
+
+  const totalCount = meta?.total ?? members.length
+  const pageLimit = meta?.limit ?? pageSize
+
+  useEffect(() => {
+    if (!meta) return
+    const limit = meta.limit ?? pageSize
+    const total = meta.total ?? 0
+    const totalPages = limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1
+
+    if (total === 0 && page !== 1) {
+      setPage(1)
+      return
+    }
+
+    if (page > totalPages) {
+      setPage(totalPages)
+    }
+  }, [meta, page, pageSize])
+
+  const handlePageChange = useCallback(
+    (nextPage) => {
+      if (!Number.isFinite(nextPage) || nextPage < 1) return
+      setPage(nextPage)
+    },
+    [setPage],
+  )
 
   const handleCreateSubmit = handleSubmit((values) => {
     const payload = {
@@ -649,6 +674,11 @@ export default function Members() {
         data={decoratedMembers}
         exportFileName="members-export.csv"
         emptyState={{ title: 'No members found', description: 'Try adjusting filters or add a new member.' }}
+        page={page}
+        pageSize={pageLimit}
+        totalCount={totalCount}
+        onPageChange={handlePageChange}
+        isPageLoading={isFetching}
         toolbarContent={(
           <>
             <Input
