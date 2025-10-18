@@ -64,6 +64,7 @@ export default function Members() {
   const [pendingMemberId, setPendingMemberId] = useState(null)
   const [selectedMemberIds, setSelectedMemberIds] = useState([])
   const [isBulkUpdating, setBulkUpdating] = useState(false)
+  const [isBulkNotifying, setBulkNotifying] = useState(false)
 
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -711,6 +712,23 @@ export default function Members() {
     [queryClient, queryKey, selectedMemberIds, toast],
   )
 
+  const handleBulkSendReminder = useCallback(async () => {
+    if (!selectedMemberIds.length) return
+
+    setBulkNotifying(true)
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 400))
+
+      toast({
+        title: 'Reminders queued',
+        description: `We will remind ${selectedMemberIds.length} member${selectedMemberIds.length === 1 ? '' : 's'} about their outstanding balances once messaging is wired up.`,
+      })
+    } finally {
+      setBulkNotifying(false)
+    }
+  }, [selectedMemberIds, toast])
+
   const columns = useMemo(
     () => [
       {
@@ -1002,8 +1020,9 @@ export default function Members() {
           onMarkActive={() => handleBulkChangeStatus('ACTIVE')}
           onMarkInactive={() => handleBulkChangeStatus('INACTIVE')}
           onSuspend={() => handleBulkChangeStatus('SUSPENDED')}
+          onSendReminder={handleBulkSendReminder}
           onClear={clearSelection}
-          disabled={isBulkUpdating}
+          disabled={isBulkUpdating || isBulkNotifying}
         />
       ) : null}
 
@@ -1200,7 +1219,7 @@ function MemberRowActions({
   )
 }
 
-function BulkActionsBar({ count, onMarkActive, onMarkInactive, onSuspend, onClear, disabled }) {
+function BulkActionsBar({ count, onMarkActive, onMarkInactive, onSuspend, onSendReminder, onClear, disabled }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary">
       <p className="font-medium">
@@ -1215,6 +1234,9 @@ function BulkActionsBar({ count, onMarkActive, onMarkInactive, onSuspend, onClea
         </Button>
         <Button size="sm" variant="danger" onClick={onSuspend} disabled={disabled}>
           Suspend
+        </Button>
+        <Button size="sm" variant="secondary" onClick={onSendReminder} disabled={disabled}>
+          Send reminders
         </Button>
         <Button size="sm" variant="ghost" onClick={onClear} disabled={disabled}>
           Clear
