@@ -10,6 +10,7 @@ import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import Spinner from '../components/ui/Spinner'
 import { useMembers, createMember, updateMemberStatus } from '../hooks/useMembers'
+import { useMemberFilters } from '../hooks/useMemberFilters'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert'
 import {
   Dialog,
@@ -87,6 +88,8 @@ const memberFormDefaults = {
 export default function Members() {
   const [status, setStatus] = useState('ALL')
   const [searchTerm, setSearchTerm] = useState('')
+  const [classFilter, setClassFilter] = useState('ALL')
+  const [groupFilter, setGroupFilter] = useState('ALL')
   const [page, setPage] = useState(1)
   const pageSize = 10
   const [isCreateOpen, setCreateOpen] = useState(false)
@@ -96,6 +99,7 @@ export default function Members() {
 
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const { classOptions, groupOptions, loading: filtersLoading } = useMemberFilters()
 
   const handleCommandOpenCreate = useCallback(() => {
     setCreateOpen(true)
@@ -109,9 +113,12 @@ export default function Members() {
       )
       const valueToSet = matchingOption?.value ?? nextStatus
 
-  setStatus(valueToSet)
-  setSearchTerm('')
-  setPage(1)
+      setStatus(valueToSet)
+      setSearchTerm('')
+      setClassFilter('ALL')
+      setGroupFilter('ALL')
+      setSelectedMemberIds([])
+      setPage(1)
 
       const statusLabel = matchingOption?.label
       const description =
@@ -131,6 +138,80 @@ export default function Members() {
   useCommand('members.openCreate', handleCommandOpenCreate)
   useCommand('members.filterStatus', handleCommandFilterStatus)
 
+  const normalizedClassId = classFilter === 'ALL' ? undefined : Number(classFilter)
+  const normalizedGroupId = groupFilter === 'ALL' ? undefined : Number(groupFilter)
+
+  const groupSelectOptions = useMemo(() => {
+    if (!groupOptions?.length) return []
+    if (normalizedClassId == null) {
+      return groupOptions.map((option) => ({
+        value: option.value,
+        displayLabel: `${option.label} (${option.className})`,
+        classId: option.classId,
+      }))
+    }
+
+    return groupOptions
+      .filter((option) => option.classId === normalizedClassId)
+      .map((option) => ({
+        value: option.value,
+        displayLabel: option.label,
+        classId: option.classId,
+      }))
+  }, [groupOptions, normalizedClassId])
+
+  useEffect(() => {
+    if (groupFilter === 'ALL') return
+
+    const candidate = groupOptions?.find((option) => option.value === groupFilter)
+    if (!candidate) {
+      setGroupFilter('ALL')
+      return
+    }
+
+    if (normalizedClassId != null && candidate.classId !== normalizedClassId) {
+      setGroupFilter('ALL')
+    }
+  }, [groupFilter, groupOptions, normalizedClassId, setGroupFilter])
+
+  const handleSearchChange = useCallback(
+    (value) => {
+      setSearchTerm(value)
+      setPage(1)
+      setSelectedMemberIds([])
+    },
+    [setPage, setSearchTerm, setSelectedMemberIds],
+  )
+
+  const handleStatusFilterChange = useCallback(
+    (nextStatus) => {
+      setStatus(nextStatus)
+      setPage(1)
+      setSelectedMemberIds([])
+    },
+    [setPage, setSelectedMemberIds, setStatus],
+  )
+
+  const handleClassFilterChange = useCallback(
+    (nextClassId) => {
+      setClassFilter(nextClassId)
+      setPage(1)
+      setSelectedMemberIds([])
+    },
+    [setClassFilter, setPage, setSelectedMemberIds],
+  )
+
+  const handleGroupFilterChange = useCallback(
+    (nextGroupId) => {
+      setGroupFilter(nextGroupId)
+      setPage(1)
+      setSelectedMemberIds([])
+    },
+    [setGroupFilter, setPage, setSelectedMemberIds],
+  )
+
+  const groupSelectPlaceholder = normalizedClassId ? 'All groups in class' : 'All groups'
+
   const {
     register,
     handleSubmit,
@@ -146,6 +227,8 @@ export default function Members() {
     search: searchTerm.trim(),
     page,
     pageSize,
+    classId: normalizedClassId,
+    groupId: normalizedGroupId,
   })
 
   const createMemberMutation = useMutation({
@@ -683,24 +766,44 @@ export default function Members() {
           <>
             <Input
               value={searchTerm}
-              onChange={(event) => {
-                setSearchTerm(event.target.value)
-                setPage(1)
-              }}
+              onChange={(event) => handleSearchChange(event.target.value)}
               placeholder="Search members"
               className="w-full sm:w-64"
             />
             <Select
               value={status}
-              onChange={(event) => {
-                setStatus(event.target.value)
-                setPage(1)
-              }}
+              onChange={(event) => handleStatusFilterChange(event.target.value)}
               className="w-full sm:w-48"
             >
               {statusOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={classFilter}
+              onChange={(event) => handleClassFilterChange(event.target.value)}
+              className="w-full sm:w-48"
+              disabled={filtersLoading}
+            >
+              <option value="ALL">All classes</option>
+              {classOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={groupFilter}
+              onChange={(event) => handleGroupFilterChange(event.target.value)}
+              className="w-full sm:w-56"
+              disabled={filtersLoading || (!groupOptions?.length && groupFilter === 'ALL')}
+            >
+              <option value="ALL">{groupSelectPlaceholder}</option>
+              {groupSelectOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.displayLabel}
                 </option>
               ))}
             </Select>

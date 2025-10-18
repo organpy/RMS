@@ -9,6 +9,8 @@ export function useMembers({
   search,
   page = 1,
   pageSize = 10,
+  classId,
+  groupId,
 } = {}) {
   const queryConfig = useMemo(() => {
     const params = new URLSearchParams()
@@ -19,6 +21,23 @@ export function useMembers({
     }
     if (search) {
       params.set('search', search)
+    }
+
+    const normalizedClassId =
+      classId === undefined || classId === null || Number.isNaN(Number(classId))
+        ? undefined
+        : Number(classId)
+    const normalizedGroupId =
+      groupId === undefined || groupId === null || Number.isNaN(Number(groupId))
+        ? undefined
+        : Number(groupId)
+
+    if (normalizedClassId) {
+      params.set('class_id', String(normalizedClassId))
+    }
+
+    if (normalizedGroupId) {
+      params.set('group_id', String(normalizedGroupId))
     }
 
     const safePage = Number.isFinite(page) && page > 0 ? page : 1
@@ -33,7 +52,7 @@ export function useMembers({
       skip,
       limit: safePageSize,
     }
-  }, [page, pageSize, search, status])
+  }, [classId, groupId, page, pageSize, search, status])
 
   const queryKey = ['members', queryConfig.paramsString]
 
