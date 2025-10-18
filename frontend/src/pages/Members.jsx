@@ -25,6 +25,14 @@ import { useToast } from '@/hooks/use-toast'
 import DataTable from '../components/data/DataTable'
 import Checkbox from '../components/ui/Checkbox'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -78,7 +86,9 @@ const memberFormDefaults = {
 
 export default function Members() {
   const [status, setStatus] = useState('ALL')
-  const [query, setQuery] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize] = useState(10)
   const [isCreateOpen, setCreateOpen] = useState(false)
   const [pendingMemberId, setPendingMemberId] = useState(null)
   const [selectedMemberIds, setSelectedMemberIds] = useState([])
@@ -99,8 +109,9 @@ export default function Members() {
       )
       const valueToSet = matchingOption?.value ?? nextStatus
 
-      setStatus(valueToSet)
-      setQuery('')
+  setStatus(valueToSet)
+  setSearchTerm('')
+  setPage(1)
 
       const statusLabel = matchingOption?.label
       const description =
@@ -131,73 +142,32 @@ export default function Members() {
   })
 
   const {
-    data,
-    loading,
+  members,
+  loading,
     error,
     refresh,
     isFetching,
     queryKey,
-  } = useMembers({ status: status === 'ALL' ? undefined : status })
+  } = useMembers({ status, search: searchTerm.trim(), page, pageSize })
 
   const createMemberMutation = useMutation({
     mutationFn: createMember,
-    onMutate: async (payload) => {
-      await queryClient.cancelQueries({ queryKey })
-      const previous = queryClient.getQueryData(queryKey)
-
-      const optimisticMember = {
-        id: `optimistic-${Date.now()}`,
-        first_name: payload.first_name ?? 'New',
-        last_name: payload.last_name ?? 'Member',
-        email: payload.email ?? 'pending@example.com',
-        membership_plan: payload.membership_plan ?? 'General membership',
-        status: payload.status ?? 'ACTIVE',
-        join_date: new Date().toISOString(),
-        next_payment_due: payload.next_payment_due ?? null,
-      }
-
-      queryClient.setQueryData(queryKey, (old) => {
-        if (!old) {
-          return { members: [optimisticMember] }
-        }
-        const members = old.members ?? []
-        return { ...old, members: [optimisticMember, ...members] }
-      })
-
-      return { previous, optimisticMember }
-    },
-    onSuccess: (result, _payload, context) => {
-      const nextMember = result ?? context?.optimisticMember
-      if (context?.optimisticMember && nextMember) {
-        queryClient.setQueryData(queryKey, (old) => {
-          if (!old) return old
-          return {
-            ...old,
-            members: (old.members ?? []).map((member) =>
-              member.id === context.optimisticMember.id ? nextMember : member,
-            ),
-          }
-        })
-      }
-
+    onSuccess: (nextMember) => {
       toast({
         title: 'Member added',
         description: `${nextMember?.first_name ?? 'New'} ${nextMember?.last_name ?? 'member'} was created.`,
       })
       setCreateOpen(false)
+      reset({ ...memberFormDefaults })
+      setPage(1)
+      queryClient.invalidateQueries({ queryKey: ['members'] })
     },
-    onError: (mutationError, _payload, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(queryKey, context.previous)
-      }
+    onError: (mutationError) => {
       toast({
         variant: 'destructive',
         title: 'Unable to add member',
         description: mutationError?.detail ?? 'Please try again later.',
       })
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey })
     },
   })
 
@@ -249,16 +219,19 @@ export default function Members() {
   }, [isCreateOpen, reset])
 
   const filteredMembers = useMemo(() => {
-    if (!data?.members) return []
-    if (!query) return data.members
+    if (!members?.length) return members
 
-    return data.members.filter((member) => {
-      const normalizedQuery = query.toLowerCase()
-      return [member.first_name, member.last_name, member.email, member.membership_plan]
+    const normalizedQuery = searchTerm.trim().toLowerCase()
+    if (!normalizedQuery) {
+      return members
+    }
+
+    return members.filter((member) =>
+      [member.first_name, member.last_name, member.email, member.membership_plan]
         .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(normalizedQuery))
-    })
-  }, [data?.members, query])
+        .some((value) => value.toLowerCase().includes(normalizedQuery)),
+    )
+  }, [members, searchTerm])
 
   const decoratedMembers = useMemo(() => {
     const today = new Date()
@@ -285,7 +258,7 @@ export default function Members() {
   const someVisibleSelected = selectedMemberIds.length > 0 && !allVisibleSelected
   const hasSelection = selectedMemberIds.length > 0
 
-  const isRefreshing = isFetching && Boolean(data)
+  const isRefreshing = isFetching && members.length > 0
 
   const handleCreateSubmit = handleSubmit((values) => {
     const payload = {
@@ -296,11 +269,7 @@ export default function Members() {
       status: values.status,
     }
 
-    createMemberMutation.mutate(payload, {
-      onSuccess: () => {
-        reset({ ...memberFormDefaults })
-      },
-    })
+    createMemberMutation.mutate(payload)
   })
 
   const handleChangeStatus = useCallback(
@@ -523,7 +492,7 @@ export default function Members() {
     ],
   )
 
-  if (loading && !data) {
+  if (loading && !members.length) {
     return <MembersSkeleton />
   }
 
@@ -683,14 +652,20 @@ export default function Members() {
         toolbarContent={(
           <>
             <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              value={searchTerm}
+              onChange={(event) => {
+                setSearchTerm(event.target.value)
+                setPage(1)
+              }}
               placeholder="Search members"
               className="w-full sm:w-64"
             />
             <Select
               value={status}
-              onChange={(event) => setStatus(event.target.value)}
+              onChange={(event) => {
+                setStatus(event.target.value)
+                setPage(1)
+              }}
               className="w-full sm:w-48"
             >
               {statusOptions.map((option) => (
