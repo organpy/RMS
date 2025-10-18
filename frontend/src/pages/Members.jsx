@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -8,13 +9,14 @@ import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Select from '../components/ui/Select'
 import Spinner from '../components/ui/Spinner'
-import { useMembers, createMember, updateMember, updateMemberStatus } from '../hooks/useMembers'
+import { useMembers, createMember, updateMember, updateMemberStatus, deleteMember } from '../hooks/useMembers'
 import { useMemberFilters } from '../hooks/useMemberFilters'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -29,11 +31,13 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from '@/components/ui/sheet'
 import { useCommand } from '@/hooks/useCommand'
 import { MemberForm } from '../components/members/MemberForm'
 import { memberFormDefaults, memberFormSchema } from '../components/members/memberFormSchema'
+import { MemberDetailsPanel } from '../components/members/MemberDetailsPanel'
+import { useMemberPaymentHistory } from '../hooks/useMemberPaymentHistory'
+import { emitCommand } from '@/lib/commandBus'
 
 const statusOptions = [
   { value: 'ALL', label: 'All statuses' },
@@ -52,11 +56,16 @@ export default function Members() {
   const [isCreateOpen, setCreateOpen] = useState(false)
   const [isEditOpen, setEditOpen] = useState(false)
   const [editingMember, setEditingMember] = useState(null)
+  const [isDetailsOpen, setDetailsOpen] = useState(false)
+  const [detailMember, setDetailMember] = useState(null)
+  const [memberPendingDelete, setMemberPendingDelete] = useState(null)
+  const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isDesktop, setIsDesktop] = useState(false)
   const [pendingMemberId, setPendingMemberId] = useState(null)
   const [selectedMemberIds, setSelectedMemberIds] = useState([])
   const [isBulkUpdating, setBulkUpdating] = useState(false)
 
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const { classOptions, groupOptions, loading: filtersLoading } = useMemberFilters()
@@ -191,6 +200,12 @@ export default function Members() {
     groupId: normalizedGroupId,
   })
 
+  const {
+    payments: detailPayments,
+    loading: detailPaymentsLoading,
+    refresh: refreshDetailPayments,
+  } = useMemberPaymentHistory(detailMember?.id, { enabled: isDetailsOpen })
+
   const createMemberMutation = useMutation({
     mutationFn: createMember,
     onSuccess: (nextMember) => {
@@ -301,6 +316,73 @@ export default function Members() {
     },
   })
 
+  const deleteMemberMutation = useMutation({
+    mutationFn: ({ id }) => deleteMember(id),
+    onMutate: async ({ id, member }) => {
+      await queryClient.cancelQueries({ queryKey })
+      const previous = queryClient.getQueryData(queryKey)
+
+      queryClient.setQueryData(queryKey, (old) => {
+        if (!old) return old
+        const filteredMembers = (old.members ?? []).filter((entry) => entry.id !== id)
+        const nextMeta = old.meta
+          ? {
+              ...old.meta,
+              total: Math.max(0, (old.meta.total ?? filteredMembers.length) - 1),
+            }
+          : old.meta
+
+        return {
+          ...old,
+          members: filteredMembers,
+          meta: nextMeta,
+        }
+      })
+
+      const previousSelection = selectedMemberIds
+      setSelectedMemberIds((prev) => prev.filter((selectedId) => selectedId !== id))
+
+      return { previous, member, previousSelection }
+    },
+    onSuccess: (_result, { member }) => {
+      const displayName = member
+        ? `${member.first_name ?? ''} ${member.last_name ?? ''}`.trim() || member.email || 'Member'
+        : 'Member'
+
+      toast({
+        title: 'Member removed',
+        description: `${displayName} was removed from the roster.`,
+      })
+
+      setDeleteDialogOpen(false)
+      setMemberPendingDelete(null)
+      setDetailMember((current) => {
+        if (current?.id === member?.id) {
+          setDetailsOpen(false)
+          return null
+        }
+        return current
+      })
+    },
+    onError: (mutationError, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKey, context.previous)
+      }
+      if (context?.previousSelection) {
+        setSelectedMemberIds(context.previousSelection)
+      }
+      toast({
+        variant: 'destructive',
+        title: 'Unable to remove member',
+        description: mutationError?.detail ?? 'Please try again later.',
+      })
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+      queryClient.invalidateQueries({ queryKey })
+    },
+  })
+
   useEffect(() => {
     if (!isCreateOpen) {
       createForm.reset({ ...memberFormDefaults })
@@ -313,6 +395,13 @@ export default function Members() {
       setEditingMember(null)
     }
   }, [editForm, isEditOpen])
+
+  useEffect(() => {
+    if (!isDetailsOpen) {
+      setDeleteDialogOpen(false)
+      setMemberPendingDelete(null)
+    }
+  }, [isDetailsOpen])
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
@@ -373,6 +462,11 @@ export default function Members() {
   const totalCount = meta?.total ?? members.length
   const pageLimit = meta?.limit ?? pageSize
 
+  const isDetailStatusUpdating =
+    detailMember != null && pendingMemberId === detailMember.id && updateStatusMutation.isPending
+  const isDetailDeleting =
+    detailMember != null && memberPendingDelete?.id === detailMember.id && deleteMemberMutation.isPending
+
   useEffect(() => {
     if (!meta) return
     const limit = meta.limit ?? pageSize
@@ -419,11 +513,43 @@ export default function Members() {
     [updateStatusMutation],
   )
 
-  const handleLogPayment = useCallback(
+  const handleRecordPayment = useCallback(
     (member) => {
+      if (!member) return
+
+      const fullName = `${member.first_name ?? ''} ${member.last_name ?? ''}`.trim()
+      const memberName = fullName || member.email || 'Member'
+
+      emitCommand(
+        'payments.openCreate',
+        {
+          member_id: member.id,
+          member_name: memberName,
+          membership_plan: member.membership_plan ?? '',
+        },
+        { persist: true },
+      )
+
+      setDetailsOpen(false)
+      setDetailMember(null)
+      setEditOpen(false)
+      setEditingMember(null)
+
+      navigate('/payments')
+    },
+    [navigate],
+  )
+
+  const handleSendReminder = useCallback(
+    (member) => {
+      if (!member) return
+
+      const fullName = `${member.first_name ?? ''} ${member.last_name ?? ''}`.trim()
+      const target = fullName || member.email || 'this member'
+
       toast({
-        title: 'Log payment coming soon',
-        description: `A dedicated flow for ${member.first_name} ${member.last_name} will ship in Phase 6.`,
+        title: 'Reminder queued',
+        description: `We'll remind ${target} about their outstanding balance.`,
       })
     },
     [toast],
@@ -441,6 +567,8 @@ export default function Members() {
         status: normalizeMemberStatus(member.status),
       })
       setEditOpen(true)
+      setDetailsOpen(false)
+      setDetailMember(null)
     },
     [editForm],
   )
@@ -471,6 +599,43 @@ export default function Members() {
   const handleCloseEdit = useCallback(() => {
     setEditOpen(false)
   }, [])
+
+  const handleViewMember = useCallback((member) => {
+    if (!member) return
+    setDetailMember(member)
+    setDetailsOpen(true)
+  }, [])
+
+  const handleDetailsOpenChange = useCallback((nextOpen) => {
+    setDetailsOpen(nextOpen)
+    if (!nextOpen) {
+      setDetailMember(null)
+    }
+  }, [])
+
+  const handleRequestDelete = useCallback((member) => {
+    if (!member) return
+    setMemberPendingDelete(member)
+    setDeleteDialogOpen(true)
+  }, [])
+
+  const handleCancelDelete = useCallback(() => {
+    setDeleteDialogOpen(false)
+    setMemberPendingDelete(null)
+  }, [])
+
+  const handleConfirmDelete = useCallback(() => {
+    if (!memberPendingDelete) return
+    deleteMemberMutation.mutate({ id: memberPendingDelete.id, member: memberPendingDelete })
+  }, [deleteMemberMutation, memberPendingDelete])
+
+  const handleDetailStatusChange = useCallback(
+    (member, nextStatus) => {
+      if (!member) return
+      handleChangeStatus(member.id, nextStatus)
+    },
+    [handleChangeStatus],
+  )
 
   const handleToggleMemberSelection = useCallback((memberId, checked) => {
     setSelectedMemberIds((previous) => {
@@ -646,8 +811,10 @@ export default function Members() {
         cell: ({ row }) => (
           <MemberRowActions
             member={row.original}
+            onView={handleViewMember}
             onChangeStatus={handleChangeStatus}
-            onLogPayment={handleLogPayment}
+            onRecordPayment={handleRecordPayment}
+            onSendReminder={handleSendReminder}
             onEdit={handleOpenEdit}
             isUpdating={pendingMemberId === row.original.id && updateStatusMutation.isPending}
             isEditing={editingMember?.id === row.original.id && updateMemberMutation.isPending}
@@ -666,15 +833,17 @@ export default function Members() {
     [
       allVisibleSelected,
       handleChangeStatus,
-  handleLogPayment,
-  handleOpenEdit,
+      handleOpenEdit,
+      handleRecordPayment,
+      handleSendReminder,
+      handleViewMember,
       handleSelectAllVisible,
       handleToggleMemberSelection,
       pendingMemberId,
-  editingMember,
+      editingMember,
       selectedMemberIdsSet,
       someVisibleSelected,
-  updateMemberMutation.isPending,
+      updateMemberMutation.isPending,
       updateStatusMutation.isPending,
       visibleMemberIds,
     ],
@@ -767,6 +936,57 @@ export default function Members() {
             </SheetContent>
           </Sheet>
         )}
+        {isDesktop ? (
+          <Dialog open={isDetailsOpen} onOpenChange={handleDetailsOpenChange}>
+            <DialogContent className="max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {detailMember ? `${detailMember.first_name} ${detailMember.last_name}` : 'Member details'}
+                </DialogTitle>
+                <DialogDescription>Review recent activity and member insights.</DialogDescription>
+              </DialogHeader>
+              <MemberDetailsPanel
+                member={detailMember}
+                payments={detailPayments}
+                paymentsLoading={detailPaymentsLoading}
+                onEdit={handleOpenEdit}
+                onRecordPayment={handleRecordPayment}
+                onSendReminder={handleSendReminder}
+                onChangeStatus={handleDetailStatusChange}
+                onRequestDelete={handleRequestDelete}
+                onRefreshPayments={refreshDetailPayments}
+                isUpdatingStatus={isDetailStatusUpdating}
+                isDeleting={isDetailDeleting}
+              />
+            </DialogContent>
+          </Dialog>
+        ) : (
+          <Sheet open={isDetailsOpen} onOpenChange={handleDetailsOpenChange}>
+            <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>
+                  {detailMember ? `${detailMember.first_name} ${detailMember.last_name}` : 'Member details'}
+                </SheetTitle>
+                <SheetDescription>Review recent activity and member insights.</SheetDescription>
+              </SheetHeader>
+              <div className="mt-4">
+                <MemberDetailsPanel
+                  member={detailMember}
+                  payments={detailPayments}
+                  paymentsLoading={detailPaymentsLoading}
+                  onEdit={handleOpenEdit}
+                  onRecordPayment={handleRecordPayment}
+                  onSendReminder={handleSendReminder}
+                  onChangeStatus={handleDetailStatusChange}
+                  onRequestDelete={handleRequestDelete}
+                  onRefreshPayments={refreshDetailPayments}
+                  isUpdatingStatus={isDetailStatusUpdating}
+                  isDeleting={isDetailDeleting}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
+        )}
       </section>
 
       {isRefreshing ? (
@@ -848,6 +1068,36 @@ export default function Members() {
           </>
         )}
       />
+
+      <Dialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            handleCancelDelete()
+          } else {
+            setDeleteDialogOpen(true)
+          }
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Remove member?</DialogTitle>
+            <DialogDescription>
+              {memberPendingDelete
+                ? `This will archive ${memberPendingDelete.first_name ?? ''} ${memberPendingDelete.last_name ?? ''} and remove them from active views.`
+                : 'This will archive the member and remove them from active views.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={handleCancelDelete} disabled={deleteMemberMutation.isPending}>
+              Cancel
+            </Button>
+            <Button type="button" variant="danger" onClick={handleConfirmDelete} disabled={deleteMemberMutation.isPending}>
+              {deleteMemberMutation.isPending ? 'Removing…' : 'Remove member'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -902,31 +1152,37 @@ function formatDate(value) {
   return parsed.toLocaleDateString()
 }
 
-function MemberRowActions({ member, onChangeStatus, onLogPayment, onEdit, isUpdating, isEditing }) {
+function MemberRowActions({
+  member,
+  onView,
+  onEdit,
+  onChangeStatus,
+  onRecordPayment,
+  onSendReminder,
+  isUpdating,
+  isEditing,
+}) {
   const nextStatus = (member.status ?? '').toUpperCase() === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'
 
   return (
-    <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end">
-      <MemberDetailsSheet
-        member={member}
-        onChangeStatus={onChangeStatus}
-        onLogPayment={onLogPayment}
-        onEdit={onEdit}
-        isUpdating={isUpdating}
-        isEditing={isEditing}
-        nextStatus={nextStatus}
-      />
-      <div className="hidden items-center gap-2 sm:flex">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => onEdit(member)}
-          disabled={isEditing}
-        >
-          {isEditing ? 'Saving…' : 'Edit'}
+    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
+      <div className="flex items-center gap-2 sm:hidden">
+        <Button variant="outline" size="sm" className="flex-1" onClick={() => onView(member)}>
+          View details
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => onLogPayment(member)}>
+        <Button variant="ghost" size="sm" onClick={() => onRecordPayment(member)}>
+          Record
+        </Button>
+      </div>
+      <div className="hidden items-center gap-2 sm:flex">
+        <Button variant="ghost" size="sm" onClick={() => onRecordPayment(member)}>
           Log payment
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => onSendReminder(member)}>
+          Reminder
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => onEdit(member)} disabled={isEditing}>
+          {isEditing ? 'Saving…' : 'Edit'}
         </Button>
         <Button
           size="sm"
@@ -936,78 +1192,11 @@ function MemberRowActions({ member, onChangeStatus, onLogPayment, onEdit, isUpda
         >
           {isUpdating ? 'Updating…' : nextStatus === 'SUSPENDED' ? 'Suspend' : 'Activate'}
         </Button>
+        <Button variant="ghost" size="sm" onClick={() => onView(member)}>
+          Details
+        </Button>
       </div>
     </div>
-  )
-}
-
-function MemberDetailsSheet({ member, onChangeStatus, onLogPayment, onEdit, isUpdating, isEditing, nextStatus }) {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full sm:hidden">
-          View
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="bottom" className="h-[85vh] overflow-y-auto sm:hidden">
-        <SheetHeader>
-          <SheetTitle>
-            {member.first_name} {member.last_name}
-          </SheetTitle>
-          {member.email ? <SheetDescription>{member.email}</SheetDescription> : null}
-        </SheetHeader>
-        <div className="mt-6 space-y-4 text-sm text-slate-600">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
-            <p className="mt-1 font-medium text-foreground">{member.status ?? 'Unknown'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Membership plan</p>
-            <p className="mt-1 font-medium text-foreground">{member.membership_plan ?? 'Not assigned'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Joined</p>
-            <p className="mt-1 font-medium text-foreground">{formatDate(member.join_date)}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Next payment due</p>
-            <p className="mt-1 font-medium text-foreground">{formatDate(member.next_payment_due)}</p>
-          </div>
-        </div>
-        <div className="mt-6 flex flex-col gap-2">
-          <Button
-            variant="secondary"
-            disabled={isEditing}
-            onClick={() => {
-              onEdit(member)
-              setOpen(false)
-            }}
-          >
-            {isEditing ? 'Saving…' : 'Edit member'}
-          </Button>
-          <Button
-            onClick={() => {
-              onLogPayment(member)
-              setOpen(false)
-            }}
-          >
-            Log payment
-          </Button>
-          <Button
-            variant={nextStatus === 'SUSPENDED' ? 'danger' : 'secondary'}
-            disabled={isUpdating}
-            onClick={() => {
-              onChangeStatus(member.id, nextStatus)
-              setOpen(false)
-            }}
-          >
-            {isUpdating ? 'Updating…' : nextStatus === 'SUSPENDED' ? 'Suspend member' : 'Activate member'}
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
   )
 }
 
