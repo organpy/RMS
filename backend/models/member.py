@@ -25,6 +25,17 @@ class MemberStatus(str, Enum):
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
 
+    @classmethod
+    def _missing_(cls, value):
+        """Allow case-insensitive lookups for query and payload parsing."""
+
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            for member_status in cls:
+                if member_status.value == normalized:
+                    return member_status
+        return None
+
 
 class Member(TimestampMixin, Base):
     """Represents an enrolled member of the business."""
