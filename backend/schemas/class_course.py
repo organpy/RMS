@@ -50,6 +50,7 @@ class ClassResponse(TimestampedSchema, ClassBase):
 
     id: int
     business_id: int
+    member_count: int = 0
     groups: list[GroupSummary] = []
 
 

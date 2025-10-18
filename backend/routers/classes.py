@@ -19,7 +19,12 @@ router = APIRouter(prefix="/api/classes", tags=["Classes"])
 
 def _serialize_class(class_course) -> ClassResponse:
     response = ClassResponse.model_validate(class_course, from_attributes=True)
-    response.groups = [GroupSummary.model_validate(group, from_attributes=True) for group in class_course.groups]
+    response.member_count = getattr(class_course, "member_count", response.member_count)
+    response.groups = []
+    for group in class_course.groups:
+        summary = GroupSummary.model_validate(group, from_attributes=True)
+        summary.member_count = getattr(group, "member_count", summary.member_count)
+        response.groups.append(summary)
     return response
 
 

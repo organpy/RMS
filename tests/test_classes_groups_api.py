@@ -23,12 +23,14 @@ def test_create_and_list_classes(client, business):
     created = create_response.json()
     assert created["name"] == "Strength Training"
     assert created["groups"] == []
+    assert created["member_count"] == 0
 
     list_response = client.get("/api/classes")
     assert list_response.status_code == 200
     payload = list_response.json()
     assert payload["meta"]["total"] == 1
     assert payload["data"][0]["name"] == "Strength Training"
+    assert payload["data"][0]["member_count"] == 0
 
 
 def test_group_lifecycle(client, business):
@@ -68,6 +70,11 @@ def test_group_lifecycle(client, business):
     member_payload = group_members.json()
     assert member_payload["meta"]["total"] == 1
     assert member_payload["data"][0]["first_name"] == "Alex"
+
+    classes_after_member = client.get("/api/classes")
+    class_payload = classes_after_member.json()
+    assert class_payload["data"][0]["member_count"] == 1
+    assert class_payload["data"][0]["groups"][0]["member_count"] == 1
 
     delete_group = client.delete(f"/api/groups/{group_id}")
     assert delete_group.status_code == 204

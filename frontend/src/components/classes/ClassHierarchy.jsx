@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import Card from '../ui/Card'
 import Button from '../ui/Button'
 import Badge from '../ui/Badge'
@@ -9,13 +8,24 @@ function summarizeClass(classItem) {
   const groupCount = classItem.groups?.length ?? 0
   const scheduleRange = [classItem.start_date, classItem.end_date].filter(Boolean)
   const label = scheduleRange.length === 2 ? `${scheduleRange[0]} → ${scheduleRange[1]}` : scheduleRange[0]
+  const memberCount = classItem.member_count ?? 0
   return {
     groupCount,
     scheduleLabel: label,
+    memberCount,
   }
 }
 
-export function ClassHierarchy({ classes, loading, isFetching, error, onRetry }) {
+export function ClassHierarchy({
+  classes,
+  loading,
+  isFetching,
+  error,
+  onRetry,
+  onOpenClassMembers,
+  onOpenGroupMembers,
+  onCreateClass,
+}) {
   const [expandedIds, setExpandedIds] = useState(new Set())
 
   const sortedClasses = useMemo(() => {
@@ -66,7 +76,7 @@ export function ClassHierarchy({ classes, loading, isFetching, error, onRetry })
         subtitle="Create your first class to start organizing members into groups."
         footer="Classes connect to members and payments, so setting them up early keeps everything in sync."
       >
-        <Button variant="primary" disabled>
+        <Button variant="primary" onClick={onCreateClass} disabled={!onCreateClass}>
           Create class
         </Button>
       </Card>
@@ -76,9 +86,10 @@ export function ClassHierarchy({ classes, loading, isFetching, error, onRetry })
   return (
     <div className="space-y-4">
       {sortedClasses.map((classItem) => {
-        const { groupCount, scheduleLabel } = summarizeClass(classItem)
+        const { groupCount, scheduleLabel, memberCount } = summarizeClass(classItem)
         const isExpanded = expandedIds.has(classItem.id)
         const groupPlural = groupCount === 1 ? 'group' : 'groups'
+        const memberPlural = memberCount === 1 ? 'member' : 'members'
 
         return (
           <Card
@@ -93,13 +104,21 @@ export function ClassHierarchy({ classes, loading, isFetching, error, onRetry })
                     <span>
                       {groupCount} {groupPlural}
                     </span>
+                    <span>
+                      {memberCount} {memberPlural}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button size="sm" variant="ghost" onClick={() => toggleExpanded(classItem.id)}>
                     {isExpanded ? 'Collapse' : 'Expand'}
                   </Button>
-                  <Button size="sm" variant="secondary" as={Link} to={`/members?classId=${classItem.id}`}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => onOpenClassMembers?.(classItem)}
+                    disabled={!onOpenClassMembers}
+                  >
                     View members
                   </Button>
                 </div>
@@ -115,9 +134,17 @@ export function ClassHierarchy({ classes, loading, isFetching, error, onRetry })
                       <li key={group.id} className="flex items-start justify-between rounded-lg border border-slate-200 px-4 py-3">
                         <div className="flex flex-col gap-1">
                           <span className="font-medium text-slate-800">{group.name}</span>
+                          <span className="text-sm text-slate-500">
+                            {group.member_count ?? 0} {(group.member_count ?? 0) === 1 ? 'member' : 'members'}
+                          </span>
                           {group.description ? <span className="text-sm text-slate-500">{group.description}</span> : null}
                         </div>
-                        <Button size="sm" variant="ghost" as={Link} to={`/members?groupId=${group.id}`}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => onOpenGroupMembers?.(group, classItem)}
+                          disabled={!onOpenGroupMembers}
+                        >
                           Open group
                         </Button>
                       </li>

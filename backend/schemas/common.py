@@ -33,6 +33,7 @@ class ClassSummary(BaseModel):
     id: int
     name: str
     grouping_type: Optional[str] = None
+    member_count: int = 0
 
 
 class GroupSummary(BaseModel):
@@ -43,6 +44,7 @@ class GroupSummary(BaseModel):
     id: int
     name: str
     description: Optional[str] = None
+    member_count: int = 0
 
 
 class ErrorResponse(BaseModel):
