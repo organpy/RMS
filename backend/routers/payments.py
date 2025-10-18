@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.exceptions import NotFoundError
-from backend.models.payment import PaymentMethod
+from backend.models.payment import PaymentMethod, PaymentStatus
 from backend.schemas.common import PaginationMeta
 from backend.schemas.payment import (
     PaymentCreate,
