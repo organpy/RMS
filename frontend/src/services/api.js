@@ -58,4 +58,11 @@ export function del(url, config) {
   return api.delete(url, config).then((res) => res.data)
 }
 
+// Fetch binary files (e.g., PDFs) as blobs
+export function getFile(url, config) {
+  return api
+    .get(url, { responseType: 'blob', ...(config ?? {}) })
+    .then((res) => res.data)
+}
+
 export default api

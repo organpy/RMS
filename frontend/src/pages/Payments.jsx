@@ -18,7 +18,7 @@ import {
 } from '../components/ui/dialog'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert'
 import { Skeleton } from '../components/ui/skeleton'
-import { usePayments, createPayment, updatePayment } from '../hooks/usePayments'
+import { usePayments, createPayment, updatePayment, regenerateReceipt, downloadReceipt } from '../hooks/usePayments'
 import { useBusiness } from '../context/BusinessContext'
 import { useToast } from '@/hooks/use-toast'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -103,6 +103,9 @@ export default function Payments() {
   const [isCreateOpen, setCreateOpen] = useState(false)
   const [pendingPaymentId, setPendingPaymentId] = useState(null)
   const [prefillMember, setPrefillMember] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [createdPayment, setCreatedPayment] = useState(null)
 
   const { business } = useBusiness()
   const { toast } = useToast()
@@ -199,7 +202,7 @@ export default function Payments() {
 
       return { previous, optimisticPayment }
     },
-    onSuccess: (result, _payload, context) => {
+    onSuccess: async (result, _payload, context) => {
       const resolvedPayment = result ?? context?.optimisticPayment
       if (context?.optimisticPayment && resolvedPayment) {
         queryClient.setQueryData(queryKey, (old) => {
@@ -217,7 +220,17 @@ export default function Payments() {
         title: 'Payment recorded',
         description: `${resolvedPayment?.member_name ?? 'New payment'} was added successfully.`,
       })
-      setCreateOpen(false)
+      try {
+        setCreatedPayment(resolvedPayment)
+        setPreviewLoading(true)
+        const blob = await downloadReceipt(resolvedPayment.id)
+        const url = URL.createObjectURL(blob)
+        setPreviewUrl(url)
+      } catch (err) {
+        toast({ variant: 'destructive', title: 'Preview unavailable', description: err?.detail ?? 'Unable to load receipt preview.' })
+      } finally {
+        setPreviewLoading(false)
+      }
     },
     onError: (mutationError, _payload, context) => {
       if (context?.previous) {
@@ -281,6 +294,12 @@ export default function Payments() {
     if (!isCreateOpen) {
       reset({ ...paymentFormDefaults })
       setPrefillMember(null)
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+      }
+      setPreviewUrl(null)
+      setPreviewLoading(false)
+      setCreatedPayment(null)
       return
     }
 
@@ -289,7 +308,7 @@ export default function Payments() {
       member_name: prefillMember?.memberName ?? paymentFormDefaults.member_name,
       membership_plan: prefillMember?.membershipPlan ?? paymentFormDefaults.membership_plan,
     })
-  }, [isCreateOpen, prefillMember, reset])
+  }, [isCreateOpen, prefillMember, previewUrl, reset])
 
   const formatter = useMemo(
     () =>
@@ -321,13 +340,7 @@ export default function Payments() {
       payload.member_id = prefillMember.memberId
     }
 
-    createPaymentMutation.mutate(payload, {
-      onSuccess: () => {
-        reset({ ...paymentFormDefaults })
-        setPrefillMember(null)
-        setCreateOpen(false)
-      },
-    })
+    createPaymentMutation.mutate(payload)
   })
 
   const handleMarkAsPaid = useCallback(
@@ -490,6 +503,56 @@ export default function Payments() {
               <DialogTitle>Record a payment</DialogTitle>
               <DialogDescription>Track an offline payment and keep your revenue metrics fresh.</DialogDescription>
             </DialogHeader>
+            {previewUrl || previewLoading ? (
+              <div className="space-y-4">
+                <div className="rounded-xl border p-3">
+                  <p className="text-sm font-medium text-slate-700">Receipt preview</p>
+                  <p className="text-xs text-slate-500">{createdPayment?.receipt_number ?? 'Generating receipt…'}</p>
+                  <div className="mt-3 h-[60vh] w-full overflow-hidden rounded-lg border bg-white">
+                    {previewLoading ? (
+                      <div className="flex h-full items-center justify-center">
+                        <Spinner />
+                      </div>
+                    ) : (
+                      <iframe title="Receipt Preview" src={previewUrl} className="h-full w-full" />
+                    )}
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setCreateOpen(false)
+                      reset({ ...paymentFormDefaults })
+                    }}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const blob = await downloadReceipt(createdPayment.id)
+                        const url = URL.createObjectURL(blob)
+                        const link = document.createElement('a')
+                        link.href = url
+                        link.setAttribute('download', `${createdPayment?.receipt_number ?? 'receipt'}-${createdPayment?.id}.pdf`)
+                        document.body.appendChild(link)
+                        link.click()
+                        document.body.removeChild(link)
+                        URL.revokeObjectURL(url)
+                      } catch (err) {
+                        toast({ variant: 'destructive', title: 'Download failed', description: err?.detail ?? 'Unable to download receipt.' })
+                      }
+                    }}
+                    disabled={previewLoading || !createdPayment}
+                  >
+                    Download PDF
+                  </Button>
+                </DialogFooter>
+              </div>
+            ) : (
             <form className="space-y-4" onSubmit={handleCreateSubmit} noValidate>
               <div className="space-y-1 text-sm">
                 <label className="font-medium text-slate-700" htmlFor="payment-member-name">
@@ -591,6 +654,7 @@ export default function Payments() {
                 </Button>
               </DialogFooter>
             </form>
+            )}
           </DialogContent>
         </Dialog>
       </section>
@@ -718,6 +782,7 @@ function PaymentRowActions({ payment, onSendReminder, onMarkPaid, isUpdating, fo
         <Button variant="ghost" size="sm" onClick={() => onSendReminder(payment)}>
           Send reminder
         </Button>
+        <ReceiptActions payment={payment} />
         <Button
           size="sm"
           variant={isPaid ? 'secondary' : 'primary'}
@@ -779,6 +844,7 @@ function PaymentDetailsSheet({ payment, onSendReminder, onMarkPaid, isUpdating, 
           >
             Send reminder
           </Button>
+          <ReceiptActions payment={payment} fullWidth />
           <Button
             onClick={() => {
               onMarkPaid(payment)
@@ -791,6 +857,54 @@ function PaymentDetailsSheet({ payment, onSendReminder, onMarkPaid, isUpdating, 
         </div>
       </SheetContent>
     </Sheet>
+  )
+}
+
+function ReceiptActions({ payment, fullWidth = false }) {
+  const { toast } = useToast()
+  const [busy, setBusy] = useState(false)
+
+  const handleDownload = async () => {
+    try {
+      setBusy(true)
+      const blob = await downloadReceipt(payment.id)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      const filename = `${payment.receipt_number ?? 'receipt'}-${payment.id}.pdf`
+      link.setAttribute('download', filename)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Download failed', description: err?.detail ?? 'Unable to download receipt.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleRegenerate = async () => {
+    try {
+      setBusy(true)
+      await regenerateReceipt(payment.id)
+      toast({ title: 'Receipt refreshed', description: 'A new receipt was generated for this payment.' })
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Could not regenerate', description: err?.detail ?? 'Please try again later.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className={fullWidth ? 'flex flex-col gap-2' : 'flex items-center gap-2'}>
+      <Button variant="ghost" size="sm" className={fullWidth ? 'w-full' : ''} onClick={handleDownload} disabled={busy}>
+        {busy ? 'Downloading…' : 'Download receipt'}
+      </Button>
+      <Button variant="outline" size="sm" className={fullWidth ? 'w-full' : ''} onClick={handleRegenerate} disabled={busy}>
+        {busy ? 'Working…' : 'Regenerate'}
+      </Button>
+    </div>
   )
 }
 
