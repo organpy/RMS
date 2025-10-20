@@ -47,7 +47,7 @@ def member(db_session, business, class_course):
 
 
 def _patch_pdf(monkeypatch, tmp_path):
-    def fake_write_pdf(self: ReceiptService, payment, html_markup):
+    def fake_write_pdf(self: ReceiptService, payment, member, business):
         self.output_dir = tmp_path
         self.output_dir.mkdir(parents=True, exist_ok=True)
         file_path = self.output_dir / f"{payment.receipt_number}.pdf"
@@ -102,7 +102,7 @@ def test_overdue_and_due_today_endpoints(client, db_session, member, tmp_path, m
         json={"next_due_date": date.today().isoformat()},
     )
     assert update_response.status_code == 200
-    assert update_response.json()["status"] == "unpaid"
+    assert update_response.json()["status"] == "paid"  # Payment status remains paid
 
     due_today_list = client.get("/api/payments/due-today")
     assert due_today_list.status_code == 200

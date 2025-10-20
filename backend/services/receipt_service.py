@@ -1,14 +1,18 @@
-"""Receipt rendering service leveraging WeasyPrint and HTML templates."""
+"""Receipt rendering service leveraging ReportLab for PDF generation."""
 
 from __future__ import annotations
 
-import os
 import logging
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
-from typing import Callable, Mapping
+from typing import Callable
 
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.lib import colors
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,35 +21,24 @@ from backend.exceptions import NotFoundError
 from backend.models import Business, Member, Payment, Receipt
 
 
-# Suppress Fontconfig warning on Windows: "Cannot load default config file"
-# This is harmless; WeasyPrint falls back to built-in font discovery.
-os.environ.setdefault('FONTCONFIG_FILE', '')
-
 logger = logging.getLogger(__name__)
 
 
 class ReceiptService:
-    """Generate and manage PDF receipts for recorded payments."""
+    """Generate and manage PDF receipts for recorded payments using ReportLab."""
 
     def __init__(
         self,
         session: Session,
         *,
         settings: Settings | None = None,
-        templates_dir: Path | None = None,
         output_dir: Path | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self.session = session
         self.settings = settings or get_settings()
         self.clock = clock or (lambda: datetime.now(timezone.utc))
-        self.templates_dir = templates_dir or Path(__file__).resolve().parent.parent / "templates"
         self.output_dir = Path(output_dir or self.settings.receipt_output_dir)
-        self._env = Environment(
-            loader=FileSystemLoader(self.templates_dir),
-            autoescape=select_autoescape(["html", "xml"]),
-            enable_async=False,
-        )
 
     # ------------------------------------------------------------------
     # Public API
@@ -61,9 +54,7 @@ class ReceiptService:
         if business is None:
             raise NotFoundError("Business information is required to generate a receipt")
 
-        context = self._build_context(payment, member, business)
-        html_markup = self._render_template("receipt_template.html", context)
-        output_path = self._write_pdf(payment, html_markup)
+        output_path = self._write_pdf(payment, member, business)
 
         receipt = payment.receipt
         if receipt is None:
@@ -74,6 +65,7 @@ class ReceiptService:
         self.session.add(receipt)
         self.session.commit()
         self.session.refresh(receipt)
+        logger.info(f"Receipt generated: {output_path}")
         return receipt
 
     def list_receipts(self) -> list[Receipt]:
@@ -98,128 +90,133 @@ class ReceiptService:
                 self.session.refresh(payment.member.class_course)
         return payment
 
-    def _build_context(self, payment: Payment, member: Member, business: Business) -> Mapping[str, object]:
-        class_course = member.class_course
-        context = {
-            "business_name": business.name,
-            "business_logo": business.logo_path,
-            "primary_color": business.primary_color or "#1f2937",
-            "secondary_color": business.secondary_color or "#4b5563",
-            "member_name": f"{member.first_name} {member.last_name}",
-            "member_email": member.email,
-            "class_name": class_course.name if class_course else "General Membership",
-            "payment_amount": payment.amount,
-            "payment_method": payment.method.value,
-            "payment_date": payment.payment_date,
-            "next_due_date": payment.next_due_date,
-            "receipt_number": payment.receipt_number,
-            "generated_at": self.clock(),
-        }
-        return context
-
-    def _render_template(self, template_name: str, context: Mapping[str, object]) -> str:
-        template = self._env.get_template(template_name)
-        return template.render(**context)
-
-    def _write_pdf(self, payment: Payment, html_markup: str) -> Path:
-        """Write PDF using WeasyPrint, or fallback to placeholder if unavailable."""
+    def _write_pdf(self, payment: Payment, member: Member, business: Business) -> Path:
+        """Generate a professional PDF receipt using ReportLab."""
         self.output_dir.mkdir(parents=True, exist_ok=True)
         file_name = f"{payment.receipt_number}.pdf"
         output_path = self.output_dir / file_name
 
-        try:
-            from weasyprint import HTML  # Imported lazily to avoid heavy startup costs during testing
+        # Create PDF buffer
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=letter,
+            rightMargin=0.75 * inch,
+            leftMargin=0.75 * inch,
+            topMargin=0.75 * inch,
+            bottomMargin=0.75 * inch,
+        )
 
-            HTML(string=html_markup, base_url=str(self.output_dir.resolve())).write_pdf(str(output_path))
-            logger.debug(f"PDF receipt generated: {output_path}")
-            return output_path
-        except Exception as exc:  # pragma: no cover - exercised via integration tests
-            logger.warning(
-                "WeasyPrint unavailable while generating receipt %s; falling back to placeholder PDF.",
-                payment.receipt_number,
-                exc_info=exc,
-            )
-            return self._write_placeholder_pdf(output_path, payment, reason=str(exc))
+        # Build story (content)
+        story = []
+        styles = getSampleStyleSheet()
+        
+        # Custom styles
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor(business.primary_color or "#1f2937"),
+            spaceAfter=12,
+            alignment=1,  # Center
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=12,
+            textColor=colors.HexColor(business.secondary_color or "#4b5563"),
+            spaceAfter=6,
+        )
+        
+        normal_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontSize=11,
+            leading=14,
+        )
 
-    # ------------------------------------------------------------------
-    # Fallback helpers
-    # ------------------------------------------------------------------
-    def _write_placeholder_pdf(self, output_path: Path, payment: Payment, *, reason: str | None = None) -> Path:
-        """Write a lightweight placeholder PDF when WeasyPrint is unavailable."""
-        placeholder_bytes = self._build_placeholder_pdf(payment, reason=reason)
-        output_path.write_bytes(placeholder_bytes)
-        logger.info(f"Placeholder receipt written: {output_path}")
-        return output_path
+        # Title
+        story.append(Paragraph(business.name or "Receipt", title_style))
+        story.append(Spacer(1, 12))
 
-    def _build_placeholder_pdf(self, payment: Payment, *, reason: str | None = None) -> bytes:
-        """Build a minimal valid PDF when WeasyPrint is unavailable."""
-        message_lines = [
-            "Receipt available offline",
-            f"Receipt #: {payment.receipt_number}",
+        # Header info
+        header_data = [
+            ["Receipt #", payment.receipt_number],
+            ["Date", str(payment.payment_date)],
+            ["Generated", self.clock().strftime("%Y-%m-%d %H:%M:%S")],
         ]
-        if reason:
-            message_lines.append("Renderer offline; using lightweight export.")
+        header_table = Table(header_data, colWidths=[2 * inch, 3 * inch])
+        header_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor(business.secondary_color or "#4b5563")),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        story.append(header_table)
+        story.append(Spacer(1, 12))
 
-        sanitized_lines = [self._sanitize_pdf_text(line) for line in message_lines if line]
+        # Member info
+        story.append(Paragraph("Bill To:", heading_style))
+        member_info = f"{member.first_name} {member.last_name}<br/>{member.email}"
+        story.append(Paragraph(member_info, normal_style))
+        if member.class_course:
+            story.append(Paragraph(f"Class: {member.class_course.name}", normal_style))
+        story.append(Spacer(1, 12))
 
-        stream_commands = ["BT", "/F1 14 Tf", "72 720 Td"]
-        if sanitized_lines:
-            first_line, *rest = sanitized_lines
-            stream_commands.append(f"({first_line}) Tj")
-            for line in rest:
-                stream_commands.append("T*")
-                stream_commands.append(f"({line}) Tj")
-        else:
-            stream_commands.append("(Receipt data unavailable) Tj")
-        stream_commands.append("ET")
+        # Amount breakdown
+        amount_data = [
+            ["Description", "Amount"],
+            [member.class_course.name if member.class_course else "General Membership", f"${payment.amount:.2f}"],
+            ["", ""],
+            ["Total", f"${payment.amount:.2f}"],
+        ]
+        amount_table = Table(amount_data, colWidths=[3.5 * inch, 1.5 * inch])
+        amount_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor(business.primary_color or "#1f2937")),
+            ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, -1), (-1, -1), 12),
+            ('TEXTCOLOR', (0, -1), (-1, -1), colors.HexColor(business.primary_color or "#1f2937")),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('LINEABOVE', (0, -1), (-1, -1), 2, colors.HexColor(business.primary_color or "#1f2937")),
+        ]))
+        story.append(amount_table)
+        story.append(Spacer(1, 20))
 
-        stream_content = "\n".join(stream_commands).encode("latin-1")
+        # Payment details
+        payment_info = [
+            f"<b>Payment Method:</b> {payment.method.value.title()}",
+            f"<b>Status:</b> {payment.status.value.title()}",
+        ]
+        if payment.next_due_date:
+            payment_info.append(f"<b>Next Due:</b> {payment.next_due_date}")
+        
+        story.append(Paragraph("<br/>".join(payment_info), normal_style))
+        story.append(Spacer(1, 20))
 
-        header = b"%PDF-1.4\n"
-        objects: list[bytes] = []
-
-        # PDF objects: Catalog, Pages, Page, Font, Stream
-        objects.append(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
-        objects.append(b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
-        objects.append(
-            b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
-            b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n"
+        # Footer
+        footer_style = ParagraphStyle(
+            'Footer',
+            parent=styles['Normal'],
+            fontSize=9,
+            textColor=colors.grey,
+            alignment=1,
         )
-        objects.append(b"4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n")
-        objects.append(
-            (
-                f"5 0 obj\n<< /Length {len(stream_content)} >>\nstream\n".encode("latin-1")
-                + stream_content
-                + b"\nendstream\nendobj\n"
-            )
-        )
+        story.append(Paragraph("Thank you for your business!", footer_style))
 
-        # Build cross-reference table
-        offsets: list[int] = []
-        current = len(header)
-        for obj in objects:
-            offsets.append(current)
-            current += len(obj)
-
-        body_bytes = b"".join(objects)
-
-        xref = [b"0000000000 65535 f \n"]
-        xref.extend(f"{offset:010d} 00000 n \n".encode("latin-1") for offset in offsets)
-        xref_table = f"xref\n0 {len(objects) + 1}\n".encode("latin-1") + b"".join(xref)
-
-        startxref = len(header) + len(body_bytes)
-        trailer = (
-            f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\n".encode("latin-1")
-            + b"startxref\n"
-            + str(startxref).encode("latin-1")
-            + b"\n%%EOF\n"
-        )
-
-        return header + body_bytes + xref_table + trailer
-
-    @staticmethod
-    def _sanitize_pdf_text(value: str) -> str:
-        return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+        # Build PDF
+        doc.build(story)
+        buffer.seek(0)
+        output_path.write_bytes(buffer.getvalue())
+        logger.debug(f"PDF receipt generated: {output_path}")
+        return output_path
 
 
 __all__ = ["ReceiptService"]
