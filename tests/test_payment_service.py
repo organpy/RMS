@@ -82,7 +82,7 @@ def test_receipt_number_uniqueness_and_member_status(db_session, member):
     assert payment_two.receipt_number.endswith("0002")
     assert overdue_payment.receipt_number.endswith("0001")
     db_session.refresh(member)
-    assert member.status == MemberStatus.INACTIVE
+    assert member.status == MemberStatus.SUSPENDED
 
 
 def test_receipt_service_generation(db_session, member, tmp_path, monkeypatch):
@@ -96,7 +96,7 @@ def test_receipt_service_generation(db_session, member, tmp_path, monkeypatch):
         }
     )
 
-    def fake_write_pdf(self, payment_obj, html_markup):
+    def fake_write_pdf(self, payment_obj, member_obj, business_obj):
         self.output_dir = tmp_path
         self.output_dir.mkdir(parents=True, exist_ok=True)
         file_path = self.output_dir / f"{payment_obj.receipt_number}.pdf"
