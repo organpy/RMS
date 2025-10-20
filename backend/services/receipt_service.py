@@ -149,23 +149,31 @@ class ReceiptService:
             spaceAfter=6,
         )
         
-        # Header with logo and business name
+        # Header with logo (top left) and business name (top center)
         if business.logo_path and Path(business.logo_path).exists():
             try:
-                logo = Image(business.logo_path, width=1.5 * inch, height=1.5 * inch)
-                logo_table = Table([[logo]], colWidths=[1.5 * inch])
-                logo_table.setStyle(TableStyle([
-                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                logo = Image(business.logo_path, width=1 * inch, height=1 * inch)
+                # Create header table with logo on left, business name centered, empty right
+                header_data = [[logo, business.name or 'Business Name', '']]
+                header_table = Table(header_data, colWidths=[1.2 * inch, 4 * inch, 1.2 * inch])
+                header_table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (0, 0), 'LEFT'),  # Logo left-aligned
+                    ('ALIGN', (1, 0), (1, 0), 'CENTER'),  # Business name centered
+                    ('ALIGN', (2, 0), (2, 0), 'RIGHT'),  # Empty cell right-aligned
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('FONTNAME', (1, 0), (1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (1, 0), (1, 0), 24),
+                    ('TEXTCOLOR', (1, 0), (1, 0), colors.HexColor(business.primary_color or "#1f2937")),
                 ]))
-                story.append(logo_table)
-                story.append(Spacer(1, 10))
+                story.append(header_table)
             except Exception:
-                pass  # Skip logo if error
-        
-        # Business name big and centered
-        business_name = Paragraph(business.name or 'Business Name', title_style)
-        story.append(business_name)
+                # Fallback: just business name centered if logo fails
+                business_name = Paragraph(business.name or 'Business Name', title_style)
+                story.append(business_name)
+        else:
+            # No logo: just business name centered
+            business_name = Paragraph(business.name or 'Business Name', title_style)
+            story.append(business_name)
         
         # Generated date below
         generated_text = Paragraph(f"Generated: {self.clock().strftime('%B %d, %Y at %H:%M')}", subtitle_style)
