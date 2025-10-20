@@ -332,17 +332,30 @@ export default function Payments() {
   const handleExportAll = useCallback(async () => {
     try {
       setIsExporting(true)
-      await exportPaymentsCsv(
+      const result = await exportPaymentsCsv(
         {
           status: status === 'ALL' ? undefined : status,
           days: Number(period),
         },
         { currency: business?.currency ?? 'USD' },
       )
+      toast({
+        title: 'Export ready',
+        description:
+          result.count > 0
+            ? `Downloaded ${result.count} payment${result.count === 1 ? '' : 's'} to CSV.`
+            : 'Export created with headers only. No payments matched these filters.',
+      })
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Export failed',
+        description: error?.detail ?? 'Unable to generate the payments export right now.',
+      })
     } finally {
       setIsExporting(false)
     }
-  }, [business?.currency, period, status])
+  }, [business?.currency, period, status, toast])
 
   const handleCreateSubmit = handleSubmit((values) => {
     const payload = {

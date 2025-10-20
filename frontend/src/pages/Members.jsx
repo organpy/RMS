@@ -174,16 +174,29 @@ export default function Members() {
   const handleExportAll = useCallback(async () => {
     try {
       setExportingAll(true)
-      await exportAllMembersCsv({
+      const result = await exportAllMembersCsv({
         status,
         search: searchTerm,
         classId: normalizedClassId,
         groupId: normalizedGroupId,
       })
+      toast({
+        title: 'Export ready',
+        description:
+          result.count > 0
+            ? `Downloaded ${result.count} member${result.count === 1 ? '' : 's'} to CSV.`
+            : 'Export created with headers only. No members matched these filters.',
+      })
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Export failed',
+        description: error?.detail ?? 'Unable to generate the members export right now.',
+      })
     } finally {
       setExportingAll(false)
     }
-  }, [normalizedClassId, normalizedGroupId, searchTerm, status])
+  }, [normalizedClassId, normalizedGroupId, searchTerm, status, toast])
 
   const handleStatusFilterChange = useCallback(
     (nextStatus) => {
@@ -776,6 +789,9 @@ export default function Members() {
         isBulkUpdating={isBulkUpdating}
         isBulkNotifying={isBulkNotifying}
         toolbarContent={filtersToolbar}
+        statusFilter={status}
+        classFilter={classFilter}
+        groupFilter={groupFilter}
       />
 
       <MemberEditOverlay

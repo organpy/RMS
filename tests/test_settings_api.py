@@ -2,12 +2,24 @@
 
 from __future__ import annotations
 
+from datetime import date
+from io import BytesIO
 from pathlib import Path
+from zipfile import ZipFile
 
 import pytest
 
 from backend.config import get_settings
-from backend.models import Business
+from backend.models import (
+    Business,
+    ClassCourse,
+    Group,
+    Member,
+    Payment,
+    PaymentMethod,
+    PaymentStatus,
+    Receipt,
+)
 from backend.routers.settings import get_settings_service
 from backend.services.settings_service import SettingsService
 
@@ -87,3 +99,53 @@ def test_backup_config_endpoint_returns_environment_metadata(client, tmp_path):
     assert env["database_url"] == get_settings().database_url
     assert env["branding_assets_dir"] == str(tmp_path)
     assert "payment_due_interval_days" in env
+
+
+def test_manual_backup_endpoint_streams_zip_archive(client, db_session):
+    client.get("/api/settings")
+
+    business = db_session.query(Business).first()
+
+    class_course = ClassCourse(business_id=business.id, name="Pilates Basics")
+    db_session.add(class_course)
+    db_session.flush()
+
+    group = Group(class_id=class_course.id, name="Morning Cohort")
+    db_session.add(group)
+    db_session.flush()
+
+    member = Member(
+        business_id=business.id,
+        class_id=class_course.id,
+        group_id=group.id,
+        first_name="Grace",
+        last_name="Hopper",
+        email="grace@example.com",
+    )
+    db_session.add(member)
+    db_session.flush()
+
+    payment = Payment(
+        member_id=member.id,
+        amount=200,
+        payment_date=date(2025, 4, 5),
+        status=PaymentStatus.PAID,
+        method=PaymentMethod.CARD,
+        receipt_number="R-200",
+    )
+    db_session.add(payment)
+    db_session.flush()
+
+    receipt = Receipt(payment_id=payment.id, file_path="receipts/R-200.pdf")
+    db_session.add(receipt)
+    db_session.commit()
+
+    response = client.get("/api/settings/backup/manual")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
+    assert "attachment; filename=" in response.headers.get("content-disposition", "")
+
+    with ZipFile(BytesIO(response.content)) as zip_file:
+        assert "members.csv" in zip_file.namelist()
+        members_csv = zip_file.read("members.csv").decode("utf-8-sig")
+        assert "Grace" in members_csv
