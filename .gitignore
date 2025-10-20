@@ -63,3 +63,4 @@ receipts/
 
 # Docs excluded from commits
 *.md
+receipt_test.py
