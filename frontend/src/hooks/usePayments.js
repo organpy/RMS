@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { del, get, post, put } from '../services/api'
+import { del, get, getFile, post, put } from '../services/api'
 
 const PAYMENTS_ENDPOINT = '/api/payments'
 const RECEIPTS_ENDPOINT = '/api/receipts'
@@ -48,4 +48,9 @@ export function regenerateReceipt(paymentId) {
 
 export function deleteReceipt(receiptId) {
   return del(`${RECEIPTS_ENDPOINT}/${receiptId}`)
+}
+
+export function downloadReceipt(paymentId) {
+  // Returns a Blob for the PDF
+  return getFile(`/api/payments/${paymentId}/receipt`)
 }
