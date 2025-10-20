@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Card from '../components/ui/Card'
 import Spinner from '../components/ui/Spinner'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert'
@@ -9,6 +9,8 @@ import Select from '../components/ui/Select'
 import { Skeleton } from '../components/ui/skeleton'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { useBusiness } from '../context/BusinessContext'
+import { useToast } from '@/hooks/use-toast'
+import api from '../services/api'
 
 const rangeOptions = [
   { value: 6, label: 'Last 6 months' },
@@ -20,6 +22,8 @@ const rangeOptions = [
 export default function Analytics() {
   const [months, setMonths] = useState(12)
   const { business } = useBusiness()
+  const { toast } = useToast()
+  const [isExporting, setIsExporting] = useState(false)
   const { data, loading, error, refresh, isFetching } = useAnalytics({
     revenueMonths: months,
     revenueYears: 5,
@@ -27,6 +31,36 @@ export default function Analytics() {
     paymentTrendMonths: Math.min(months, 12),
     classPopularityLimit: 8,
   })
+
+  const handleExportAnalytics = useCallback(async () => {
+    try {
+      setIsExporting(true)
+      const response = await api.get('/api/analytics/export', { responseType: 'blob' })
+      const blob = response.data
+      const filename = extractFilename(response.headers?.['content-disposition']) ?? `analytics-${new Date().toISOString().slice(0, 10)}.csv`
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', filename)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      toast({
+        title: 'Export ready',
+        description: `Downloaded ${filename}.`,
+      })
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Export failed',
+        description: error?.detail ?? 'Unable to generate the analytics export right now.',
+      })
+    } finally {
+      setIsExporting(false)
+    }
+  }, [toast])
 
   const currencyFormatter = useMemo(
     () =>
@@ -78,6 +112,9 @@ export default function Analytics() {
           </Select>
           <Button variant="secondary" onClick={refresh}>
             Refresh
+          </Button>
+          <Button variant="outline" onClick={handleExportAnalytics} disabled={isExporting}>
+            {isExporting ? 'Exporting…' : 'Export CSV'}
           </Button>
         </div>
       </section>
@@ -332,4 +369,10 @@ function AnalyticsSkeleton() {
       </Card>
     </div>
   )
+}
+
+function extractFilename(disposition) {
+  if (!disposition) return null
+  const match = /filename="?([^";]+)"?/i.exec(disposition)
+  return match ? match[1] : null
 }
