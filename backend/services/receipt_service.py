@@ -94,33 +94,33 @@ class ReceiptService:
         return payment
 
     def _write_pdf(self, payment: Payment, member: Member, business: Business) -> Path:
-        """Generate a professional PDF receipt using ReportLab."""
+        """Generate a compact PDF receipt using ReportLab."""
         self.output_dir.mkdir(parents=True, exist_ok=True)
         file_name = f"{payment.receipt_number}.pdf"
         output_path = self.output_dir / file_name
 
-        # Create PDF buffer
+        # Create PDF buffer with smaller margins
         buffer = BytesIO()
         doc = SimpleDocTemplate(
             buffer,
             pagesize=letter,
-            rightMargin=0.75 * inch,
-            leftMargin=0.75 * inch,
-            topMargin=0.75 * inch,
-            bottomMargin=0.75 * inch,
+            rightMargin=0.5 * inch,
+            leftMargin=0.5 * inch,
+            topMargin=0.5 * inch,
+            bottomMargin=0.5 * inch,
         )
 
         # Build story (content)
         story = []
         styles = getSampleStyleSheet()
         
-        # Custom styles
+        # Custom styles with smaller fonts
         title_style = ParagraphStyle(
             'CustomTitle',
             parent=styles['Heading1'],
-            fontSize=32,
+            fontSize=24,
             textColor=colors.HexColor(business.primary_color or "#1f2937"),
-            spaceAfter=10,
+            spaceAfter=8,
             alignment=1,  # Center
             fontName='Helvetica-Bold',
         )
@@ -128,9 +128,9 @@ class ReceiptService:
         subtitle_style = ParagraphStyle(
             'CustomSubtitle',
             parent=styles['Normal'],
-            fontSize=14,
+            fontSize=12,
             textColor=colors.HexColor(business.secondary_color or "#4b5563"),
-            spaceAfter=20,
+            spaceAfter=15,
             alignment=1,
             fontName='Helvetica-Oblique',
         )
@@ -138,65 +138,62 @@ class ReceiptService:
         heading_style = ParagraphStyle(
             'CustomHeading',
             parent=styles['Heading2'],
-            fontSize=16,
+            fontSize=14,
             textColor=colors.HexColor(business.primary_color or "#1f2937"),
-            spaceAfter=10,
+            spaceAfter=8,
             fontName='Helvetica-Bold',
         )
         
         normal_style = ParagraphStyle(
             'CustomNormal',
             parent=styles['Normal'],
-            fontSize=12,
-            leading=16,
-            spaceAfter=8,
+            fontSize=10,
+            leading=14,
+            spaceAfter=6,
         )
         
-        # Header with logo and business info
-        header_elements = []
+        # Header with logo and business name
         if business.logo_path and Path(business.logo_path).exists():
             try:
                 logo = Image(business.logo_path, width=1.5 * inch, height=1.5 * inch)
-                header_elements.append(logo)
+                logo_table = Table([[logo]], colWidths=[1.5 * inch])
+                logo_table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ]))
+                story.append(logo_table)
+                story.append(Spacer(1, 10))
             except Exception:
                 pass  # Skip logo if error
         
-        business_info = f"""
-        <b>{business.name or 'Business Name'}</b><br/>
-        Professional Receipt<br/>
-        Generated: {self.clock().strftime("%B %d, %Y at %H:%M")}
-        """
-        header_elements.append(Paragraph(business_info, normal_style))
+        # Business name big and centered
+        business_name = Paragraph(business.name or 'Business Name', title_style)
+        story.append(business_name)
         
-        header_table = Table([header_elements], colWidths=[1.5 * inch, 4.5 * inch])
-        header_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-        ]))
-        story.append(header_table)
-        story.append(Spacer(1, 20))
+        # Generated date below
+        generated_text = Paragraph(f"Generated: {self.clock().strftime('%B %d, %Y at %H:%M')}", subtitle_style)
+        story.append(generated_text)
+        story.append(Spacer(1, 15))
 
-        # Receipt details in a highlighted box
+        # Receipt details in a highlighted box with wider receipt number column
         receipt_data = [
             ["Receipt Number", "Payment Date", "Status"],
             [payment.receipt_number, str(payment.payment_date), payment.status.value.title()],
         ]
-        receipt_table = Table(receipt_data, colWidths=[2 * inch, 2 * inch, 2 * inch])
+        receipt_table = Table(receipt_data, colWidths=[3 * inch, 1.5 * inch, 1.5 * inch])
         receipt_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 12),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(business.primary_color or "#1f2937")),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
             ('GRID', (0, 0), (-1, -1), 1, colors.HexColor(business.secondary_color or "#4b5563")),
         ]))
         story.append(receipt_table)
-        story.append(Spacer(1, 20))
+        story.append(Spacer(1, 15))
 
         # Bill To section with better formatting
         story.append(Paragraph("Bill To:", heading_style))
@@ -207,45 +204,45 @@ class ReceiptService:
         if member.class_course:
             member_table_data.append(["Class", member.class_course.name])
         
-        member_table = Table(member_table_data, colWidths=[1.5 * inch, 4.5 * inch])
+        member_table = Table(member_table_data, colWidths=[1.2 * inch, 5 * inch])
         member_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 11),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
             ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor(business.secondary_color or "#4b5563")),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 5),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]))
         story.append(member_table)
-        story.append(Spacer(1, 20))
+        story.append(Spacer(1, 15))
 
         # Amount breakdown with enhanced styling
         story.append(Paragraph("Payment Details:", heading_style))
         amount_data = [
-            ["Description", "Quantity", "Unit Price", "Total"],
+            ["Description", "Qty", "Unit Price", "Total"],
             [member.class_course.name if member.class_course else "General Membership", "1", f"${payment.amount:.2f}", f"${payment.amount:.2f}"],
             ["", "", "", ""],
             ["", "", "Total Amount", f"${payment.amount:.2f}"],
         ]
-        amount_table = Table(amount_data, colWidths=[2.5 * inch, 1 * inch, 1.5 * inch, 1 * inch])
+        amount_table = Table(amount_data, colWidths=[2.5 * inch, 0.8 * inch, 1.2 * inch, 1 * inch])
         amount_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(business.primary_color or "#1f2937")),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('ALIGN', (0, 0), (0, -1), 'LEFT'),
             ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, -1), (-1, -1), 14),
+            ('FONTSIZE', (0, -1), (-1, -1), 12),
             ('TEXTCOLOR', (0, -1), (-1, -1), colors.HexColor(business.primary_color or "#1f2937")),
-            ('TOPPADDING', (0, 0), (-1, -1), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('LINEABOVE', (0, -1), (-1, -1), 2, colors.HexColor(business.primary_color or "#1f2937")),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
         ]))
         story.append(amount_table)
-        story.append(Spacer(1, 20))
+        story.append(Spacer(1, 15))
 
         # Payment method info
         payment_info = f"""
@@ -259,26 +256,26 @@ class ReceiptService:
         payment_box.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#f9fafb")),
             ('BOX', (0, 0), (-1, -1), 1, colors.HexColor(business.secondary_color or "#4b5563")),
-            ('TOPPADDING', (0, 0), (-1, -1), 15),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 15),
-            ('LEFTPADDING', (0, 0), (-1, -1), 15),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 15),
+            ('TOPPADDING', (0, 0), (-1, -1), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('LEFTPADDING', (0, 0), (-1, -1), 12),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
         ]))
         story.append(payment_box)
-        story.append(Spacer(1, 30))
+        story.append(Spacer(1, 20))
 
         # Footer with business branding
         footer_style = ParagraphStyle(
             'Footer',
             parent=styles['Normal'],
-            fontSize=11,
+            fontSize=9,
             textColor=colors.HexColor(business.secondary_color or "#4b5563"),
             alignment=1,
             fontName='Helvetica-Oblique',
         )
         footer_text = f"""
         Thank you for choosing {business.name or 'our services'}!<br/>
-        For any questions, please contact us. This receipt is automatically generated.
+        For questions, contact us. This receipt is auto-generated.
         """
         story.append(Paragraph(footer_text, footer_style))
 
