@@ -195,7 +195,7 @@ class ReceiptService:
         # Receipt details in a highlighted box with wider receipt number column
         receipt_data = [
             ["Receipt Number", "Payment Date", "Status"],
-            [payment.receipt_number, str(payment.payment_date), payment.status.value.title()],
+            [payment.receipt_number, payment.payment_date.strftime("%B %d, %Y"), payment.status.value.title()],
         ]
         receipt_table = Table(receipt_data, colWidths=[3 * inch, 1.5 * inch, 1.5 * inch])
         receipt_table.setStyle(TableStyle([
@@ -267,7 +267,7 @@ class ReceiptService:
         <b>Transaction Status:</b> {payment.status.value.title()}
         """
         if payment.next_due_date:
-            payment_info += f"<br/><b>Next Due Date:</b> {payment.next_due_date}"
+            payment_info += f"<br/><b>Next Due Date:</b> {payment.next_due_date.strftime('%B %d, %Y')}"
         
         payment_box = Table([[Paragraph(payment_info, normal_style)]], colWidths=[6 * inch])
         payment_box.setStyle(TableStyle([
