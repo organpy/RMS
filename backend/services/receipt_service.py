@@ -130,10 +130,6 @@ class ReceiptService:
         try:
             from weasyprint import HTML  # Imported lazily to avoid heavy startup costs during testing
 
-            # Suppress Fontconfig warnings which are harmless on Windows
-            with os.popen('') if False else None:
-                pass
-            
             HTML(string=html_markup, base_url=str(self.output_dir.resolve())).write_pdf(str(output_path))
             logger.debug(f"PDF receipt generated: {output_path}")
             return output_path
