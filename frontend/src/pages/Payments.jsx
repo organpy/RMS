@@ -44,21 +44,20 @@ import {
 import { useCommand } from '@/hooks/useCommand'
 import { exportPaymentsCsv } from '@/utils/exporters/payments'
 
-const statusOptions = [
-  { value: 'ALL', label: 'All statuses' },
-  { value: 'PAID', label: 'Paid' },
-  { value: 'PENDING', label: 'Pending' },
-  { value: 'FAILED', label: 'Failed' },
-  { value: 'OVERDUE', label: 'Overdue' },
+const paymentStatusOptions = [
+  { value: 'paid', label: 'Paid' },
+  { value: 'unpaid', label: 'Unpaid' },
+  { value: 'overdue', label: 'Overdue' },
+  { value: 'refunded', label: 'Refunded' },
 ]
+
+const statusOptions = [{ value: 'ALL', label: 'All statuses' }, ...paymentStatusOptions]
 
 const periodOptions = [
   { value: '7', label: 'Last 7 days' },
   { value: '30', label: 'Last 30 days' },
   { value: '90', label: 'Last 90 days' },
 ]
-
-const paymentStatusOptions = statusOptions.filter((option) => option.value !== 'ALL')
 
 const MEMBER_FETCH_LIMIT = 100
 
@@ -104,7 +103,7 @@ const paymentFormSchema = z.object({
   member_name: z.string().trim().min(1, 'Member name is required'),
   membership_plan: optionalText,
   amount: amountSchema,
-  status: z.enum(['PAID', 'PENDING', 'FAILED', 'OVERDUE']),
+  status: z.enum(['paid', 'unpaid', 'overdue', 'refunded']),
   payment_date: optionalDateInput,
 })
 
@@ -113,7 +112,7 @@ const paymentFormDefaults = {
   member_name: '',
   membership_plan: '',
   amount: '',
-  status: 'PAID',
+  status: 'paid',
   payment_date: '',
 }
 
@@ -269,19 +268,20 @@ export default function Payments() {
   }, [selectedMember, setValue])
 
   const createPaymentMutation = useMutation({
-    mutationFn: createPayment,
-    onMutate: async (payload) => {
+    mutationFn: ({ apiPayload }) => createPayment(apiPayload),
+    onMutate: async ({ apiPayload, optimistic }) => {
       await queryClient.cancelQueries({ queryKey })
       const previous = queryClient.getQueryData(queryKey)
 
+      const paymentDate = apiPayload.payment_date ?? new Date().toISOString().slice(0, 10)
       const optimisticPayment = {
         id: `optimistic-${Date.now()}`,
-        member_name: payload.member_name ?? 'Pending member',
-        membership_plan: payload.membership_plan ?? 'General membership',
-        payment_date: payload.payment_date ?? new Date().toISOString(),
-        amount: payload.amount ?? 0,
-        status: payload.status ?? 'PENDING',
-        receipt_number: payload.receipt_number ?? `TEMP-${Date.now()}`,
+        member_name: optimistic?.member_name ?? 'Pending member',
+        membership_plan: optimistic?.membership_plan ?? 'General membership',
+        payment_date: paymentDate,
+        amount: apiPayload.amount ?? 0,
+        status: (apiPayload.status ?? 'paid').toLowerCase(),
+        receipt_number: optimistic?.receipt_number ?? `TEMP-${Date.now()}`,
       }
 
       queryClient.setQueryData(queryKey, (old) => {
@@ -361,7 +361,7 @@ export default function Payments() {
     onSuccess: (_result, { status: nextStatus }) => {
       toast({
         title: 'Payment updated',
-        description: `Status marked as ${nextStatus.toLowerCase()}.`,
+        description: `Status marked as ${formatStatusLabel(nextStatus).toLowerCase()}.`,
       })
     },
     onError: (mutationError, _variables, context) => {
@@ -540,21 +540,25 @@ export default function Payments() {
   }, [business?.currency, period, status, toast])
 
   const handleCreateSubmit = handleSubmit((values) => {
-    const payload = {
-      member_id: values.member_id,
-      member_name: values.member_name,
-      membership_plan: values.membership_plan ?? undefined,
-      amount: values.amount,
-      status: values.status,
-      payment_date: values.payment_date || new Date().toISOString().slice(0, 10),
-    }
+    const paymentDate = values.payment_date || new Date().toISOString().slice(0, 10)
 
-    createPaymentMutation.mutate(payload)
+    createPaymentMutation.mutate({
+      apiPayload: {
+        member_id: values.member_id,
+        amount: values.amount,
+        status: values.status,
+        payment_date: paymentDate,
+      },
+      optimistic: {
+        member_name: values.member_name,
+        membership_plan: values.membership_plan ?? undefined,
+      },
+    })
   })
 
   const handleMarkAsPaid = useCallback(
     (payment) => {
-      updatePaymentMutation.mutate({ id: payment.id, status: 'PAID' })
+      updatePaymentMutation.mutate({ id: payment.id, status: 'paid' })
     },
     [updatePaymentMutation],
   )
@@ -660,10 +664,14 @@ export default function Payments() {
         header: 'Status',
         cell: ({ row }) => {
           const payment = row.original
-          return <Badge variant={badgeVariantForStatus(payment.status)}>{payment.status}</Badge>
+          return (
+            <Badge variant={badgeVariantForStatus(payment.status)}>
+              {formatStatusLabel(payment.status)}
+            </Badge>
+          )
         },
         meta: {
-          exportValue: (payment) => payment.status ?? '',
+          exportValue: (payment) => formatStatusLabel(payment.status),
         },
         size: 130,
       },
@@ -955,9 +963,9 @@ export default function Payments() {
         <Card title="Collections" subtitle="Breakdown by status" className="lg:col-span-2">
           <div className="grid gap-3 sm:grid-cols-2">
             <SummaryItem label="Paid" value={formatter.format(Number(data?.summary?.by_status?.PAID ?? 0))} />
-            <SummaryItem label="Pending" value={formatter.format(Number(data?.summary?.by_status?.PENDING ?? 0))} />
-            <SummaryItem label="Failed" value={formatter.format(Number(data?.summary?.by_status?.FAILED ?? 0))} />
+            <SummaryItem label="Unpaid" value={formatter.format(Number(data?.summary?.by_status?.UNPAID ?? 0))} />
             <SummaryItem label="Overdue" value={formatter.format(Number(data?.summary?.by_status?.OVERDUE ?? 0))} />
+            <SummaryItem label="Refunded" value={formatter.format(Number(data?.summary?.by_status?.REFUNDED ?? 0))} />
           </div>
         </Card>
       </section>
@@ -1032,17 +1040,32 @@ function SummaryItem({ label, value }) {
 }
 
 function badgeVariantForStatus(status) {
-  switch ((status ?? '').toUpperCase()) {
-    case 'PAID':
+  switch ((status ?? '').toLowerCase()) {
+    case 'paid':
       return 'success'
-    case 'PENDING':
-      return 'info'
-    case 'FAILED':
-      return 'danger'
-    case 'OVERDUE':
+    case 'unpaid':
       return 'warning'
+    case 'overdue':
+      return 'danger'
+    case 'refunded':
+      return 'info'
     default:
       return 'secondary'
+  }
+}
+
+function formatStatusLabel(status) {
+  switch ((status ?? '').toLowerCase()) {
+    case 'paid':
+      return 'Paid'
+    case 'unpaid':
+      return 'Unpaid'
+    case 'overdue':
+      return 'Overdue'
+    case 'refunded':
+      return 'Refunded'
+    default:
+      return status ?? 'Unknown'
   }
 }
 

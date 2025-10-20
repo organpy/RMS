@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 from sqlalchemy.sql import expression
 
 
@@ -20,34 +21,46 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "businesses",
-        sa.Column(
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    existing_columns = {column["name"] for column in inspector.get_columns("businesses")}
+
+    columns_to_add = [
+        (
             "backup_scheduler_enabled",
-            sa.Boolean(),
-            nullable=False,
-            server_default=expression.false(),
+            sa.Column(
+                "backup_scheduler_enabled",
+                sa.Boolean(),
+                nullable=False,
+                server_default=expression.false(),
+            ),
         ),
-    )
-    op.add_column("businesses", sa.Column("backup_cadence", sa.String(length=20), nullable=True))
-    op.add_column(
-        "businesses",
-        sa.Column(
+        ("backup_cadence", sa.Column("backup_cadence", sa.String(length=20), nullable=True)),
+        (
             "backup_retention_count",
-            sa.Integer(),
-            nullable=False,
-            server_default="5",
+            sa.Column(
+                "backup_retention_count",
+                sa.Integer(),
+                nullable=False,
+                server_default="5",
+            ),
         ),
-    )
-    op.add_column("businesses", sa.Column("backup_last_run_at", sa.DateTime(timezone=True), nullable=True))
-    op.add_column("businesses", sa.Column("backup_next_run_at", sa.DateTime(timezone=True), nullable=True))
+        ("backup_last_run_at", sa.Column("backup_last_run_at", sa.DateTime(timezone=True), nullable=True)),
+        ("backup_next_run_at", sa.Column("backup_next_run_at", sa.DateTime(timezone=True), nullable=True)),
+    ]
+
+    for column_name, column in columns_to_add:
+        if column_name not in existing_columns:
+            op.add_column("businesses", column)
+            existing_columns.add(column_name)
 
     # Normalise defaults for existing rows then drop server defaults for future inserts.
     op.execute("UPDATE businesses SET backup_scheduler_enabled = 0 WHERE backup_scheduler_enabled IS NULL")
     op.execute("UPDATE businesses SET backup_retention_count = 5 WHERE backup_retention_count IS NULL")
 
-    op.alter_column("businesses", "backup_scheduler_enabled", server_default=None)
-    op.alter_column("businesses", "backup_retention_count", server_default=None)
+    if bind.dialect.name != "sqlite":
+        op.alter_column("businesses", "backup_scheduler_enabled", server_default=None)
+        op.alter_column("businesses", "backup_retention_count", server_default=None)
 
 
 def downgrade() -> None:
