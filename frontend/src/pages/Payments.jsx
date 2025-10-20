@@ -440,6 +440,37 @@ export default function Payments() {
     },
   })
 
+  const reminderQueryKey = useMemo(
+    () => ['payment-reminder', reminderDrawerPaymentId ?? 'inactive'],
+    [reminderDrawerPaymentId],
+  )
+
+  const {
+    data: reminderEnvelope,
+    isLoading: reminderLoading,
+    isFetching: reminderFetching,
+    error: reminderError,
+    refetch: refetchReminder,
+  } = useQuery({
+    queryKey: reminderQueryKey,
+    queryFn: async () => fetchPaymentReminder(reminderDrawerPaymentId),
+    enabled: isReminderDrawerOpen && Boolean(reminderDrawerPaymentId),
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+    initialData: () => {
+      if (!reminderDrawerPaymentId) return undefined
+      return queryClient.getQueryData(['payment-reminder', reminderDrawerPaymentId])
+    },
+  })
+
+  const reminderPayment = useMemo(() => {
+    if (!reminderDrawerPaymentId) return null
+    const collection = data?.payments ?? data?.data ?? []
+    return collection.find((payment) => payment.id === reminderDrawerPaymentId) ?? null
+  }, [data, reminderDrawerPaymentId])
+
+  const isReminderLoading = reminderLoading || reminderFetching
+
   const isRefreshing = isFetching && Boolean(data)
 
   useEffect(() => {
@@ -536,6 +567,24 @@ export default function Payments() {
     [queueReminderMutation],
   )
 
+  const handleViewReminder = useCallback(
+    (payment) => {
+      if (!payment?.id) return
+      const queryKey = ['payment-reminder', payment.id]
+      void queryClient.prefetchQuery({ queryKey, queryFn: () => fetchPaymentReminder(payment.id) })
+      setReminderDrawerPaymentId(payment.id)
+      setReminderDrawerOpen(true)
+    },
+    [queryClient],
+  )
+
+  const handleReminderDrawerChange = useCallback((open) => {
+    setReminderDrawerOpen(open)
+    if (!open) {
+      setReminderDrawerPaymentId(null)
+    }
+  }, [])
+
   const columns = useMemo(
     () => [
       {
@@ -628,6 +677,22 @@ export default function Payments() {
         size: 160,
       },
       {
+        id: 'reminders',
+        header: 'Reminders',
+        cell: ({ row }) => (
+          <ReminderStatusCell
+            payment={row.original}
+            onViewReminder={handleViewReminder}
+            isQueuing={queueReminderMutation.isPending && pendingReminderId === row.original.id}
+          />
+        ),
+        enableSorting: false,
+        meta: {
+          exportValue: (payment) => `${payment.reminder_status ?? 'idle'} | ${payment.reminder_attempt_count ?? 0}`,
+        },
+        size: 220,
+      },
+      {
         id: 'actions',
         header: 'Actions',
         cell: ({ row }) => (
@@ -635,7 +700,9 @@ export default function Payments() {
             payment={row.original}
             onSendReminder={handleSendReminder}
             onMarkPaid={handleMarkAsPaid}
+            onViewReminder={handleViewReminder}
             isUpdating={pendingPaymentId === row.original.id && updatePaymentMutation.isPending}
+            isQueuingReminder={queueReminderMutation.isPending && pendingReminderId === row.original.id}
             formatter={formatter}
           />
         ),
@@ -649,7 +716,16 @@ export default function Payments() {
         size: 200,
       },
     ],
-    [formatter, handleMarkAsPaid, handleSendReminder, pendingPaymentId, updatePaymentMutation.isPending],
+    [
+      formatter,
+      handleMarkAsPaid,
+      handleSendReminder,
+      handleViewReminder,
+      pendingPaymentId,
+      pendingReminderId,
+      queueReminderMutation.isPending,
+      updatePaymentMutation.isPending,
+    ],
   )
 
   if (loading && !data) {
@@ -933,6 +1009,15 @@ export default function Payments() {
           </>
         )}
       />
+      <ReminderDrawer
+        open={isReminderDrawerOpen}
+        onOpenChange={handleReminderDrawerChange}
+        payment={reminderPayment}
+        envelope={reminderEnvelope}
+        isLoading={isReminderLoading}
+        error={reminderError}
+        onRefresh={reminderDrawerPaymentId ? refetchReminder : undefined}
+      />
     </div>
   )
 }
@@ -970,7 +1055,24 @@ function formatDate(value) {
   return parsed.toLocaleDateString()
 }
 
-function PaymentRowActions({ payment, onSendReminder, onMarkPaid, isUpdating, formatter }) {
+function formatDateTime(value) {
+  if (!value) return null
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return null
+  }
+  return parsed.toLocaleString()
+}
+
+function PaymentRowActions({
+  payment,
+  onSendReminder,
+  onMarkPaid,
+  onViewReminder,
+  isUpdating,
+  isQueuingReminder,
+  formatter,
+}) {
   const isPaid = (payment.status ?? '').toUpperCase() === 'PAID'
 
   return (
@@ -979,12 +1081,22 @@ function PaymentRowActions({ payment, onSendReminder, onMarkPaid, isUpdating, fo
         payment={payment}
         onSendReminder={onSendReminder}
         onMarkPaid={onMarkPaid}
+        onViewReminder={onViewReminder}
         isUpdating={isUpdating}
+        isQueuingReminder={isQueuingReminder}
         formatter={formatter}
       />
       <div className="hidden items-center gap-2 sm:flex">
-        <Button variant="ghost" size="sm" onClick={() => onSendReminder(payment)}>
-          Send reminder
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onSendReminder(payment)}
+          disabled={isQueuingReminder}
+        >
+          {isQueuingReminder ? 'Sending…' : 'Send reminder'}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => onViewReminder(payment)}>
+          View history
         </Button>
         <ReceiptActions payment={payment} />
         <Button
@@ -1000,7 +1112,15 @@ function PaymentRowActions({ payment, onSendReminder, onMarkPaid, isUpdating, fo
   )
 }
 
-function PaymentDetailsSheet({ payment, onSendReminder, onMarkPaid, isUpdating, formatter }) {
+function PaymentDetailsSheet({
+  payment,
+  onSendReminder,
+  onMarkPaid,
+  onViewReminder,
+  isUpdating,
+  isQueuingReminder,
+  formatter,
+}) {
   const [open, setOpen] = useState(false)
   const isPaid = (payment.status ?? '').toUpperCase() === 'PAID'
 
@@ -1045,8 +1165,18 @@ function PaymentDetailsSheet({ payment, onSendReminder, onMarkPaid, isUpdating, 
               onSendReminder(payment)
               setOpen(false)
             }}
+            disabled={isQueuingReminder}
           >
-            Send reminder
+            {isQueuingReminder ? 'Sending…' : 'Send reminder'}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              onViewReminder(payment)
+              setOpen(false)
+            }}
+          >
+            View reminder history
           </Button>
           <ReceiptActions payment={payment} fullWidth />
           <Button
@@ -1062,6 +1192,200 @@ function PaymentDetailsSheet({ payment, onSendReminder, onMarkPaid, isUpdating, 
       </SheetContent>
     </Sheet>
   )
+}
+
+function ReminderStatusCell({ payment, onViewReminder, isQueuing }) {
+  const status = formatReminderStatusLabel(payment.reminder_status)
+  const variant = reminderBadgeVariant(payment.reminder_status)
+  const attemptCount = payment.reminder_attempt_count ?? 0
+  const lastAttempt = formatDateTime(payment.reminder_last_attempt_at)
+  const nextScheduled = formatDateTime(payment.reminder_next_scheduled_at)
+
+  const attemptSummary = isQueuing
+    ? 'Sending reminder…'
+    : attemptCount > 0
+      ? `${attemptCount} attempt${attemptCount === 1 ? '' : 's'}${lastAttempt ? ` • Last ${lastAttempt}` : ''}`
+      : 'No reminders logged yet'
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <Badge variant={variant}>{status}</Badge>
+      <p className="text-xs text-muted-foreground">{attemptSummary}</p>
+      {nextScheduled ? (
+        <p className="text-xs text-muted-foreground">Next: {nextScheduled}</p>
+      ) : null}
+      <Button variant="ghost" size="sm" className="px-0 text-xs" onClick={() => onViewReminder(payment)}>
+        View history
+      </Button>
+    </div>
+  )
+}
+
+function ReminderDrawer({ open, onOpenChange, payment, envelope, isLoading, error, onRefresh }) {
+  const hasHistory = Boolean(envelope?.history?.length)
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Reminder history</DialogTitle>
+          <DialogDescription>
+            {payment
+              ? `Follow-ups for ${payment.member_name ?? 'this member'} (${payment.receipt_number ?? 'no receipt'})`
+              : 'Select a payment to view its reminder activity.'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-6">
+            <Spinner />
+          </div>
+        ) : null}
+
+        {!isLoading && error ? (
+          <Alert variant="destructive">
+            <AlertTitle>Unable to load reminders</AlertTitle>
+            <AlertDescription>
+              {error?.detail ?? error?.message ?? 'Please try again in a moment.'}
+            </AlertDescription>
+            {onRefresh ? (
+              <Button size="sm" variant="outline" className="mt-3" onClick={onRefresh}>
+                Retry
+              </Button>
+            ) : null}
+          </Alert>
+        ) : null}
+
+        {!isLoading && !error && envelope ? (
+          <div className="space-y-6">
+            <ReminderSummaryCard summary={envelope.summary} />
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Recent activity</h3>
+              {hasHistory ? (
+                <div className="mt-3 space-y-3">
+                  {envelope.history.map((entry) => (
+                    <ReminderHistoryItem key={entry.attempted_at} entry={entry} />
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">No reminder attempts recorded yet.</p>
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+          {onRefresh ? (
+            <Button type="button" onClick={onRefresh} disabled={isLoading || !payment}>
+              Refresh
+            </Button>
+          ) : null}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function ReminderSummaryCard({ summary }) {
+  if (!summary) return null
+  const statusLabel = formatReminderStatusLabel(summary.status)
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Badge variant={reminderBadgeVariant(summary.status)}>{statusLabel}</Badge>
+        <span className="text-xs text-muted-foreground">
+          {summary.attempt_count} attempt{summary.attempt_count === 1 ? '' : 's'} total
+        </span>
+      </div>
+      <dl className="mt-4 grid gap-2 text-sm text-slate-600">
+        <div className="flex items-center justify-between gap-3">
+          <dt className="font-medium text-slate-700">Last attempt</dt>
+          <dd>{formatDateTime(summary.last_attempt_at) ?? '—'}</dd>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <dt className="font-medium text-slate-700">Next scheduled</dt>
+          <dd>{formatDateTime(summary.next_scheduled_at) ?? '—'}</dd>
+        </div>
+      </dl>
+    </div>
+  )
+}
+
+function ReminderHistoryItem({ entry }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-medium text-slate-900">
+          {formatDateTime(entry.attempted_at) ?? 'Unknown timestamp'}
+        </span>
+        <Badge variant={reminderResultVariant(entry.result)}>
+          {formatReminderStatusLabel(entry.result)}
+        </Badge>
+      </div>
+      <dl className="mt-3 space-y-1 text-xs text-muted-foreground">
+        {entry.scheduled_for ? (
+          <div className="flex items-center justify-between gap-3">
+            <dt>Scheduled for</dt>
+            <dd>{formatDateTime(entry.scheduled_for) ?? '—'}</dd>
+          </div>
+        ) : null}
+        {entry.note ? (
+          <div>
+            <dt className="font-medium text-slate-600">Note</dt>
+            <dd className="mt-0.5 whitespace-pre-wrap break-words text-slate-700">{entry.note}</dd>
+          </div>
+        ) : null}
+      </dl>
+    </div>
+  )
+}
+
+function reminderBadgeVariant(status) {
+  switch ((status ?? '').toString().toUpperCase()) {
+    case 'QUEUED':
+      return 'info'
+    case 'SENT':
+      return 'success'
+    case 'COMPLETED':
+      return 'success'
+    case 'SKIPPED':
+      return 'warning'
+    default:
+      return 'secondary'
+  }
+}
+
+function reminderResultVariant(result) {
+  switch ((result ?? '').toString().toUpperCase()) {
+    case 'COMPLETED':
+      return 'success'
+    case 'SKIPPED':
+      return 'warning'
+    default:
+      return 'info'
+  }
+}
+
+function formatReminderStatusLabel(value) {
+  if (!value) return 'Idle'
+  const normalized = value.toString().toLowerCase()
+  switch (normalized) {
+    case 'queued':
+      return 'Queued'
+    case 'sent':
+      return 'Sent'
+    case 'completed':
+      return 'Completed'
+    case 'skipped':
+      return 'Skipped'
+    case 'idle':
+    default:
+      return 'Idle'
+  }
 }
 
 function ReceiptActions({ payment, fullWidth = false }) {

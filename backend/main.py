@@ -5,6 +5,8 @@ backend wiring during Phase 0. Future phases will expand this to include the
 full API surface for the registration and payment system.
 """
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -29,7 +31,16 @@ def create_app() -> FastAPI:
 
     configure_logging()
     settings = get_settings()
-    app = FastAPI(title=settings.app_name)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):  # pragma: no cover - exercised via startup/shutdown
+        await backup_scheduler.start()
+        try:
+            yield
+        finally:
+            await backup_scheduler.stop()
+
+    app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,
@@ -54,14 +65,6 @@ def create_app() -> FastAPI:
     app.include_router(dashboard_router)
     app.include_router(settings_router)
     register_exception_handlers(app)
-
-    @app.on_event("startup")
-    async def _start_background_tasks() -> None:
-        await backup_scheduler.start()
-
-    @app.on_event("shutdown")
-    async def _stop_background_tasks() -> None:
-        await backup_scheduler.stop()
 
     return app
 
