@@ -19,6 +19,8 @@ export function MemberFilters({
   hasGroupOptions,
   onRefresh,
   isRefreshing,
+  onExportAll,
+  isExporting,
 }) {
   return (
     <>
@@ -68,6 +70,11 @@ export function MemberFilters({
       <Button variant="secondary" onClick={onRefresh} disabled={isRefreshing}>
         Refresh
       </Button>
+      {onExportAll ? (
+        <Button variant="outline" onClick={onExportAll} disabled={isExporting}>
+          {isExporting ? 'Exporting…' : 'Export all CSV'}
+        </Button>
+      ) : null}
     </>
   )
 }
