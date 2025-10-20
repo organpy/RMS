@@ -96,8 +96,18 @@ class ReceiptService:
         file_name = f"{payment.receipt_number}.pdf"
         output_path = self.output_dir / file_name
 
-        # Create PDF buffer with smaller margins
+        # Create PDF buffer with smaller margins for border effect
         buffer = BytesIO()
+        
+        def draw_border(canvas, doc):
+            """Draw a subtle border around the page."""
+            canvas.saveState()
+            canvas.setStrokeColor(colors.HexColor(business.secondary_color or "#4b5563"))
+            canvas.setLineWidth(0.5)
+            canvas.rect(0.25 * inch, 0.25 * inch, 
+                       letter[0] - 0.5 * inch, letter[1] - 0.5 * inch)
+            canvas.restoreState()
+        
         doc = SimpleDocTemplate(
             buffer,
             pagesize=letter,
@@ -105,6 +115,8 @@ class ReceiptService:
             leftMargin=0.5 * inch,
             topMargin=0.5 * inch,
             bottomMargin=0.5 * inch,
+            onFirstPage=draw_border,
+            onLaterPages=draw_border,
         )
 
         # Build story (content)
