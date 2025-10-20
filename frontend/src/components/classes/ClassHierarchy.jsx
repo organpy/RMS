@@ -27,6 +27,7 @@ export function ClassHierarchy({
   onCreateClass,
 }) {
   const [expandedIds, setExpandedIds] = useState(new Set())
+  const [hasAutoExpanded, setHasAutoExpanded] = useState(false)
 
   const sortedClasses = useMemo(() => {
     if (!Array.isArray(classes)) return []
@@ -34,10 +35,12 @@ export function ClassHierarchy({
   }, [classes])
 
   useEffect(() => {
-    if (!loading && sortedClasses.length > 0 && expandedIds.size === 0) {
+    // Auto-expand the first class only once after the initial load.
+    if (!loading && !hasAutoExpanded && sortedClasses.length > 0 && expandedIds.size === 0) {
       setExpandedIds(new Set([sortedClasses[0].id]))
+      setHasAutoExpanded(true)
     }
-  }, [loading, sortedClasses, expandedIds.size])
+  }, [loading, hasAutoExpanded, sortedClasses, expandedIds.size])
 
   const toggleExpanded = (classId) => {
     setExpandedIds((prev) => {

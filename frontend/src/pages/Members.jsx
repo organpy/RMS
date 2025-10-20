@@ -17,6 +17,7 @@ import { MemberTable } from '../components/members/MemberTable'
 import { memberFormDefaults, memberFormSchema } from '../components/members/memberFormSchema'
 import { useMemberPaymentHistory } from '../hooks/useMemberPaymentHistory'
 import { normalizeMemberStatus } from '@/utils/members'
+import { exportAllMembersCsv } from '@/utils/exporters/members'
 
 const statusOptions = [
   { value: 'ALL', label: 'All statuses' },
@@ -45,6 +46,7 @@ export default function Members() {
   const [selectedMemberIds, setSelectedMemberIds] = useState([])
   const [isBulkUpdating, setBulkUpdating] = useState(false)
   const [isBulkNotifying, setBulkNotifying] = useState(false)
+  const [isExportingAll, setExportingAll] = useState(false)
 
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -168,6 +170,20 @@ export default function Members() {
     },
     [setPage, setSearchTerm, setSelectedMemberIds],
   )
+
+  const handleExportAll = useCallback(async () => {
+    try {
+      setExportingAll(true)
+      await exportAllMembersCsv({
+        status,
+        search: searchTerm,
+        classId: normalizedClassId,
+        groupId: normalizedGroupId,
+      })
+    } finally {
+      setExportingAll(false)
+    }
+  }, [normalizedClassId, normalizedGroupId, searchTerm, status])
 
   const handleStatusFilterChange = useCallback(
     (nextStatus) => {
@@ -691,6 +707,8 @@ export default function Members() {
         hasGroupOptions={Boolean(groupOptions?.length)}
         onRefresh={refresh}
         isRefreshing={isFetching}
+        onExportAll={handleExportAll}
+        isExporting={isExportingAll}
       />
     ),
     [
@@ -704,11 +722,13 @@ export default function Members() {
       handleClassFilterChange,
       handleGroupFilterChange,
       handleSearchChange,
+      handleExportAll,
       handleStatusFilterChange,
       isFetching,
       refresh,
       searchTerm,
       status,
+      isExportingAll,
     ],
   )
 

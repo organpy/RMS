@@ -33,6 +33,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { useCommand } from '@/hooks/useCommand'
+import { exportPaymentsCsv } from '@/utils/exporters/payments'
 
 const statusOptions = [
   { value: 'ALL', label: 'All statuses' },
@@ -106,6 +107,7 @@ export default function Payments() {
   const [previewUrl, setPreviewUrl] = useState(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [createdPayment, setCreatedPayment] = useState(null)
+  const [isExporting, setIsExporting] = useState(false)
 
   const { business } = useBusiness()
   const { toast } = useToast()
@@ -327,6 +329,21 @@ export default function Payments() {
       .some((value) => value.toLowerCase().includes(normalizedQuery))
   })
 
+  const handleExportAll = useCallback(async () => {
+    try {
+      setIsExporting(true)
+      await exportPaymentsCsv(
+        {
+          status: status === 'ALL' ? undefined : status,
+          days: Number(period),
+        },
+        { currency: business?.currency ?? 'USD' },
+      )
+    } finally {
+      setIsExporting(false)
+    }
+  }, [business?.currency, period, status])
+
   const handleCreateSubmit = handleSubmit((values) => {
     const payload = {
       member_name: values.member_name,
@@ -354,7 +371,7 @@ export default function Payments() {
     (payment) => {
       toast({
         title: 'Reminder queued',
-        description: `We&apos;ll notify ${payment.member_name} about the outstanding invoice.`,
+        description: `We’ll email ${payment.member_name} a friendly nudge about this invoice.`,
       })
     },
     [toast],
@@ -389,7 +406,14 @@ export default function Payments() {
             <div>
               <p className="text-sm text-slate-900">{payment.membership_plan ?? 'General membership'}</p>
               <p className="text-xs text-slate-500">
-                {payment.receipt_number ? `Receipt ${payment.receipt_number}` : 'No receipt on file'}
+                {payment.receipt_number ? (
+                  <span className="inline-flex items-center gap-1 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-emerald-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    Receipt {payment.receipt_number}
+                  </span>
+                ) : (
+                  'No receipt on file'
+                )}
               </p>
             </div>
           )
@@ -725,6 +749,9 @@ export default function Payments() {
             />
             <Button variant="secondary" onClick={refresh} disabled={isFetching}>
               Refresh
+            </Button>
+            <Button variant="outline" onClick={handleExportAll} disabled={isExporting || !data?.payments?.length}>
+              {isExporting ? 'Exporting…' : 'Export all CSV'}
             </Button>
           </>
         )}
