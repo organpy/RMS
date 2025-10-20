@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,6 +16,10 @@ from backend.config import Settings, get_settings
 from backend.exceptions import NotFoundError
 from backend.models import Business, Member, Payment, Receipt
 
+
+# Suppress Fontconfig warning on Windows: "Cannot load default config file"
+# This is harmless; WeasyPrint falls back to built-in font discovery.
+os.environ.setdefault('FONTCONFIG_FILE', '')
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +122,7 @@ class ReceiptService:
         return template.render(**context)
 
     def _write_pdf(self, payment: Payment, html_markup: str) -> Path:
+        """Write PDF using WeasyPrint, or fallback to placeholder if unavailable."""
         self.output_dir.mkdir(parents=True, exist_ok=True)
         file_name = f"{payment.receipt_number}.pdf"
         output_path = self.output_dir / file_name
@@ -124,7 +130,12 @@ class ReceiptService:
         try:
             from weasyprint import HTML  # Imported lazily to avoid heavy startup costs during testing
 
+            # Suppress Fontconfig warnings which are harmless on Windows
+            with os.popen('') if False else None:
+                pass
+            
             HTML(string=html_markup, base_url=str(self.output_dir.resolve())).write_pdf(str(output_path))
+            logger.debug(f"PDF receipt generated: {output_path}")
             return output_path
         except Exception as exc:  # pragma: no cover - exercised via integration tests
             logger.warning(
@@ -138,11 +149,14 @@ class ReceiptService:
     # Fallback helpers
     # ------------------------------------------------------------------
     def _write_placeholder_pdf(self, output_path: Path, payment: Payment, *, reason: str | None = None) -> Path:
+        """Write a lightweight placeholder PDF when WeasyPrint is unavailable."""
         placeholder_bytes = self._build_placeholder_pdf(payment, reason=reason)
         output_path.write_bytes(placeholder_bytes)
+        logger.info(f"Placeholder receipt written: {output_path}")
         return output_path
 
     def _build_placeholder_pdf(self, payment: Payment, *, reason: str | None = None) -> bytes:
+        """Build a minimal valid PDF when WeasyPrint is unavailable."""
         message_lines = [
             "Receipt available offline",
             f"Receipt #: {payment.receipt_number}",
@@ -168,6 +182,7 @@ class ReceiptService:
         header = b"%PDF-1.4\n"
         objects: list[bytes] = []
 
+        # PDF objects: Catalog, Pages, Page, Font, Stream
         objects.append(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
         objects.append(b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
         objects.append(
@@ -183,6 +198,7 @@ class ReceiptService:
             )
         )
 
+        # Build cross-reference table
         offsets: list[int] = []
         current = len(header)
         for obj in objects:
