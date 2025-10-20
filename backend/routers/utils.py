@@ -23,4 +23,16 @@ def serialize_member(member: Member) -> MemberResponse:
 def serialize_payment(payment: Payment) -> PaymentResponse:
     """Convert a Payment ORM instance into a response schema."""
 
-    return PaymentResponse.model_validate(payment, from_attributes=True)
+    response = PaymentResponse.model_validate(payment, from_attributes=True)
+    reminder = getattr(payment, "reminder", None)
+    if reminder is not None:
+        response.reminder_status = reminder.status
+        response.reminder_attempt_count = reminder.attempt_count or 0
+        response.reminder_last_attempt_at = reminder.last_attempt_at
+        response.reminder_next_scheduled_at = reminder.next_scheduled_at
+    else:
+        response.reminder_status = None
+        response.reminder_attempt_count = 0
+        response.reminder_last_attempt_at = None
+        response.reminder_next_scheduled_at = None
+    return response

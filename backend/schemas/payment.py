@@ -6,8 +6,9 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, computed_field
 
+from backend.models import ReminderStatus
 from backend.models.payment import PaymentMethod, PaymentStatus
 from .common import PaginationMeta, TimestampedSchema
 
@@ -55,6 +56,22 @@ class PaymentResponse(TimestampedSchema, PaymentBase):
     id: int
     receipt_number: Optional[str] = None
     refunded_at: Optional[datetime] = None
+    reminder_status: ReminderStatus | None = None
+    reminder_attempt_count: int = Field(default=0, ge=0)
+    reminder_last_attempt_at: Optional[datetime] = None
+    reminder_next_scheduled_at: Optional[datetime] = None
+
+
+class PaymentSummary(BaseModel):
+    """Aggregated payment metrics for dashboard views."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: int = 0
+    revenue: float = 0.0
+    average_ticket: float = 0.0
+    outstanding: float = 0.0
+    by_status: dict[str, float] = Field(default_factory=dict)
 
 
 class PaymentListResponse(BaseModel):
@@ -64,6 +81,12 @@ class PaymentListResponse(BaseModel):
 
     data: list[PaymentResponse]
     meta: PaginationMeta
+    summary: PaymentSummary = Field(default_factory=PaymentSummary)
+
+    @computed_field(return_type=list[PaymentResponse])
+    @property
+    def payments(self) -> list[PaymentResponse]:
+        return self.data
 
 
 class PaymentSearchFilters(BaseModel):

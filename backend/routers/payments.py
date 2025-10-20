@@ -17,11 +17,77 @@ from backend.schemas.payment import (
     PaymentCreate,
     PaymentListResponse,
     PaymentResponse,
+    PaymentSummary,
     PaymentUpdate,
 )
-from backend.services import PaymentService, ReceiptService
+from backend.schemas.payment_reminder import (
+    PaymentReminderEnvelope,
+    PaymentReminderHistoryEntry,
+    PaymentReminderSummary,
+    QueuePaymentReminderRequest,
+)
+from backend.services import PaymentReminderService, PaymentService, ReceiptService
 
 from .utils import serialize_payment
+
+
+def _build_reminder_summary(reminder) -> PaymentReminderSummary:
+    return PaymentReminderSummary(
+        status=reminder.status,
+        attempt_count=reminder.attempt_count,
+        last_attempt_at=reminder.last_attempt_at,
+        next_scheduled_at=reminder.next_scheduled_at,
+    )
+
+
+def _build_reminder_history(logs) -> list[PaymentReminderHistoryEntry]:
+    return [
+        PaymentReminderHistoryEntry(
+            attempted_at=entry.attempted_at,
+            scheduled_for=entry.scheduled_for,
+            result=entry.result,
+            note=entry.note,
+        )
+        for entry in logs
+    ]
+
+
+def _build_reminder_envelope(reminder, logs) -> PaymentReminderEnvelope:
+    summary = _build_reminder_summary(reminder)
+    history = _build_reminder_history(logs)
+    return PaymentReminderEnvelope(summary=summary, history=history)
+
+
+def _load_reminder_envelope(service: PaymentReminderService, payment_id: int) -> PaymentReminderEnvelope:
+    reminder = service.get_or_create(payment_id)
+    history = list(service.list_history(payment_id))
+    return _build_reminder_envelope(reminder, history[:10])
+
+
+def _build_payments_summary(payments: list[PaymentResponse]) -> PaymentSummary:
+    total = len(payments)
+    revenue = sum(float(payment.amount) for payment in payments)
+    outstanding_statuses = {"UNPAID", "OVERDUE"}
+    by_status: dict[str, float] = {}
+
+    for payment in payments:
+        status = payment.status
+        if isinstance(status, PaymentStatus):
+            key = status.value.upper()
+        else:
+            key = str(status).upper()
+        by_status[key] = by_status.get(key, 0.0) + float(payment.amount)
+
+    outstanding = sum(amount for status_key, amount in by_status.items() if status_key in outstanding_statuses)
+    average_ticket = revenue / total if total else 0.0
+
+    return PaymentSummary(
+        total=total,
+        revenue=revenue,
+        outstanding=outstanding,
+        average_ticket=average_ticket,
+        by_status=by_status,
+    )
 
 router = APIRouter(prefix="/api/payments", tags=["Payments"])
 
@@ -52,7 +118,8 @@ async def list_payments(
     )
     data = [serialize_payment(payment) for payment in payments]
     meta = PaginationMeta(total=total, skip=skip, limit=limit)
-    return PaymentListResponse(data=data, meta=meta)
+    summary = _build_payments_summary(data)
+    return PaymentListResponse(data=data, meta=meta, summary=summary)
 
 
 @router.post("", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
@@ -111,6 +178,29 @@ async def download_receipt(payment_id: int, db: Session = Depends(get_db)) -> Fi
     return FileResponse(file_path, media_type="application/pdf", filename=file_path.name)
 
 
+@router.get("/{payment_id}/reminders", response_model=PaymentReminderEnvelope)
+async def get_payment_reminders(payment_id: int, db: Session = Depends(get_db)) -> PaymentReminderEnvelope:
+    """Return reminder summary and recent history for a payment."""
+
+    service = PaymentReminderService(db)
+    envelope = await run_in_threadpool(_load_reminder_envelope, service, payment_id)
+    return envelope
+
+
+@router.post("/{payment_id}/reminders", response_model=PaymentReminderEnvelope, status_code=status.HTTP_201_CREATED)
+async def queue_payment_reminder(
+    payment_id: int,
+    payload: QueuePaymentReminderRequest,
+    db: Session = Depends(get_db),
+) -> PaymentReminderEnvelope:
+    """Queue a reminder intent for the payment and return the updated state."""
+
+    service = PaymentReminderService(db)
+    await run_in_threadpool(service.queue, payment_id, scheduled_for=payload.scheduled_for, note=payload.note)
+    envelope = await run_in_threadpool(_load_reminder_envelope, service, payment_id)
+    return envelope
+
+
 @router.get("/overdue", response_model=PaymentListResponse)
 async def list_overdue_payments(
     skip: int = Query(default=0, ge=0),
@@ -129,7 +219,8 @@ async def list_overdue_payments(
     )
     data = [serialize_payment(payment) for payment in payments]
     meta = PaginationMeta(total=total, skip=skip, limit=limit)
-    return PaymentListResponse(data=data, meta=meta)
+    summary = _build_payments_summary(data)
+    return PaymentListResponse(data=data, meta=meta, summary=summary)
 
 
 @router.get("/due-today", response_model=PaymentListResponse)
@@ -150,4 +241,5 @@ async def list_due_today_payments(
     )
     data = [serialize_payment(payment) for payment in payments]
     meta = PaginationMeta(total=total, skip=skip, limit=limit)
-    return PaymentListResponse(data=data, meta=meta)
+    summary = _build_payments_summary(data)
+    return PaymentListResponse(data=data, meta=meta, summary=summary)

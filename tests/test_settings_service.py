@@ -12,6 +12,7 @@ import pytest
 from backend.config import get_settings
 from backend.exceptions import ValidationError
 from backend.models import Business, ClassCourse, Group, Member, Payment, PaymentMethod, PaymentStatus, Receipt
+from backend.schemas.settings import BackupCadence, BackupScheduleUpdate
 from backend.services.settings_service import SettingsService
 
 
@@ -27,6 +28,8 @@ def test_get_business_creates_default_when_missing(service, db_session):
 
     assert business.id is not None
     assert business.name == get_settings().app_name
+    assert business.backup_scheduler_enabled is False
+    assert business.backup_retention_count == 5
     assert db_session.query(Business).count() == 1
 
 
@@ -68,6 +71,30 @@ def test_store_logo_rejects_invalid_extension(service):
 
     with pytest.raises(ValidationError):
         service.store_logo(filename="brand.txt", content=b"invalid")
+
+
+def test_update_backup_schedule_sets_next_run(service):
+    business = service.get_business()
+    assert business.backup_scheduler_enabled is False
+
+    result = service.update_backup_schedule(
+        BackupScheduleUpdate(enabled=True, cadence=BackupCadence.DAILY, retention_count=4)
+    )
+
+    assert result.backup_scheduler_enabled is True
+    assert result.backup_cadence == BackupCadence.DAILY.value
+    assert result.backup_retention_count == 4
+    assert result.backup_next_run_at is not None
+
+
+def test_finalize_scheduled_backup_updates_metadata(service):
+    service.update_backup_schedule(BackupScheduleUpdate(enabled=True, cadence=BackupCadence.WEEKLY, retention_count=2))
+    run_time = service.clock()
+
+    result = service.finalize_scheduled_backup(run_time, BackupCadence.WEEKLY)
+
+    assert result.backup_last_run_at == run_time
+    assert result.backup_next_run_at is not None
 
 
 def test_generate_backup_configuration_returns_expected_payload(service):

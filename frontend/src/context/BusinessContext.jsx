@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { get, post, put } from '../services/api'
 
 const BusinessContext = createContext(null)
@@ -6,6 +6,7 @@ const BusinessContext = createContext(null)
 const SETTINGS_ENDPOINT = '/api/settings'
 const SETTINGS_LOGO_ENDPOINT = `${SETTINGS_ENDPOINT}/logo`
 const SETTINGS_BACKUP_ENDPOINT = `${SETTINGS_ENDPOINT}/backup-config`
+const SETTINGS_BACKUP_SCHEDULE_ENDPOINT = `${SETTINGS_ENDPOINT}/backup/schedule`
 
 export function BusinessProvider({ children }) {
   const [business, setBusiness] = useState(null)
@@ -53,6 +54,12 @@ export function BusinessProvider({ children }) {
     return data
   }
 
+  const updateBackupSchedule = useCallback(async (payload) => {
+    const data = await put(SETTINGS_BACKUP_SCHEDULE_ENDPOINT, payload)
+    setBusiness(data)
+    return data
+  }, [])
+
   const value = useMemo(
     () => ({
       business,
@@ -61,8 +68,9 @@ export function BusinessProvider({ children }) {
       refresh,
       updateBusiness,
       uploadLogo,
+      updateBackupSchedule,
     }),
-    [business, backupConfig, status],
+    [business, backupConfig, status, updateBackupSchedule],
   )
 
   return <BusinessContext.Provider value={value}>{children}</BusinessContext.Provider>

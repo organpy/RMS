@@ -18,7 +18,15 @@ import {
 } from '../components/ui/dialog'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert'
 import { Skeleton } from '../components/ui/skeleton'
-import { usePayments, createPayment, updatePayment, regenerateReceipt, downloadReceipt } from '../hooks/usePayments'
+import {
+  usePayments,
+  createPayment,
+  updatePayment,
+  regenerateReceipt,
+  downloadReceipt,
+  queuePaymentReminder,
+  fetchPaymentReminder,
+} from '../hooks/usePayments'
 import { get } from '../services/api'
 import { useBusiness } from '../context/BusinessContext'
 import { useToast } from '@/hooks/use-toast'
@@ -120,6 +128,9 @@ export default function Payments() {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [createdPayment, setCreatedPayment] = useState(null)
   const [isExporting, setIsExporting] = useState(false)
+  const [pendingReminderId, setPendingReminderId] = useState(null)
+  const [reminderDrawerPaymentId, setReminderDrawerPaymentId] = useState(null)
+  const [isReminderDrawerOpen, setReminderDrawerOpen] = useState(false)
 
   const { business } = useBusiness()
   const { toast } = useToast()
@@ -369,6 +380,66 @@ export default function Payments() {
     },
   })
 
+  const queueReminderMutation = useMutation({
+    mutationFn: ({ paymentId, note }) =>
+      queuePaymentReminder(paymentId, {
+        scheduled_for: new Date().toISOString(),
+        note: note ?? null,
+      }),
+    onMutate: async ({ paymentId }) => {
+      setPendingReminderId(paymentId)
+      await queryClient.cancelQueries({ queryKey })
+      return { paymentId }
+    },
+    onSuccess: (envelope, { paymentId, memberName }) => {
+      queryClient.setQueryData(queryKey, (old) => {
+        if (!old) return old
+        const existing = old.payments ?? old.data ?? []
+        const updatedPayments = existing.map((payment) => {
+          if (payment.id !== paymentId) return payment
+          return {
+            ...payment,
+            reminder_status: envelope.summary.status,
+            reminder_attempt_count: envelope.summary.attempt_count,
+            reminder_last_attempt_at: envelope.summary.last_attempt_at,
+            reminder_next_scheduled_at: envelope.summary.next_scheduled_at,
+          }
+        })
+        return {
+          ...old,
+          payments: updatedPayments,
+          data: updatedPayments,
+        }
+      })
+
+      queryClient.setQueryData(['payment-reminder', paymentId], envelope)
+
+      toast({
+        title: 'Reminder queued',
+        description:
+          envelope.summary.next_scheduled_at
+            ? `We’ll nudge ${memberName ?? 'this member'} on ${new Date(
+                envelope.summary.next_scheduled_at,
+              ).toLocaleString()}.`
+            : `We’ll nudge ${memberName ?? 'this member'} shortly.`,
+      })
+
+      setReminderDrawerPaymentId(paymentId)
+      setReminderDrawerOpen(true)
+    },
+    onError: (mutationError) => {
+      toast({
+        variant: 'destructive',
+        title: 'Unable to queue reminder',
+        description: mutationError?.detail ?? 'Please try again later.',
+      })
+    },
+    onSettled: () => {
+      setPendingReminderId(null)
+      queryClient.invalidateQueries({ queryKey })
+    },
+  })
+
   const isRefreshing = isFetching && Boolean(data)
 
   useEffect(() => {
@@ -459,12 +530,10 @@ export default function Payments() {
 
   const handleSendReminder = useCallback(
     (payment) => {
-      toast({
-        title: 'Reminder queued',
-        description: `We’ll email ${payment.member_name} a friendly nudge about this invoice.`,
-      })
+      if (!payment?.id) return
+      queueReminderMutation.mutate({ paymentId: payment.id, memberName: payment.member_name })
     },
-    [toast],
+    [queueReminderMutation],
   )
 
   const columns = useMemo(

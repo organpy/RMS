@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Optional, Tuple
 
 from sqlalchemy import and_, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from backend.models.payment import Payment, PaymentMethod, PaymentStatus
 
@@ -21,7 +21,8 @@ class PaymentCRUD:
     def get(self, payment_id: int) -> Optional[Payment]:
         """Fetch a payment by identifier."""
 
-        return self.session.get(Payment, payment_id)
+        stmt = select(Payment).options(joinedload(Payment.reminder)).where(Payment.id == payment_id)
+        return self.session.execute(stmt).scalar_one_or_none()
 
     def list(
         self,
@@ -39,7 +40,11 @@ class PaymentCRUD:
     ) -> Tuple[list[Payment], int]:
         """Return payments filtered by the provided parameters."""
 
-        stmt = select(Payment).order_by(Payment.payment_date.desc(), Payment.id.desc())
+        stmt = (
+            select(Payment)
+            .options(joinedload(Payment.reminder))
+            .order_by(Payment.payment_date.desc(), Payment.id.desc())
+        )
         count_stmt = select(func.count()).select_from(Payment)
 
         conditions = []

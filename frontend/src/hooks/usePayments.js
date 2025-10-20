@@ -42,6 +42,14 @@ export function updatePayment(id, payload) {
   return put(`${PAYMENTS_ENDPOINT}/${id}`, payload)
 }
 
+export function queuePaymentReminder(paymentId, payload) {
+  return post(`${PAYMENTS_ENDPOINT}/${paymentId}/reminders`, payload)
+}
+
+export function fetchPaymentReminder(paymentId) {
+  return get(`${PAYMENTS_ENDPOINT}/${paymentId}/reminders`)
+}
+
 export function regenerateReceipt(paymentId) {
   return post(`${RECEIPTS_ENDPOINT}/${paymentId}/regenerate`)
 }

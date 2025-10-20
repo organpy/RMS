@@ -5,6 +5,12 @@ from .class_course import ClassCourse
 from .group import Group
 from .member import Member, MemberStatus
 from .payment import Payment, PaymentMethod, PaymentStatus
+from .payment_reminder import (
+    PaymentReminder,
+    PaymentReminderLog,
+    ReminderStatus,
+    ReminderAttemptResult,
+)
 from .receipt import Receipt
 from .staff import Staff, StaffRole
 
@@ -17,6 +23,10 @@ __all__ = [
     "Payment",
     "PaymentStatus",
     "PaymentMethod",
+    "PaymentReminder",
+    "PaymentReminderLog",
+    "ReminderStatus",
+    "ReminderAttemptResult",
     "Receipt",
     "Staff",
     "StaffRole",

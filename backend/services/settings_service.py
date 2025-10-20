@@ -5,7 +5,7 @@ from __future__ import annotations
 import csv
 from dataclasses import dataclass
 from decimal import Decimal
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from io import BytesIO, StringIO
 from pathlib import Path
 from typing import Any, Callable, Iterable
@@ -17,7 +17,7 @@ from backend.config import Settings, get_settings
 from backend.crud import BusinessCRUD
 from backend.exceptions import ValidationError
 from backend.models import Business, ClassCourse, Group, Member, Payment, Receipt
-from backend.schemas.settings import BusinessSettingsCreate
+from backend.schemas.settings import BackupCadence, BackupScheduleUpdate, BusinessSettingsCreate
 
 _ALLOWED_LOGO_EXTENSIONS = {".png", ".jpg", ".jpeg", ".svg", ".webp"}
 
@@ -53,6 +53,7 @@ class SettingsService:
         self.session = session
         self.settings = settings or get_settings()
         self.assets_dir = Path(assets_dir or self.settings.branding_assets_dir)
+        self.backups_dir = Path(self.settings.scheduled_backup_dir)
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self._crud = BusinessCRUD(session)
 
@@ -118,8 +119,47 @@ class SettingsService:
             "branding_assets_dir": str(self.assets_dir),
             "payment_due_interval_days": self.settings.payment_due_interval_days,
             "payment_inactive_grace_days": self.settings.payment_inactive_grace_days,
+            "scheduled_backup_dir": self.backups_dir.as_posix(),
+            "backup_scheduler_poll_seconds": self.settings.backup_scheduler_poll_seconds,
         }
         return BackupConfiguration(business=business, environment=environment)
+
+    def update_backup_schedule(self, payload: BackupScheduleUpdate) -> Business:
+        """Persist automated backup schedule preferences."""
+
+        business = self.get_business()
+        update_data: dict[str, Any] = {
+            "backup_scheduler_enabled": payload.enabled,
+            "backup_retention_count": payload.retention_count,
+        }
+        if payload.enabled and payload.cadence:
+            cadence_value = payload.cadence.value
+            update_data["backup_cadence"] = cadence_value
+            reference = business.backup_last_run_at or self.clock()
+            if reference.tzinfo is None:
+                reference = reference.replace(tzinfo=timezone.utc)
+            update_data["backup_next_run_at"] = self.calculate_next_run(reference, payload.cadence)
+        else:
+            update_data["backup_cadence"] = None
+            update_data["backup_next_run_at"] = None
+        updated = self._crud.update(business, update_data)
+        return self._normalize_backup_timestamps(updated)
+
+    def finalize_scheduled_backup(self, run_at: datetime, cadence: BackupCadence | None) -> Business:
+        """Record metadata after a scheduled backup finishes."""
+
+        business = self.get_business()
+        aware_run_at = run_at if run_at.tzinfo else run_at.replace(tzinfo=timezone.utc)
+        aware_run_at = aware_run_at.astimezone(timezone.utc)
+        next_run = self.calculate_next_run(aware_run_at, cadence) if cadence else None
+        business = self._crud.update(
+            business,
+            {
+                "backup_last_run_at": aware_run_at,
+                "backup_next_run_at": next_run,
+            },
+        )
+        return self._normalize_backup_timestamps(business)
 
     def generate_backup_archive(self) -> BackupArchive:
         """Produce a zipped archive with CSV exports for core entities."""
@@ -185,6 +225,28 @@ class SettingsService:
             ]
         ]
         return self._rows_to_csv(headers, rows)
+
+    def calculate_next_run(
+        self, reference: datetime, cadence: BackupCadence | None
+    ) -> datetime | None:
+        if cadence is None:
+            return None
+        base = reference.astimezone(timezone.utc)
+        if cadence == BackupCadence.DAILY:
+            return base + timedelta(days=1)
+        if cadence == BackupCadence.WEEKLY:
+            return base + timedelta(days=7)
+        raise ValueError(f"Unsupported cadence: {cadence}")
+
+    def prune_backup_archives(self, retention_count: int) -> None:
+        """Remove old scheduled backup archives exceeding retention."""
+
+        retention = max(1, retention_count)
+        if not self.backups_dir.exists():
+            return
+        archives = sorted(self.backups_dir.glob("*.zip"), key=lambda path: path.stat().st_mtime, reverse=True)
+        for stale in archives[retention:]:
+            stale.unlink(missing_ok=True)
 
     def _build_classes_csv(self) -> str:
         classes = self.session.query(ClassCourse).order_by(ClassCourse.id).all()
@@ -339,6 +401,18 @@ class SettingsService:
             writer.writerow([self._stringify(value) for value in row])
         buffer.seek(0)
         return "\ufeff" + buffer.read()
+
+    @staticmethod
+    def _normalize_backup_timestamps(business: Business) -> Business:
+        if business.backup_last_run_at and business.backup_last_run_at.tzinfo is None:
+            business.backup_last_run_at = business.backup_last_run_at.replace(tzinfo=timezone.utc)
+        if business.backup_last_run_at and business.backup_last_run_at.tzinfo is not None:
+            business.backup_last_run_at = business.backup_last_run_at.astimezone(timezone.utc)
+        if business.backup_next_run_at and business.backup_next_run_at.tzinfo is None:
+            business.backup_next_run_at = business.backup_next_run_at.replace(tzinfo=timezone.utc)
+        if business.backup_next_run_at and business.backup_next_run_at.tzinfo is not None:
+            business.backup_next_run_at = business.backup_next_run_at.astimezone(timezone.utc)
+        return business
 
     @staticmethod
     def _stringify(value: Any) -> Any:

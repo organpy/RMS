@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     payment_inactive_grace_days: int = Field(default=14, ge=0)
     receipt_output_dir: str = Field(default="data/receipts")
     branding_assets_dir: str = Field(default="data/logos")
+    scheduled_backup_dir: str = Field(default="data/backups")
+    backup_scheduler_poll_seconds: int = Field(default=3600, ge=60)
     cors_allowed_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"],
         description="Origins allowed to access the API via CORS.",

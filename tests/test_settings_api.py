@@ -44,6 +44,8 @@ def test_read_settings_initializes_default_business(client, db_session):
     assert payload["name"] == get_settings().app_name
     assert payload["primary_color"] is None
     assert payload["currency"] == "USD"
+    assert payload["backup_scheduler_enabled"] is False
+    assert payload["backup_retention_count"] == 5
     assert "created_at" in payload
     assert "updated_at" in payload
 
@@ -98,6 +100,8 @@ def test_backup_config_endpoint_returns_environment_metadata(client, tmp_path):
     env = payload["environment"]
     assert env["database_url"] == get_settings().database_url
     assert env["branding_assets_dir"] == str(tmp_path)
+    assert env["scheduled_backup_dir"] == get_settings().scheduled_backup_dir
+    assert env["backup_scheduler_poll_seconds"] == get_settings().backup_scheduler_poll_seconds
     assert "payment_due_interval_days" in env
 
 
@@ -149,3 +153,24 @@ def test_manual_backup_endpoint_streams_zip_archive(client, db_session):
         assert "members.csv" in zip_file.namelist()
         members_csv = zip_file.read("members.csv").decode("utf-8-sig")
         assert "Grace" in members_csv
+
+
+def test_update_backup_schedule_endpoint_updates_business(client, db_session):
+    client.get("/api/settings")
+
+    response = client.put(
+        "/api/settings/backup/schedule",
+        json={"enabled": True, "cadence": "daily", "retention_count": 3},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["backup_scheduler_enabled"] is True
+    assert payload["backup_cadence"] == "daily"
+    assert payload["backup_retention_count"] == 3
+    assert payload["backup_next_run_at"] is not None
+
+    business = db_session.query(Business).first()
+    assert business.backup_scheduler_enabled is True
+    assert business.backup_cadence == "daily"
+    assert business.backup_retention_count == 3
