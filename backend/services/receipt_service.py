@@ -100,12 +100,13 @@ class ReceiptService:
         buffer = BytesIO()
         
         def draw_border(canvas, doc):
-            """Draw a subtle border around the page."""
+            """Draw a modern subtle border around the page."""
             canvas.saveState()
-            canvas.setStrokeColor(colors.HexColor(business.secondary_color or "#4b5563"))
-            canvas.setLineWidth(0.5)
-            canvas.rect(0.25 * inch, 0.25 * inch, 
-                       letter[0] - 0.5 * inch, letter[1] - 0.5 * inch)
+            canvas.setStrokeColor(colors.HexColor("#e5e7eb"))  # Modern light gray
+            canvas.setLineWidth(0.8)
+            # Rounded rectangle for modern look
+            canvas.roundRect(0.3 * inch, 0.3 * inch, 
+                           letter[0] - 0.6 * inch, letter[1] - 0.6 * inch, 8)
             canvas.restoreState()
         
         doc = SimpleDocTemplate(
@@ -123,42 +124,45 @@ class ReceiptService:
         story = []
         styles = getSampleStyleSheet()
         
-        # Custom styles with smaller fonts
+        # Custom styles with modern typography
         title_style = ParagraphStyle(
             'CustomTitle',
             parent=styles['Heading1'],
-            fontSize=24,
+            fontSize=28,
             textColor=colors.HexColor(business.primary_color or "#1f2937"),
-            spaceAfter=8,
+            spaceAfter=12,
             alignment=1,  # Center
             fontName='Helvetica-Bold',
+            letterSpacing=0.5,  # Modern letter spacing
         )
         
         subtitle_style = ParagraphStyle(
             'CustomSubtitle',
             parent=styles['Normal'],
-            fontSize=12,
-            textColor=colors.HexColor(business.secondary_color or "#4b5563"),
-            spaceAfter=15,
+            fontSize=11,
+            textColor=colors.HexColor("#6b7280"),  # Modern gray
+            spaceAfter=20,
             alignment=1,
-            fontName='Helvetica-Oblique',
+            fontName='Helvetica',
         )
         
         heading_style = ParagraphStyle(
             'CustomHeading',
             parent=styles['Heading2'],
-            fontSize=14,
+            fontSize=16,
             textColor=colors.HexColor(business.primary_color or "#1f2937"),
-            spaceAfter=8,
+            spaceAfter=12,
             fontName='Helvetica-Bold',
+            letterSpacing=0.3,
         )
         
         normal_style = ParagraphStyle(
             'CustomNormal',
             parent=styles['Normal'],
-            fontSize=10,
-            leading=14,
-            spaceAfter=6,
+            fontSize=11,
+            leading=16,
+            spaceAfter=8,
+            fontName='Helvetica',
         )
         
         # Header with logo (top left) and business name (top center)
@@ -217,27 +221,27 @@ class ReceiptService:
         story.append(receipt_table)
         story.append(Spacer(1, 15))
 
-        # Bill To section with better formatting
+        # Bill To section with modern card styling
         story.append(Paragraph("Bill To:", heading_style))
-        member_table_data = [
-            ["Name", f"{member.first_name} {member.last_name}"],
-            ["Email", member.email],
-        ]
-        if member.class_course:
-            member_table_data.append(["Class", member.class_course.name])
         
-        member_table = Table(member_table_data, colWidths=[1.2 * inch, 5 * inch])
-        member_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor(business.secondary_color or "#4b5563")),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        # Modern card-style background for member info
+        member_card = Table([[Paragraph(f"""
+        <b>{member.first_name} {member.last_name}</b><br/>
+        <font color="#6b7280">{member.email}</font>
+        {f'<br/><font color="#6b7280">Class: {member.class_course.name}</font>' if member.class_course else ''}
+        """, normal_style)]], colWidths=[6 * inch])
+        
+        member_card.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#f8fafc")),  # Light modern background
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor("#e5e7eb")),  # Subtle border
+            ('ROUNDEDCORNERS', [8, 8, 8, 8]),  # Modern rounded corners
+            ('TOPPADDING', (0, 0), (-1, -1), 16),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 16),
+            ('LEFTPADDING', (0, 0), (-1, -1), 16),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 16),
         ]))
-        story.append(member_table)
-        story.append(Spacer(1, 15))
+        story.append(member_card)
+        story.append(Spacer(1, 20))
 
         # Amount breakdown with enhanced styling
         story.append(Paragraph("Payment Details:", heading_style))
@@ -266,42 +270,45 @@ class ReceiptService:
         story.append(amount_table)
         story.append(Spacer(1, 15))
 
-        # Payment method info
+        # Payment method info with modern card styling
         payment_info = f"""
         <b>Payment Method:</b> {payment.method.value.title()}<br/>
-        <b>Transaction Status:</b> {payment.status.value.title()}
+        <font color="#6b7280"><b>Status:</b> {payment.status.value.title()}</font>
+        {f'<br/><font color="#6b7280"><b>Next Due:</b> {payment.next_due_date.strftime("%B %d, %Y")}</font>' if payment.next_due_date else ''}
         """
-        if payment.next_due_date:
-            payment_info += f"<br/><b>Next Due Date:</b> {payment.next_due_date.strftime('%B %d, %Y')}"
         
-        payment_box = Table([[Paragraph(payment_info, normal_style)]], colWidths=[6 * inch])
-        payment_box.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#f9fafb")),
-            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor(business.secondary_color or "#4b5563")),
-            ('TOPPADDING', (0, 0), (-1, -1), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-            ('LEFTPADDING', (0, 0), (-1, -1), 12),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        payment_card = Table([[Paragraph(payment_info, normal_style)]], colWidths=[6 * inch])
+        payment_card.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#f0f9ff")),  # Light blue modern background
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor("#bae6fd")),  # Subtle blue border
+            ('ROUNDEDCORNERS', [8, 8, 8, 8]),  # Modern rounded corners
+            ('TOPPADDING', (0, 0), (-1, -1), 16),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 16),
+            ('LEFTPADDING', (0, 0), (-1, -1), 16),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 16),
         ]))
-        story.append(payment_box)
-        story.append(Spacer(1, 20))
+        story.append(payment_card)
+        story.append(Spacer(1, 24))
 
-        # Footer with business branding
+        # Modern footer with better branding
         footer_style = ParagraphStyle(
             'Footer',
             parent=styles['Normal'],
-            fontSize=9,
-            textColor=colors.HexColor(business.secondary_color or "#4b5563"),
+            fontSize=10,
+            textColor=colors.HexColor("#6b7280"),
             alignment=1,
-            fontName='Helvetica-Oblique',
+            fontName='Helvetica',
+            leading=14,
         )
         footer_text = f"""
-        <b>Thank you for choosing {business.name or 'our services'}!</b><br/>
-        For questions or support, please contact us at:<br/>
-        Email: support@{business.name.lower().replace(' ', '') if business.name else 'company'}.com<br/>
-        Phone: (555) 123-4567 | Website: www.{business.name.lower().replace(' ', '') if business.name else 'company'}.com<br/>
+        <b style="color: {business.primary_color or '#1f2937'};">Thank you for choosing {business.name or 'our services'}!</b><br/>
         <br/>
-        <i>This is an electronically generated receipt. Keep for your records.</i>
+        <font size="9">Questions? Contact us:<br/>
+        📧 support@{business.name.lower().replace(' ', '') if business.name else 'company'}.com<br/>
+        📞 (555) 123-4567<br/>
+        🌐 www.{business.name.lower().replace(' ', '') if business.name else 'company'}.com</font><br/>
+        <br/>
+        <i style="color: #9ca3af;">This receipt was automatically generated on {self.clock().strftime('%B %d, %Y at %I:%M %p')}</i>
         """
         story.append(Paragraph(footer_text, footer_style))
 
