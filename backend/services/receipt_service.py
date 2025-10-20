@@ -203,6 +203,11 @@ class ReceiptService:
             ('FONTSIZE', (0, 0), (-1, -1), 10),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(business.primary_color or "#1f2937")),
+            # Highlight receipt number with different background
+            ('BACKGROUND', (0, 1), (0, 1), colors.HexColor("#fef3c7")),  # Light yellow background
+            ('TEXTCOLOR', (0, 1), (0, 1), colors.HexColor("#92400e")),  # Dark brown text
+            ('FONTNAME', (0, 1), (0, 1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 1), (0, 1), 12),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('TOPPADDING', (0, 0), (-1, -1), 6),
