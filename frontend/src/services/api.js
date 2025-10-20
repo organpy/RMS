@@ -54,6 +54,10 @@ export function put(url, data, config) {
   return api.put(url, data, config).then((res) => res.data)
 }
 
+export function patch(url, data, config) {
+  return api.patch(url, data, config).then((res) => res.data)
+}
+
 export function del(url, config) {
   return api.delete(url, config).then((res) => res.data)
 }

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { del, get, post, put } from '../services/api'
+import { del, get, patch, post, put } from '../services/api'
 
 const MEMBERS_ENDPOINT = '/api/members'
 
@@ -96,7 +96,7 @@ export function updateMember(id, payload) {
 }
 
 export function updateMemberStatus(id, payload) {
-  return put(`${MEMBERS_ENDPOINT}/${id}/status`, payload)
+  return patch(`${MEMBERS_ENDPOINT}/${id}/status`, payload)
 }
 
 export function deleteMember(id) {
