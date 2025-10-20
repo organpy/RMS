@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass
+from decimal import Decimal
 from datetime import datetime, timezone
+from io import BytesIO, StringIO
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from sqlalchemy.orm import Session
 
 from backend.config import Settings, get_settings
 from backend.crud import BusinessCRUD
 from backend.exceptions import ValidationError
-from backend.models import Business
+from backend.models import Business, ClassCourse, Group, Member, Payment, Receipt
 from backend.schemas.settings import BusinessSettingsCreate
 
 _ALLOWED_LOGO_EXTENSIONS = {".png", ".jpg", ".jpeg", ".svg", ".webp"}
@@ -24,6 +28,15 @@ class BackupConfiguration:
 
     business: Business
     environment: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class BackupArchive:
+    """Binary payload containing a zipped CSV export of core entities."""
+
+    filename: str
+    content: bytes
+    generated_at: datetime
 
 
 class SettingsService:
@@ -108,6 +121,25 @@ class SettingsService:
         }
         return BackupConfiguration(business=business, environment=environment)
 
+    def generate_backup_archive(self) -> BackupArchive:
+        """Produce a zipped archive with CSV exports for core entities."""
+
+        timestamp = self.clock()
+        business = self.get_business()
+        archive_name = f"{self._slugify_business_name(business.name)}-backup-{timestamp.strftime('%Y%m%d%H%M%S')}.zip"
+
+        zip_buffer = BytesIO()
+        with ZipFile(zip_buffer, mode="w", compression=ZIP_DEFLATED) as archive:
+            archive.writestr("business.csv", self._build_business_csv(business))
+            archive.writestr("classes.csv", self._build_classes_csv())
+            archive.writestr("groups.csv", self._build_groups_csv())
+            archive.writestr("members.csv", self._build_members_csv())
+            archive.writestr("payments.csv", self._build_payments_csv())
+            archive.writestr("receipts.csv", self._build_receipts_csv())
+
+        zip_buffer.seek(0)
+        return BackupArchive(filename=archive_name, content=zip_buffer.getvalue(), generated_at=timestamp)
+
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
@@ -120,5 +152,228 @@ class SettingsService:
         timestamp = self.clock().strftime("%Y%m%d%H%M%S")
         return f"{slug}-{timestamp}{extension}"
 
+    def _slugify_business_name(self, business_name: str) -> str:
+        normalized = business_name.lower()
+        sanitized = "".join(ch if ch.isalnum() else "-" for ch in normalized)
+        while "--" in sanitized:
+            sanitized = sanitized.replace("--", "-")
+        return sanitized.strip("-") or "business"
 
-__all__ = ["SettingsService", "BackupConfiguration"]
+    def _build_business_csv(self, business: Business) -> str:
+        headers = [
+            "id",
+            "name",
+            "logo_path",
+            "primary_color",
+            "secondary_color",
+            "language",
+            "currency",
+            "created_at",
+            "updated_at",
+        ]
+        rows = [
+            [
+                business.id,
+                business.name,
+                business.logo_path or "",
+                business.primary_color or "",
+                business.secondary_color or "",
+                business.language,
+                business.currency,
+                self._serialize_datetime(business.created_at),
+                self._serialize_datetime(business.updated_at),
+            ]
+        ]
+        return self._rows_to_csv(headers, rows)
+
+    def _build_classes_csv(self) -> str:
+        classes = self.session.query(ClassCourse).order_by(ClassCourse.id).all()
+        headers = [
+            "id",
+            "business_id",
+            "name",
+            "description",
+            "start_date",
+            "end_date",
+            "grouping_type",
+            "created_at",
+            "updated_at",
+        ]
+        rows = [
+            [
+                class_course.id,
+                class_course.business_id,
+                class_course.name,
+                class_course.description or "",
+                self._serialize_date(class_course.start_date),
+                self._serialize_date(class_course.end_date),
+                class_course.grouping_type or "",
+                self._serialize_datetime(class_course.created_at),
+                self._serialize_datetime(class_course.updated_at),
+            ]
+            for class_course in classes
+        ]
+        return self._rows_to_csv(headers, rows)
+
+    def _build_groups_csv(self) -> str:
+        groups = self.session.query(Group).order_by(Group.id).all()
+        headers = [
+            "id",
+            "class_id",
+            "name",
+            "description",
+            "created_at",
+            "updated_at",
+        ]
+        rows = [
+            [
+                group.id,
+                group.class_id,
+                group.name,
+                group.description or "",
+                self._serialize_datetime(group.created_at),
+                self._serialize_datetime(group.updated_at),
+            ]
+            for group in groups
+        ]
+        return self._rows_to_csv(headers, rows)
+
+    def _build_members_csv(self) -> str:
+        members = self.session.query(Member).order_by(Member.id).all()
+        headers = [
+            "id",
+            "business_id",
+            "class_id",
+            "group_id",
+            "first_name",
+            "last_name",
+            "email",
+            "phone_number",
+            "status",
+            "joined_at",
+            "archived_at",
+            "created_at",
+            "updated_at",
+        ]
+        rows = [
+            [
+                member.id,
+                member.business_id,
+                member.class_id or "",
+                member.group_id or "",
+                member.first_name,
+                member.last_name,
+                member.email or "",
+                member.phone_number or "",
+                member.status.value if member.status else "",
+                self._serialize_date(member.joined_at),
+                self._serialize_datetime(member.archived_at),
+                self._serialize_datetime(member.created_at),
+                self._serialize_datetime(member.updated_at),
+            ]
+            for member in members
+        ]
+        return self._rows_to_csv(headers, rows)
+
+    def _build_payments_csv(self) -> str:
+        payments = self.session.query(Payment).order_by(Payment.id).all()
+        headers = [
+            "id",
+            "member_id",
+            "amount",
+            "payment_date",
+            "next_due_date",
+            "status",
+            "method",
+            "receipt_number",
+            "notes",
+            "refunded_at",
+            "created_at",
+            "updated_at",
+        ]
+        rows = [
+            [
+                payment.id,
+                payment.member_id,
+                self._format_amount(payment.amount),
+                self._serialize_date(payment.payment_date),
+                self._serialize_date(payment.next_due_date),
+                payment.status.value if payment.status else "",
+                payment.method.value if payment.method else "",
+                payment.receipt_number or "",
+                payment.notes or "",
+                self._serialize_datetime(payment.refunded_at),
+                self._serialize_datetime(payment.created_at),
+                self._serialize_datetime(payment.updated_at),
+            ]
+            for payment in payments
+        ]
+        return self._rows_to_csv(headers, rows)
+
+    def _build_receipts_csv(self) -> str:
+        receipts = self.session.query(Receipt).order_by(Receipt.id).all()
+        headers = [
+            "id",
+            "payment_id",
+            "file_path",
+            "created_at",
+            "updated_at",
+        ]
+        rows = [
+            [
+                receipt.id,
+                receipt.payment_id,
+                receipt.file_path,
+                self._serialize_datetime(receipt.created_at),
+                self._serialize_datetime(receipt.updated_at),
+            ]
+            for receipt in receipts
+        ]
+        return self._rows_to_csv(headers, rows)
+
+    def _rows_to_csv(self, headers: list[str], rows: Iterable[Iterable[Any]]) -> str:
+        buffer = StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(headers)
+        for row in rows:
+            writer.writerow([self._stringify(value) for value in row])
+        buffer.seek(0)
+        return "\ufeff" + buffer.read()
+
+    @staticmethod
+    def _stringify(value: Any) -> Any:
+        if value is None:
+            return ""
+        if isinstance(value, Decimal):
+            return format(value, "f")
+        if isinstance(value, float):
+            return f"{value:.2f}"
+        return value
+
+    @staticmethod
+    def _format_amount(value) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, Decimal):
+            return format(value, ".2f")
+        try:
+            return f"{float(value):.2f}"
+        except (TypeError, ValueError):  # pragma: no cover - defensive
+            return str(value)
+
+    @staticmethod
+    def _serialize_date(value) -> str:
+        if not value:
+            return ""
+        return value.isoformat()
+
+    @staticmethod
+    def _serialize_datetime(value) -> str:
+        if not value:
+            return ""
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return str(value)
+
+
+__all__ = ["SettingsService", "BackupConfiguration", "BackupArchive"]

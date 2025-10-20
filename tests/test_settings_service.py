@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+from datetime import date
+from io import BytesIO
 from pathlib import Path
+from zipfile import ZipFile
 
 import pytest
 
 from backend.config import get_settings
 from backend.exceptions import ValidationError
-from backend.models import Business
+from backend.models import Business, ClassCourse, Group, Member, Payment, PaymentMethod, PaymentStatus, Receipt
 from backend.services.settings_service import SettingsService
 
 
@@ -75,3 +78,67 @@ def test_generate_backup_configuration_returns_expected_payload(service):
     assert "database_url" in config.environment
     assert "branding_assets_dir" in config.environment
     assert config.environment["branding_assets_dir"] == str(service.assets_dir)
+
+
+def test_generate_backup_archive_includes_core_entities(service, db_session):
+    business = service.get_business()
+
+    class_course = ClassCourse(business_id=business.id, name="Karate Fundamentals")
+    db_session.add(class_course)
+    db_session.flush()
+
+    group = Group(class_id=class_course.id, name="Beginners")
+    db_session.add(group)
+    db_session.flush()
+
+    member = Member(
+        business_id=business.id,
+        class_id=class_course.id,
+        group_id=group.id,
+        first_name="Ada",
+        last_name="Lovelace",
+        email="ada@example.com",
+        phone_number="555-0101",
+    )
+    db_session.add(member)
+    db_session.flush()
+
+    payment = Payment(
+        member_id=member.id,
+        amount=125.50,
+        payment_date=date(2025, 1, 10),
+        status=PaymentStatus.PAID,
+        method=PaymentMethod.CASH,
+        receipt_number="R-001",
+    )
+    db_session.add(payment)
+    db_session.flush()
+
+    receipt = Receipt(payment_id=payment.id, file_path="receipts/R-001.pdf")
+    db_session.add(receipt)
+    db_session.commit()
+
+    archive = service.generate_backup_archive()
+
+    assert archive.filename.endswith(".zip")
+    assert archive.content
+
+    with ZipFile(BytesIO(archive.content)) as zip_file:
+        entries = set(zip_file.namelist())
+        assert {
+            "business.csv",
+            "classes.csv",
+            "groups.csv",
+            "members.csv",
+            "payments.csv",
+            "receipts.csv",
+        }.issubset(entries)
+
+        members_csv = zip_file.read("members.csv").decode("utf-8-sig")
+        assert "Ada" in members_csv
+
+        payments_csv = zip_file.read("payments.csv").decode("utf-8-sig")
+        assert "R-001" in payments_csv
+
+        business_csv = zip_file.read("business.csv").decode("utf-8-sig")
+        assert business.name in business_csv

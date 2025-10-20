@@ -174,6 +174,9 @@ export function MemberTable({
   isBulkUpdating,
   isBulkNotifying,
   toolbarContent,
+  statusFilter = 'ALL',
+  classFilter = 'ALL',
+  groupFilter = 'ALL',
 }) {
   const filteredMembers = useMemo(() => {
     if (!members?.length) return members ?? []
@@ -259,6 +262,37 @@ export function MemberTable({
 
     return statusEntries.length ? statusEntries.join(', ') : ''
   }, [decoratedMembers, hasSelection, selectedMemberIdsSet])
+
+  const { emptyStateTitle, emptyStateDescription } = useMemo(() => {
+    const trimmedSearch = searchTerm.trim()
+    const activeFilters = []
+
+    if (trimmedSearch) {
+      activeFilters.push(`search “${trimmedSearch}”`)
+    }
+    if (statusFilter && statusFilter !== 'ALL') {
+      activeFilters.push(`status ${statusFilter.toLowerCase()}`)
+    }
+    if (classFilter && classFilter !== 'ALL') {
+      activeFilters.push('class filter')
+    }
+    if (groupFilter && groupFilter !== 'ALL') {
+      activeFilters.push('group filter')
+    }
+
+    if (!activeFilters.length) {
+      return {
+        emptyStateTitle: 'No members found',
+        emptyStateDescription: 'Try adjusting filters or add a new member.',
+      }
+    }
+
+    const summary = activeFilters.join(', ')
+    return {
+      emptyStateTitle: 'No members match your filters',
+      emptyStateDescription: `No members match your current filters (${summary}). Clear filters or add a new member.`,
+    }
+  }, [classFilter, groupFilter, searchTerm, statusFilter])
 
   const columns = useMemo(
     () => [
@@ -447,7 +481,7 @@ export function MemberTable({
         columns={columns}
         data={decoratedMembers}
         exportFileName="members-export.csv"
-        emptyState={{ title: 'No members found', description: 'Try adjusting filters or add a new member.' }}
+        emptyState={{ title: emptyStateTitle, description: emptyStateDescription }}
         page={page}
         pageSize={limit}
         totalCount={totalCount}

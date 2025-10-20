@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -66,3 +67,16 @@ async def read_backup_configuration(
     business = BusinessSettingsResponse.model_validate(backup.business, from_attributes=True)
     environment = BackupEnvironmentSchema(**backup.environment)
     return BackupConfigResponse(business=business, environment=environment)
+
+
+@router.get("/backup/manual")
+async def download_manual_backup(
+    service: SettingsService = Depends(get_settings_service),
+) -> StreamingResponse:
+    """Stream a zipped archive containing CSV exports for core entities."""
+
+    archive = await run_in_threadpool(service.generate_backup_archive)
+    headers = {
+        "Content-Disposition": f'attachment; filename="{archive.filename}"'
+    }
+    return StreamingResponse(iter([archive.content]), media_type="application/zip", headers=headers)

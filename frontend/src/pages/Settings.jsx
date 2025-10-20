@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
@@ -6,6 +7,8 @@ import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert'
 import Spinner from '../components/ui/Spinner'
 import { useBusiness } from '../context/BusinessContext'
 import { useTheme } from '../context/ThemeContext'
+import { useToast } from '@/hooks/use-toast'
+import api from '../services/api'
 
 const languages = [
   { value: 'EN', label: 'English' },
@@ -17,6 +20,38 @@ const languages = [
 export default function Settings() {
   const { business, status, refresh } = useBusiness()
   const { theme, setTheme, resetTheme } = useTheme()
+  const { toast } = useToast()
+  const [isBackupLoading, setBackupLoading] = useState(false)
+
+  const handleManualBackup = useCallback(async () => {
+    try {
+      setBackupLoading(true)
+      const response = await api.get('/api/settings/backup/manual', { responseType: 'blob' })
+      const blob = response.data
+      const filename = extractFilename(response.headers?.['content-disposition']) ?? `backup-${new Date().toISOString().slice(0, 10)}.zip`
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', filename)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      toast({
+        title: 'Backup ready',
+        description: `Downloaded ${filename}. Keep it in a safe location.`,
+      })
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Backup failed',
+        description: error?.detail ?? 'Unable to generate backup archive right now.',
+      })
+    } finally {
+      setBackupLoading(false)
+    }
+  }, [toast])
 
   if (status.loading && !business) {
     return (
@@ -126,6 +161,14 @@ export default function Settings() {
           <p className="text-xs text-slate-500">
             Backup configuration editing will be implemented alongside the import/export workflows in a later phase.
           </p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={handleManualBackup} disabled={isBackupLoading}>
+              {isBackupLoading ? 'Generating…' : 'Download manual backup'}
+            </Button>
+            <p className="text-xs text-slate-500">
+              Use this to grab a snapshot of your data whenever you need an offline copy.
+            </p>
+          </div>
         </div>
       </Card>
     </div>
@@ -139,4 +182,10 @@ function Field({ label, children }) {
       {children}
     </label>
   )
+}
+
+function extractFilename(disposition) {
+  if (!disposition) return null
+  const match = /filename="?([^";]+)"?/i.exec(disposition)
+  return match ? match[1] : null
 }
