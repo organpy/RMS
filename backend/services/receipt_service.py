@@ -296,8 +296,12 @@ class ReceiptService:
             fontName='Helvetica-Oblique',
         )
         footer_text = f"""
-        Thank you for choosing {business.name or 'our services'}!<br/>
-        For questions, contact us. This receipt is auto-generated.
+        <b>Thank you for choosing {business.name or 'our services'}!</b><br/>
+        For questions or support, please contact us at:<br/>
+        Email: support@{business.name.lower().replace(' ', '') if business.name else 'company'}.com<br/>
+        Phone: (555) 123-4567 | Website: www.{business.name.lower().replace(' ', '') if business.name else 'company'}.com<br/>
+        <br/>
+        <i>This is an electronically generated receipt. Keep for your records.</i>
         """
         story.append(Paragraph(footer_text, footer_style))
 
