@@ -3,12 +3,14 @@
 from .analytics_service import AnalyticsService
 from .dashboard_service import DashboardService
 from .payment_service import PaymentService
+from .payment_reminder_service import PaymentReminderService
 from .receipt_service import ReceiptService
 from .settings_service import SettingsService, BackupConfiguration
 
 __all__ = [
     "DashboardService",
     "PaymentService",
+    "PaymentReminderService",
     "ReceiptService",
     "AnalyticsService",
     "SettingsService",

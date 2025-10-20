@@ -21,6 +21,7 @@ from .routers import (
     receipts_router,
     settings_router,
 )
+from .tasks.backup_scheduler import backup_scheduler
 
 
 def create_app() -> FastAPI:
@@ -53,6 +54,14 @@ def create_app() -> FastAPI:
     app.include_router(dashboard_router)
     app.include_router(settings_router)
     register_exception_handlers(app)
+
+    @app.on_event("startup")
+    async def _start_background_tasks() -> None:
+        await backup_scheduler.start()
+
+    @app.on_event("shutdown")
+    async def _stop_background_tasks() -> None:
+        await backup_scheduler.stop()
 
     return app
 

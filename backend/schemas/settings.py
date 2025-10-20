@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
+from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -10,6 +12,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from .common import TimestampedSchema
 
 _HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+class BackupCadence(str, Enum):
+    """Supported automated backup cadences."""
+
+    DAILY = "daily"
+    WEEKLY = "weekly"
 
 
 class BusinessSettingsBase(BaseModel):
@@ -36,7 +45,8 @@ class BusinessSettingsBase(BaseModel):
 class BusinessSettingsCreate(BusinessSettingsBase):
     """Schema used internally when ensuring a default business row exists."""
 
-    pass
+    backup_scheduler_enabled: bool = False
+    backup_retention_count: int = Field(default=5, ge=1, le=60)
 
 
 class BusinessSettingsUpdate(BaseModel):
@@ -78,6 +88,11 @@ class BusinessSettingsResponse(TimestampedSchema):
     language: str
     currency: str
     logo_path: str | None = None
+    backup_scheduler_enabled: bool
+    backup_cadence: BackupCadence | None = None
+    backup_retention_count: int
+    backup_last_run_at: datetime | None = None
+    backup_next_run_at: datetime | None = None
 
 
 class BackupEnvironmentSchema(BaseModel):
@@ -93,6 +108,8 @@ class BackupEnvironmentSchema(BaseModel):
     branding_assets_dir: str
     payment_due_interval_days: int
     payment_inactive_grace_days: int
+    scheduled_backup_dir: str
+    backup_scheduler_poll_seconds: int
 
 
 class BackupConfigResponse(BaseModel):
@@ -104,10 +121,28 @@ class BackupConfigResponse(BaseModel):
     environment: BackupEnvironmentSchema
 
 
+class BackupScheduleUpdate(BaseModel):
+    """Payload for updating automated backup settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(default=False)
+    cadence: BackupCadence | None = Field(default=None)
+    retention_count: int = Field(default=5, ge=1, le=60)
+
+    @model_validator(mode="after")
+    def _validate_payload(self) -> "BackupScheduleUpdate":
+        if self.enabled and self.cadence is None:
+            raise ValueError("Cadence is required when automation is enabled.")
+        return self
+
+
 __all__ = [
     "BusinessSettingsCreate",
     "BusinessSettingsUpdate",
     "BusinessSettingsResponse",
     "BackupEnvironmentSchema",
     "BackupConfigResponse",
+    "BackupCadence",
+    "BackupScheduleUpdate",
 ]

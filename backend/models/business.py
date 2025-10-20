@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import String
+from sqlalchemy import Boolean, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
@@ -27,6 +28,11 @@ class Business(TimestampMixin, Base):
     secondary_color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
     language: Mapped[str] = mapped_column(String(5), default="EN")
     currency: Mapped[str] = mapped_column(String(3), default="USD")
+    backup_scheduler_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    backup_cadence: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    backup_retention_count: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    backup_last_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    backup_next_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     classes: Mapped[List["ClassCourse"]] = relationship(back_populates="business", cascade="all, delete-orphan")
     members: Mapped[List["Member"]] = relationship(back_populates="business", cascade="all, delete-orphan")

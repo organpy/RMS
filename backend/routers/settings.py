@@ -11,6 +11,7 @@ from backend.database import get_db
 from backend.schemas.settings import (
     BackupConfigResponse,
     BackupEnvironmentSchema,
+    BackupScheduleUpdate,
     BusinessSettingsResponse,
     BusinessSettingsUpdate,
 )
@@ -80,3 +81,14 @@ async def download_manual_backup(
         "Content-Disposition": f'attachment; filename="{archive.filename}"'
     }
     return StreamingResponse(iter([archive.content]), media_type="application/zip", headers=headers)
+
+
+@router.put("/backup/schedule", response_model=BusinessSettingsResponse)
+async def update_backup_schedule(
+    payload: BackupScheduleUpdate,
+    service: SettingsService = Depends(get_settings_service),
+) -> BusinessSettingsResponse:
+    """Update automated backup scheduling preferences."""
+
+    business = await run_in_threadpool(service.update_backup_schedule, payload)
+    return BusinessSettingsResponse.model_validate(business, from_attributes=True)

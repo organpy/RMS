@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -137,3 +137,66 @@ def test_receipt_regeneration(client, db_session, member, tmp_path, monkeypatch)
     receipts = client.get("/api/receipts")
     assert receipts.status_code == 200
     assert receipts.json()["meta"]["total"] >= 1
+
+
+def test_queue_payment_reminder_enforces_daily_idempotency(client, db_session, member):
+    payload = {
+        "member_id": member.id,
+        "amount": "90.00",
+        "payment_date": date.today().isoformat(),
+        "method": "cash",
+    }
+
+    response = client.post("/api/payments", json=payload)
+    assert response.status_code == 201
+    payment_id = response.json()["id"]
+
+    schedule_time = datetime.now(timezone.utc) + timedelta(days=1)
+    queue_response = client.post(
+        f"/api/payments/{payment_id}/reminders",
+        json={"scheduled_for": schedule_time.isoformat(), "note": "First attempt"},
+    )
+    assert queue_response.status_code == 201
+    envelope = queue_response.json()
+    assert envelope["summary"]["status"] == "queued"
+    assert envelope["summary"]["attempt_count"] == 1
+    assert len(envelope["history"]) == 1
+    assert envelope["history"][0]["note"] == "First attempt"
+
+    duplicate_response = client.post(
+        f"/api/payments/{payment_id}/reminders",
+        json={"scheduled_for": schedule_time.isoformat(), "note": "Duplicate"},
+    )
+    assert duplicate_response.status_code == 422
+    error_payload = duplicate_response.json()
+    assert error_payload["code"] == "validation_error"
+
+    get_response = client.get(f"/api/payments/{payment_id}/reminders")
+    assert get_response.status_code == 200
+    fetched = get_response.json()
+    assert fetched["summary"]["attempt_count"] == 1
+    assert len(fetched["history"]) == 1
+
+
+def test_payments_list_includes_reminder_metadata(client, db_session, member):
+    payload = {
+        "member_id": member.id,
+        "amount": "120.00",
+        "payment_date": date.today().isoformat(),
+        "method": "card",
+    }
+
+    response = client.post("/api/payments", json=payload)
+    payment_id = response.json()["id"]
+
+    client.post(
+        f"/api/payments/{payment_id}/reminders",
+        json={"note": "Follow up"},
+    )
+
+    list_response = client.get("/api/payments")
+    assert list_response.status_code == 200
+    first_entry = list_response.json()["data"][0]
+    assert first_entry["id"] == payment_id
+    assert first_entry["reminder_attempt_count"] == 1
+    assert first_entry["reminder_status"] == "queued"

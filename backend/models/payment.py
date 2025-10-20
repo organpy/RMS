@@ -14,6 +14,7 @@ from .base import Base, TimestampMixin
 if TYPE_CHECKING:  # pragma: no cover
     from .member import Member
     from .receipt import Receipt
+    from .payment_reminder import PaymentReminder
 
 
 class PaymentStatus(str, Enum):
@@ -75,3 +76,9 @@ class Payment(TimestampMixin, Base):
 
     member: Mapped["Member"] = relationship(back_populates="payments")
     receipt: Mapped[Optional["Receipt"]] = relationship(back_populates="payment", uselist=False)
+    reminder: Mapped[Optional["PaymentReminder"]] = relationship(
+        "PaymentReminder",
+        back_populates="payment",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
