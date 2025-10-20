@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
@@ -19,6 +19,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert'
 import { Skeleton } from '../components/ui/skeleton'
 import { usePayments, createPayment, updatePayment, regenerateReceipt, downloadReceipt } from '../hooks/usePayments'
+import { get } from '../services/api'
 import { useBusiness } from '../context/BusinessContext'
 import { useToast } from '@/hooks/use-toast'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -51,6 +52,8 @@ const periodOptions = [
 
 const paymentStatusOptions = statusOptions.filter((option) => option.value !== 'ALL')
 
+const MEMBER_FETCH_LIMIT = 100
+
 const optionalText = z.preprocess(
   (value) => {
     if (typeof value !== 'string') return undefined
@@ -79,9 +82,17 @@ const amountSchema = z
   .refine((value) => !Number.isNaN(Number(value)), 'Enter a valid number')
   .transform((value) => Number(value))
   .refine((value) => Number.isFinite(value), 'Enter a valid number')
-  .refine((value) => value >= 0, 'Amount must be zero or greater')
+  .refine((value) => value > 0, 'Amount must be greater than zero')
+
+const memberIdSchema = z
+  .string()
+  .trim()
+  .min(1, 'Select a member')
+  .transform((value) => Number(value))
+  .refine((value) => Number.isInteger(value) && value > 0, 'Select a member')
 
 const paymentFormSchema = z.object({
+  member_id: memberIdSchema,
   member_name: z.string().trim().min(1, 'Member name is required'),
   membership_plan: optionalText,
   amount: amountSchema,
@@ -90,6 +101,7 @@ const paymentFormSchema = z.object({
 })
 
 const paymentFormDefaults = {
+  member_id: '',
   member_name: '',
   membership_plan: '',
   amount: '',
@@ -160,6 +172,8 @@ export default function Payments() {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(paymentFormSchema),
@@ -177,6 +191,71 @@ export default function Payments() {
     status: status === 'ALL' ? undefined : status,
     days: Number(period),
   })
+
+  const memberIdValue = watch('member_id')
+
+  const {
+    data: memberResults = [],
+    isLoading: membersLoading,
+    error: membersError,
+  } = useQuery({
+    queryKey: ['payment-member-options'],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      params.set('limit', String(MEMBER_FETCH_LIMIT))
+      params.set('status', 'ACTIVE')
+      const raw = await get(`/api/members?${params.toString()}`)
+      if (Array.isArray(raw?.data)) {
+        return raw.data
+      }
+      if (Array.isArray(raw?.members)) {
+        return raw.members
+      }
+      return []
+    },
+    enabled: isCreateOpen,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const memberOptions = useMemo(() => {
+    const mapped = (Array.isArray(memberResults) ? memberResults : []).map((member) => {
+      const displayName = `${member.first_name ?? ''} ${member.last_name ?? ''}`.trim()
+      const label = displayName || member.email || `Member #${member.id}`
+      return {
+        value: String(member.id),
+        label,
+        plan: member.membership_plan ?? '',
+      }
+    })
+
+    if (prefillMember?.memberId && prefillMember?.memberName) {
+      const prefillId = String(prefillMember.memberId)
+      const exists = mapped.some((option) => option.value === prefillId)
+      if (!exists) {
+        mapped.push({
+          value: prefillId,
+          label: prefillMember.memberName,
+          plan: prefillMember.membershipPlan ?? '',
+        })
+      }
+    }
+
+    return mapped.sort((a, b) => a.label.localeCompare(b.label))
+  }, [memberResults, prefillMember])
+
+  const selectedMember = useMemo(
+    () => memberOptions.find((option) => option.value === (memberIdValue ?? '')),
+    [memberIdValue, memberOptions],
+  )
+
+  useEffect(() => {
+    if (!selectedMember) return
+
+    setValue('member_name', selectedMember.label, { shouldValidate: false })
+    if (selectedMember.plan) {
+      setValue('membership_plan', selectedMember.plan, { shouldDirty: false, shouldValidate: false })
+    }
+  }, [selectedMember, setValue])
 
   const createPaymentMutation = useMutation({
     mutationFn: createPayment,
@@ -307,6 +386,7 @@ export default function Payments() {
 
     reset({
       ...paymentFormDefaults,
+      member_id: prefillMember?.memberId ? String(prefillMember.memberId) : paymentFormDefaults.member_id,
       member_name: prefillMember?.memberName ?? paymentFormDefaults.member_name,
       membership_plan: prefillMember?.membershipPlan ?? paymentFormDefaults.membership_plan,
     })
@@ -359,15 +439,12 @@ export default function Payments() {
 
   const handleCreateSubmit = handleSubmit((values) => {
     const payload = {
+      member_id: values.member_id,
       member_name: values.member_name,
       membership_plan: values.membership_plan ?? undefined,
       amount: values.amount,
       status: values.status,
-      payment_date: values.payment_date ? new Date(values.payment_date).toISOString() : new Date().toISOString(),
-    }
-
-    if (prefillMember?.memberId) {
-      payload.member_id = prefillMember.memberId
+      payment_date: values.payment_date || new Date().toISOString().slice(0, 10),
     }
 
     createPaymentMutation.mutate(payload)
@@ -591,19 +668,37 @@ export default function Payments() {
               </div>
             ) : (
             <form className="space-y-4" onSubmit={handleCreateSubmit} noValidate>
+              <input type="hidden" {...register('member_name')} />
               <div className="space-y-1 text-sm">
-                <label className="font-medium text-slate-700" htmlFor="payment-member-name">
-                  Member name
+                <label className="font-medium text-slate-700" htmlFor="payment-member">
+                  Member
                 </label>
-                <Input
-                  id="payment-member-name"
-                  placeholder="Jordan Mitchell"
+                <Select
+                  id="payment-member"
                   disabled={createPaymentMutation.isPending}
-                  aria-invalid={Boolean(errors.member_name)}
-                  {...register('member_name')}
-                />
-                {errors.member_name ? (
-                  <p className="text-xs text-destructive">{errors.member_name.message}</p>
+                  aria-invalid={Boolean(errors.member_id)}
+                  {...register('member_id')}
+                >
+                  <option value="">Select a member</option>
+                  {memberOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+                {membersLoading ? (
+                  <p className="text-xs text-slate-500">Loading members…</p>
+                ) : null}
+                {membersError ? (
+                  <p className="text-xs text-destructive">
+                    {membersError?.detail ?? membersError?.message ?? 'Unable to load members.'}
+                  </p>
+                ) : null}
+                {!membersLoading && !membersError && memberOptions.length === 0 ? (
+                  <p className="text-xs text-slate-500">Add a member first to record payments.</p>
+                ) : null}
+                {errors.member_id ? (
+                  <p className="text-xs text-destructive">{errors.member_id.message}</p>
                 ) : null}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -615,7 +710,7 @@ export default function Payments() {
                     id="payment-amount"
                     type="number"
                     step="0.01"
-                    min="0"
+                    min="0.01"
                     inputMode="decimal"
                     placeholder="49.99"
                     disabled={createPaymentMutation.isPending}
