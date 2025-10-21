@@ -162,85 +162,102 @@ class RestoreService:
                         return list(reader)
 
                 if use_active_session:
-                    # Import directly into the active session inside a transaction
-                    # Use a nested transaction if the session already has an active transaction
+                    # Import directly into the active session inside a top-level transaction.
+                    # Use a nested transaction if the session already has an active transaction.
                     if getattr(self.session, 'in_transaction', None) and self.session.in_transaction():
-                        trans = self.session.begin_nested()
+                        top_trans = self.session.begin_nested()
                     else:
-                        trans = self.session.begin()
+                        top_trans = self.session.begin()
+
                     try:
-                        # Business - skip if business id already exists in active DB
-                        for row in _rows('business.csv'):
-                            if row.get('backup_scheduler_enabled', '') == '':
-                                row['backup_scheduler_enabled'] = False
-                            if row.get('backup_retention_count', '') == '':
-                                row['backup_retention_count'] = 5
-                            if row.get('backup_retention_days', '') == '':
-                                row['backup_retention_days'] = 30
+                        # Helper to coerce empty strings to None and apply defaults
+                        def _clean_row(row: dict, defaults: Optional[dict] = None):
+                            for k, v in list(row.items()):
+                                if v == "":
+                                    row[k] = None
+                            if defaults:
+                                for dk, dv in defaults.items():
+                                    if row.get(dk, '') == '' or row.get(dk) is None:
+                                        row[dk] = dv
+                            return row
 
-                            existing = self.session.execute(text("SELECT 1 FROM businesses WHERE id = :id"), {"id": row.get("id")}).scalar()
-                            if existing:
-                                # business already present in active DB; skip insert
-                                continue
+                        # Generic upsert helper using existence check then INSERT or UPDATE
+                        def _upsert(table: str, insert_cols: list[str], rows: list[dict], defaults: Optional[dict] = None):
+                            # Begin a nested transaction (savepoint) per-entity to allow clearer rollback semantics
+                            sp = self.session.begin_nested()
+                            try:
+                                for row in rows:
+                                    _clean_row(row, defaults)
+                                    # Ensure id exists
+                                    row_id = row.get('id')
+                                    if row_id is None:
+                                        raise ValidationError(f"Row for table {table} missing id")
 
-                            stmt = text(
-                                "INSERT INTO businesses (id, name, logo_path, primary_color, secondary_color, language, currency, backup_scheduler_enabled, backup_retention_count, backup_retention_days, created_at, updated_at) VALUES (:id, :name, :logo_path, :primary_color, :secondary_color, :language, :currency, :backup_scheduler_enabled, :backup_retention_count, :backup_retention_days, :created_at, :updated_at)"
-                            )
-                            self.session.execute(stmt, row)
+                                    exists = self.session.execute(text(f"SELECT 1 FROM {table} WHERE id = :id"), {"id": row_id}).scalar()
+                                    if not exists:
+                                        cols = insert_cols
+                                        placeholders = ",".join(":" + c for c in cols)
+                                        stmt = text(f"INSERT INTO {table} ({','.join(cols)}) VALUES ({placeholders})")
+                                        self.session.execute(stmt, row)
+                                    else:
+                                        # Build update clause for all columns except id
+                                        update_cols = [c for c in insert_cols if c != 'id']
+                                        set_clause = ", ".join(f"{c} = :{c}" for c in update_cols)
+                                        stmt = text(f"UPDATE {table} SET {set_clause} WHERE id = :id")
+                                        self.session.execute(stmt, row)
+
+                                sp.commit()
+                            except Exception:
+                                sp.rollback()
+                                raise
+
+                        # Perform ordered imports for referential integrity
+                        # Businesses
+                        _upsert(
+                            'businesses',
+                            ['id', 'name', 'logo_path', 'primary_color', 'secondary_color', 'language', 'currency', 'backup_scheduler_enabled', 'backup_retention_count', 'backup_retention_days', 'created_at', 'updated_at'],
+                            _rows('business.csv'),
+                            defaults={'backup_scheduler_enabled': False, 'backup_retention_count': 5, 'backup_retention_days': 30},
+                        )
 
                         # Classes
-                        for row in _rows('classes.csv'):
-                            for k, v in list(row.items()):
-                                if v == "":
-                                    row[k] = None
-                            stmt = text(
-                                "INSERT INTO classes (id, business_id, name, description, start_date, end_date, grouping_type, created_at, updated_at) VALUES (:id, :business_id, :name, :description, :start_date, :end_date, :grouping_type, :created_at, :updated_at)"
-                            )
-                            self.session.execute(stmt, row)
+                        _upsert(
+                            'classes',
+                            ['id', 'business_id', 'name', 'description', 'start_date', 'end_date', 'grouping_type', 'created_at', 'updated_at'],
+                            _rows('classes.csv'),
+                        )
 
                         # Groups
-                        for row in _rows('groups.csv'):
-                            for k, v in list(row.items()):
-                                if v == "":
-                                    row[k] = None
-                            stmt = text(
-                                "INSERT INTO groups (id, class_id, name, description, created_at, updated_at) VALUES (:id, :class_id, :name, :description, :created_at, :updated_at)"
-                            )
-                            self.session.execute(stmt, row)
+                        _upsert(
+                            'groups',
+                            ['id', 'class_id', 'name', 'description', 'created_at', 'updated_at'],
+                            _rows('groups.csv'),
+                        )
 
                         # Members
-                        for row in _rows('members.csv'):
-                            for k, v in list(row.items()):
-                                if v == "":
-                                    row[k] = None
-                            stmt = text(
-                                "INSERT INTO members (id, business_id, class_id, group_id, first_name, last_name, email, phone_number, status, joined_at, archived_at, created_at, updated_at) VALUES (:id, :business_id, :class_id, :group_id, :first_name, :last_name, :email, :phone_number, :status, :joined_at, :archived_at, :created_at, :updated_at)"
-                            )
-                            self.session.execute(stmt, row)
+                        _upsert(
+                            'members',
+                            ['id', 'business_id', 'class_id', 'group_id', 'first_name', 'last_name', 'email', 'phone_number', 'status', 'joined_at', 'archived_at', 'created_at', 'updated_at'],
+                            _rows('members.csv'),
+                        )
 
                         # Payments
-                        for row in _rows('payments.csv'):
-                            for k, v in list(row.items()):
-                                if v == "":
-                                    row[k] = None
-                            stmt = text(
-                                "INSERT INTO payments (id, member_id, amount, payment_date, next_due_date, status, method, receipt_number, notes, refunded_at, created_at, updated_at) VALUES (:id, :member_id, :amount, :payment_date, :next_due_date, :status, :method, :receipt_number, :notes, :refunded_at, :created_at, :updated_at)"
-                            )
-                            self.session.execute(stmt, row)
+                        _upsert(
+                            'payments',
+                            ['id', 'member_id', 'amount', 'payment_date', 'next_due_date', 'status', 'method', 'receipt_number', 'notes', 'refunded_at', 'created_at', 'updated_at'],
+                            _rows('payments.csv'),
+                        )
 
                         # Receipts
-                        for row in _rows('receipts.csv'):
-                            for k, v in list(row.items()):
-                                if v == "":
-                                    row[k] = None
-                            stmt = text(
-                                "INSERT INTO receipts (id, payment_id, file_path, created_at, updated_at) VALUES (:id, :payment_id, :file_path, :created_at, :updated_at)"
-                            )
-                            self.session.execute(stmt, row)
+                        _upsert(
+                            'receipts',
+                            ['id', 'payment_id', 'file_path', 'created_at', 'updated_at'],
+                            _rows('receipts.csv'),
+                        )
 
-                        trans.commit()
+                        top_trans.commit()
                     except Exception:
-                        trans.rollback()
+                        top_trans.rollback()
                         raise
 
                     # Run a basic schema check against the active DB
