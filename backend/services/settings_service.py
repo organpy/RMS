@@ -131,6 +131,7 @@ class SettingsService:
         update_data: dict[str, Any] = {
             "backup_scheduler_enabled": payload.enabled,
             "backup_retention_count": payload.retention_count,
+            "backup_retention_days": payload.retention_days,
         }
         if payload.enabled and payload.cadence:
             cadence_value = payload.cadence.value

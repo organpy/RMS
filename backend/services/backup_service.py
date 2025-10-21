@@ -36,5 +36,34 @@ class BackupService:
         self._crud.delete(backup)
         return True
 
+    def cleanup_older_than(self, days: int) -> int:
+        """Delete backups older than `days` days from disk and DB. Returns number removed."""
+        from datetime import datetime, timezone, timedelta
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        removed = 0
+        for b in self._crud.list_all():
+            # b.created_at is naive or tz-aware depending on DB; compare as iso strings defensively
+            try:
+                created = b.created_at
+                if created.tzinfo is None:
+                    # assume UTC
+                    created = created.replace(tzinfo=timezone.utc)
+            except Exception:
+                created = None
+
+            if created is None or created < cutoff:
+                try:
+                    Path(b.path).unlink(missing_ok=True)
+                except Exception:
+                    logger.exception("Failed to remove backup file during cleanup: %s", b.path)
+                try:
+                    self._crud.delete(b)
+                except Exception:
+                    logger.exception("Failed to remove backup DB record during cleanup: %s", b.id)
+                removed += 1
+
+        return removed
+
 
 __all__ = ["BackupService"]

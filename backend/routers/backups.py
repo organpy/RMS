@@ -30,3 +30,28 @@ async def delete_backup(backup_id: int, service: BackupService = Depends(get_bac
     if not ok:
         raise HTTPException(status_code=404, detail="Backup not found")
     return None
+
+
+@router.post("/cleanup")
+async def run_cleanup(service: BackupService = Depends(get_backup_service)):
+    """Run cleanup using the configured retention days from the Business settings.
+
+    Returns the number of backups removed.
+    """
+    from backend.database import SessionLocal
+    from backend.services.settings_service import SettingsService
+
+    # Run in threadpool to avoid blocking event loop
+    def _work():
+        session = SessionLocal()
+        try:
+            settings_service = SettingsService(session)
+            business = settings_service.get_business()
+            days = getattr(business, "backup_retention_days", 30) or 30
+            svc = BackupService(session)
+            return svc.cleanup_older_than(days)
+        finally:
+            session.close()
+
+    removed = await run_in_threadpool(_work)
+    return {"removed": removed}
