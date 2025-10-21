@@ -47,5 +47,14 @@ jobs:
           PY
 
       - name: Run backend tests
+        env:
+          DATABASE_URL: sqlite:///./data/app.db
         run: |
+          # Initialize file-backed SQLite DB and create tables before tests so
+          # backup/restore integration tests run against a realistic environment.
+          python - <<'PY'
+          from backend.database import init_database
+          init_database()
+          print('Initialized database schema')
+          PY
           pytest -q --maxfail=1
