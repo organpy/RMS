@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from logging.config import dictConfig
+from pathlib import Path
 
 
 DEFAULT_LOGGING_CONFIG = {
@@ -40,6 +41,7 @@ DEFAULT_LOGGING_CONFIG = {
 
 def configure_logging(config: dict | None = None) -> None:
     """Configure application logging using the supplied or default configuration."""
-
+    # Ensure logs directory exists so FileHandler can be created
+    Path("logs").mkdir(parents=True, exist_ok=True)
     dictConfig(config or DEFAULT_LOGGING_CONFIG)
     logging.getLogger(__name__).debug("Logging configured", extra={"config": config or DEFAULT_LOGGING_CONFIG})

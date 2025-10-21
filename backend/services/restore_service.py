@@ -12,7 +12,6 @@ from zipfile import ZipFile
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-import aiofiles
 
 from backend.config import get_settings
 from backend.exceptions import ValidationError
@@ -88,17 +87,18 @@ class RestoreService:
         if backup_path.exists():
             backup_path.unlink(missing_ok=True)
 
-    async def restore_from_archive(self, archive_file: bytes, *, dry_run: bool = True) -> RestoreValidationResult:
+    def restore_from_archive(self, archive_file: bytes, *, dry_run: bool = True) -> RestoreValidationResult:
         """Restore the database from a zip archive bytes.
 
         If dry_run is True, only validate the archive and simulate steps without changing DB.
+        This function is synchronous and performs file/DB operations on the calling thread.
         """
         tmp_dir = Path(tempfile.mkdtemp(prefix="rms-restore-"))
         try:
             archive_path = tmp_dir / f"restore-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}.zip"
-            # Write archive to temp file asynchronously
-            async with aiofiles.open(archive_path, 'wb') as f:
-                await f.write(archive_file)
+            # Write archive to temp file
+            with open(archive_path, 'wb') as f:
+                f.write(archive_file)
 
             validated = self.validate_archive(archive_path)
             if not validated.ok:
@@ -124,35 +124,77 @@ class RestoreService:
 
             # Extract CSVs and import using simple INSERTs in a new connection
             with ZipFile(archive_path, 'r') as zf:
-                # Import members and other tables as needed. For brevity import only members and business.
+                # Import all CSVs: business, classes, groups, members, payments, receipts
                 import csv
                 from io import TextIOWrapper
 
                 conn = engine.connect()
                 trans = conn.begin()
                 try:
-                    if 'business.csv' in zf.namelist():
-                        with zf.open('business.csv') as f:
+                    # Helper to read a CSV into rows
+                    def _rows(name: str):
+                        if name not in zf.namelist():
+                            return []
+                        with zf.open(name) as f:
                             reader = csv.DictReader(TextIOWrapper(f, encoding='utf-8-sig'))
-                            for row in reader:
-                                # Basic insert; rely on DB to enforce constraints
-                                stmt = text(
-                                    "INSERT INTO business (id, name, logo_path, primary_color, secondary_color, language, currency, created_at, updated_at) VALUES (:id, :name, :logo_path, :primary_color, :secondary_color, :language, :currency, :created_at, :updated_at)"
-                                )
-                                conn.execute(stmt, **row)
+                            return list(reader)
 
-                    if 'members.csv' in zf.namelist():
-                        with zf.open('members.csv') as f:
-                            reader = csv.DictReader(TextIOWrapper(f, encoding='utf-8-sig'))
-                            for row in reader:
-                                # Normalize empty strings to None for nullable columns
-                                for k, v in list(row.items()):
-                                    if v == "":
-                                        row[k] = None
-                                stmt = text(
-                                    "INSERT INTO member (id, business_id, class_id, group_id, first_name, last_name, email, phone_number, status, joined_at, archived_at, created_at, updated_at) VALUES (:id, :business_id, :class_id, :group_id, :first_name, :last_name, :email, :phone_number, :status, :joined_at, :archived_at, :created_at, :updated_at)"
-                                )
-                                conn.execute(stmt, **row)
+                    # Business
+                    for row in _rows('business.csv'):
+                        stmt = text(
+                            "INSERT INTO business (id, name, logo_path, primary_color, secondary_color, language, currency, created_at, updated_at) VALUES (:id, :name, :logo_path, :primary_color, :secondary_color, :language, :currency, :created_at, :updated_at)"
+                        )
+                        conn.execute(stmt, **row)
+
+                    # Classes
+                    for row in _rows('classes.csv'):
+                        for k, v in list(row.items()):
+                            if v == "":
+                                row[k] = None
+                        stmt = text(
+                            "INSERT INTO class_course (id, business_id, name, description, start_date, end_date, grouping_type, created_at, updated_at) VALUES (:id, :business_id, :name, :description, :start_date, :end_date, :grouping_type, :created_at, :updated_at)"
+                        )
+                        conn.execute(stmt, **row)
+
+                    # Groups
+                    for row in _rows('groups.csv'):
+                        for k, v in list(row.items()):
+                            if v == "":
+                                row[k] = None
+                        stmt = text(
+                            "INSERT INTO \"group\" (id, class_id, name, description, created_at, updated_at) VALUES (:id, :class_id, :name, :description, :created_at, :updated_at)"
+                        )
+                        conn.execute(stmt, **row)
+
+                    # Members
+                    for row in _rows('members.csv'):
+                        for k, v in list(row.items()):
+                            if v == "":
+                                row[k] = None
+                        stmt = text(
+                            "INSERT INTO member (id, business_id, class_id, group_id, first_name, last_name, email, phone_number, status, joined_at, archived_at, created_at, updated_at) VALUES (:id, :business_id, :class_id, :group_id, :first_name, :last_name, :email, :phone_number, :status, :joined_at, :archived_at, :created_at, :updated_at)"
+                        )
+                        conn.execute(stmt, **row)
+
+                    # Payments
+                    for row in _rows('payments.csv'):
+                        for k, v in list(row.items()):
+                            if v == "":
+                                row[k] = None
+                        stmt = text(
+                            "INSERT INTO payment (id, member_id, amount, payment_date, next_due_date, status, method, receipt_number, notes, refunded_at, created_at, updated_at) VALUES (:id, :member_id, :amount, :payment_date, :next_due_date, :status, :method, :receipt_number, :notes, :refunded_at, :created_at, :updated_at)"
+                        )
+                        conn.execute(stmt, **row)
+
+                    # Receipts
+                    for row in _rows('receipts.csv'):
+                        for k, v in list(row.items()):
+                            if v == "":
+                                row[k] = None
+                        stmt = text(
+                            "INSERT INTO receipt (id, payment_id, file_path, created_at, updated_at) VALUES (:id, :payment_id, :file_path, :created_at, :updated_at)"
+                        )
+                        conn.execute(stmt, **row)
 
                     trans.commit()
                 except Exception as exc:  # pragma: no cover - ensure rollback and cleanup
