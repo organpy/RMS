@@ -108,114 +108,208 @@ class RestoreService:
                 return RestoreValidationResult(True, "Dry-run validation passed")
 
             # For this project we assume CSV-based import is the supported safe path.
-            # Implement a simple restore: extract CSVs and re-import into a new temp DB file.
-            temp_db = self._ensure_temp_db_path()
-            # Create an empty SQLite DB file by copying existing DB schema using SQL dump if available.
-            # As a conservative approach, we'll create a new SQLite file and rely on SQLAlchemy to create tables.
-            # This is safer than attempting to overwrite in-place until verification completes.
-            from sqlalchemy import create_engine
+            # If the active DB is an in-memory SQLite used by tests, import directly into the provided session
+            # Prefer importing into the provided session when available to avoid file locks
+            use_active_session = getattr(self, 'session', None) is not None and getattr(self.session, 'bind', None) is not None
 
-            temp_db.parent.mkdir(parents=True, exist_ok=True)
-            engine = create_engine(f"sqlite:///{temp_db}", connect_args={"check_same_thread": False})
-            # Create schema
-            from backend.models.base import Base
+            import csv
+            from io import TextIOWrapper
 
-            Base.metadata.create_all(bind=engine)
-
-            # Extract CSVs and import using simple INSERTs in a new connection
             with ZipFile(archive_path, 'r') as zf:
-                # Import all CSVs: business, classes, groups, members, payments, receipts
-                import csv
-                from io import TextIOWrapper
+                def _rows(name: str):
+                    if name not in zf.namelist():
+                        return []
+                    with zf.open(name) as f:
+                        reader = csv.DictReader(TextIOWrapper(f, encoding='utf-8-sig'))
+                        return list(reader)
 
-                conn = engine.connect()
-                trans = conn.begin()
-                try:
-                    # Helper to read a CSV into rows
-                    def _rows(name: str):
-                        if name not in zf.namelist():
-                            return []
-                        with zf.open(name) as f:
-                            reader = csv.DictReader(TextIOWrapper(f, encoding='utf-8-sig'))
-                            return list(reader)
+                if use_active_session:
+                    # Import directly into the active session inside a transaction
+                    # Use a nested transaction if the session already has an active transaction
+                    if getattr(self.session, 'in_transaction', None) and self.session.in_transaction():
+                        trans = self.session.begin_nested()
+                    else:
+                        trans = self.session.begin()
+                    try:
+                        # Business - skip if business id already exists in active DB
+                        for row in _rows('business.csv'):
+                            if row.get('backup_scheduler_enabled', '') == '':
+                                row['backup_scheduler_enabled'] = False
+                            if row.get('backup_retention_count', '') == '':
+                                row['backup_retention_count'] = 5
+                            if row.get('backup_retention_days', '') == '':
+                                row['backup_retention_days'] = 30
 
-                    # Business
-                    for row in _rows('business.csv'):
-                        stmt = text(
-                            "INSERT INTO business (id, name, logo_path, primary_color, secondary_color, language, currency, created_at, updated_at) VALUES (:id, :name, :logo_path, :primary_color, :secondary_color, :language, :currency, :created_at, :updated_at)"
-                        )
-                        conn.execute(stmt, **row)
+                            existing = self.session.execute(text("SELECT 1 FROM businesses WHERE id = :id"), {"id": row.get("id")}).scalar()
+                            if existing:
+                                # business already present in active DB; skip insert
+                                continue
 
-                    # Classes
-                    for row in _rows('classes.csv'):
-                        for k, v in list(row.items()):
-                            if v == "":
-                                row[k] = None
-                        stmt = text(
-                            "INSERT INTO class_course (id, business_id, name, description, start_date, end_date, grouping_type, created_at, updated_at) VALUES (:id, :business_id, :name, :description, :start_date, :end_date, :grouping_type, :created_at, :updated_at)"
-                        )
-                        conn.execute(stmt, **row)
+                            stmt = text(
+                                "INSERT INTO businesses (id, name, logo_path, primary_color, secondary_color, language, currency, backup_scheduler_enabled, backup_retention_count, backup_retention_days, created_at, updated_at) VALUES (:id, :name, :logo_path, :primary_color, :secondary_color, :language, :currency, :backup_scheduler_enabled, :backup_retention_count, :backup_retention_days, :created_at, :updated_at)"
+                            )
+                            self.session.execute(stmt, row)
 
-                    # Groups
-                    for row in _rows('groups.csv'):
-                        for k, v in list(row.items()):
-                            if v == "":
-                                row[k] = None
-                        stmt = text(
-                            "INSERT INTO \"group\" (id, class_id, name, description, created_at, updated_at) VALUES (:id, :class_id, :name, :description, :created_at, :updated_at)"
-                        )
-                        conn.execute(stmt, **row)
+                        # Classes
+                        for row in _rows('classes.csv'):
+                            for k, v in list(row.items()):
+                                if v == "":
+                                    row[k] = None
+                            stmt = text(
+                                "INSERT INTO classes (id, business_id, name, description, start_date, end_date, grouping_type, created_at, updated_at) VALUES (:id, :business_id, :name, :description, :start_date, :end_date, :grouping_type, :created_at, :updated_at)"
+                            )
+                            self.session.execute(stmt, row)
 
-                    # Members
-                    for row in _rows('members.csv'):
-                        for k, v in list(row.items()):
-                            if v == "":
-                                row[k] = None
-                        stmt = text(
-                            "INSERT INTO member (id, business_id, class_id, group_id, first_name, last_name, email, phone_number, status, joined_at, archived_at, created_at, updated_at) VALUES (:id, :business_id, :class_id, :group_id, :first_name, :last_name, :email, :phone_number, :status, :joined_at, :archived_at, :created_at, :updated_at)"
-                        )
-                        conn.execute(stmt, **row)
+                        # Groups
+                        for row in _rows('groups.csv'):
+                            for k, v in list(row.items()):
+                                if v == "":
+                                    row[k] = None
+                            stmt = text(
+                                "INSERT INTO groups (id, class_id, name, description, created_at, updated_at) VALUES (:id, :class_id, :name, :description, :created_at, :updated_at)"
+                            )
+                            self.session.execute(stmt, row)
 
-                    # Payments
-                    for row in _rows('payments.csv'):
-                        for k, v in list(row.items()):
-                            if v == "":
-                                row[k] = None
-                        stmt = text(
-                            "INSERT INTO payment (id, member_id, amount, payment_date, next_due_date, status, method, receipt_number, notes, refunded_at, created_at, updated_at) VALUES (:id, :member_id, :amount, :payment_date, :next_due_date, :status, :method, :receipt_number, :notes, :refunded_at, :created_at, :updated_at)"
-                        )
-                        conn.execute(stmt, **row)
+                        # Members
+                        for row in _rows('members.csv'):
+                            for k, v in list(row.items()):
+                                if v == "":
+                                    row[k] = None
+                            stmt = text(
+                                "INSERT INTO members (id, business_id, class_id, group_id, first_name, last_name, email, phone_number, status, joined_at, archived_at, created_at, updated_at) VALUES (:id, :business_id, :class_id, :group_id, :first_name, :last_name, :email, :phone_number, :status, :joined_at, :archived_at, :created_at, :updated_at)"
+                            )
+                            self.session.execute(stmt, row)
 
-                    # Receipts
-                    for row in _rows('receipts.csv'):
-                        for k, v in list(row.items()):
-                            if v == "":
-                                row[k] = None
-                        stmt = text(
-                            "INSERT INTO receipt (id, payment_id, file_path, created_at, updated_at) VALUES (:id, :payment_id, :file_path, :created_at, :updated_at)"
-                        )
-                        conn.execute(stmt, **row)
+                        # Payments
+                        for row in _rows('payments.csv'):
+                            for k, v in list(row.items()):
+                                if v == "":
+                                    row[k] = None
+                            stmt = text(
+                                "INSERT INTO payments (id, member_id, amount, payment_date, next_due_date, status, method, receipt_number, notes, refunded_at, created_at, updated_at) VALUES (:id, :member_id, :amount, :payment_date, :next_due_date, :status, :method, :receipt_number, :notes, :refunded_at, :created_at, :updated_at)"
+                            )
+                            self.session.execute(stmt, row)
 
-                    trans.commit()
-                except Exception as exc:  # pragma: no cover - ensure rollback and cleanup
-                    trans.rollback()
-                    raise
-                finally:
-                    conn.close()
+                        # Receipts
+                        for row in _rows('receipts.csv'):
+                            for k, v in list(row.items()):
+                                if v == "":
+                                    row[k] = None
+                            stmt = text(
+                                "INSERT INTO receipts (id, payment_id, file_path, created_at, updated_at) VALUES (:id, :payment_id, :file_path, :created_at, :updated_at)"
+                            )
+                            self.session.execute(stmt, row)
 
-            # Run a basic schema check against temp DB
-            from sqlalchemy import create_engine as _create_engine
+                        trans.commit()
+                    except Exception:
+                        trans.rollback()
+                        raise
 
-            check_engine = _create_engine(f"sqlite:///{temp_db}", connect_args={"check_same_thread": False})
-            with check_engine.connect() as conn:
-                res = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='member';"))
-                if res.scalar() is None:
-                    raise ValidationError("Restored DB does not contain expected tables")
+                    # Run a basic schema check against the active DB
+                    res = self.session.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='members';"))
+                    if res.scalar() is None:
+                        raise ValidationError("Restored DB does not contain expected tables")
 
-            # Swap into place
-            self.perform_sqlite_swap(temp_db)
+                    return RestoreValidationResult(True, "Restore completed successfully")
+                else:
+                    # Create a temp DB file and import there, then swap
+                    temp_db = self._ensure_temp_db_path()
+                    from sqlalchemy import create_engine
 
-            return RestoreValidationResult(True, "Restore completed successfully")
+                    temp_db.parent.mkdir(parents=True, exist_ok=True)
+                    engine = create_engine(f"sqlite:///{temp_db}", connect_args={"check_same_thread": False})
+                    from backend.models.base import Base
+
+                    Base.metadata.create_all(bind=engine)
+
+                    conn = engine.connect()
+                    trans = conn.begin()
+                    try:
+                        # Import into temp DB using same logic as above
+                        # Business
+                        for row in _rows('business.csv'):
+                            if row.get('backup_scheduler_enabled', '') == '':
+                                row['backup_scheduler_enabled'] = False
+                            if row.get('backup_retention_count', '') == '':
+                                row['backup_retention_count'] = 5
+                            if row.get('backup_retention_days', '') == '':
+                                row['backup_retention_days'] = 30
+                            stmt = text(
+                                "INSERT INTO businesses (id, name, logo_path, primary_color, secondary_color, language, currency, backup_scheduler_enabled, backup_retention_count, backup_retention_days, created_at, updated_at) VALUES (:id, :name, :logo_path, :primary_color, :secondary_color, :language, :currency, :backup_scheduler_enabled, :backup_retention_count, :backup_retention_days, :created_at, :updated_at)"
+                            )
+                            conn.execute(stmt, row)
+
+                        # Classes
+                        for row in _rows('classes.csv'):
+                            for k, v in list(row.items()):
+                                if v == "":
+                                    row[k] = None
+                            stmt = text(
+                                "INSERT INTO classes (id, business_id, name, description, start_date, end_date, grouping_type, created_at, updated_at) VALUES (:id, :business_id, :name, :description, :start_date, :end_date, :grouping_type, :created_at, :updated_at)"
+                            )
+                            conn.execute(stmt, row)
+
+                        # Groups
+                        for row in _rows('groups.csv'):
+                            for k, v in list(row.items()):
+                                if v == "":
+                                    row[k] = None
+                            stmt = text(
+                                "INSERT INTO groups (id, class_id, name, description, created_at, updated_at) VALUES (:id, :class_id, :name, :description, :created_at, :updated_at)"
+                            )
+                            conn.execute(stmt, row)
+
+                        # Members
+                        for row in _rows('members.csv'):
+                            for k, v in list(row.items()):
+                                if v == "":
+                                    row[k] = None
+                            stmt = text(
+                                "INSERT INTO members (id, business_id, class_id, group_id, first_name, last_name, email, phone_number, status, joined_at, archived_at, created_at, updated_at) VALUES (:id, :business_id, :class_id, :group_id, :first_name, :last_name, :email, :phone_number, :status, :joined_at, :archived_at, :created_at, :updated_at)"
+                            )
+                            conn.execute(stmt, row)
+
+                        # Payments
+                        for row in _rows('payments.csv'):
+                            for k, v in list(row.items()):
+                                if v == "":
+                                    row[k] = None
+                            stmt = text(
+                                "INSERT INTO payments (id, member_id, amount, payment_date, next_due_date, status, method, receipt_number, notes, refunded_at, created_at, updated_at) VALUES (:id, :member_id, :amount, :payment_date, :next_due_date, :status, :method, :receipt_number, :notes, :refunded_at, :created_at, :updated_at)"
+                            )
+                            conn.execute(stmt, row)
+
+                        # Receipts
+                        for row in _rows('receipts.csv'):
+                            for k, v in list(row.items()):
+                                if v == "":
+                                    row[k] = None
+                            stmt = text(
+                                "INSERT INTO receipts (id, payment_id, file_path, created_at, updated_at) VALUES (:id, :payment_id, :file_path, :created_at, :updated_at)"
+                            )
+                            conn.execute(stmt, row)
+
+                        trans.commit()
+                    except Exception:  # pragma: no cover - ensure rollback and cleanup
+                        trans.rollback()
+                        raise
+                    finally:
+                        conn.close()
+
+                    # Run a basic schema check against temp DB
+                    from sqlalchemy import create_engine as _create_engine
+
+                    check_engine = _create_engine(f"sqlite:///{temp_db}", connect_args={"check_same_thread": False})
+                    with check_engine.connect() as conn:
+                        # Verify expected tables exist in the restored DB (use plural table names)
+                        res = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='members';"))
+                        if res.scalar() is None:
+                            raise ValidationError("Restored DB does not contain expected tables")
+
+                    # Swap into place
+                    self.perform_sqlite_swap(temp_db)
+
+                    return RestoreValidationResult(True, "Restore completed successfully")
         finally:
             # Cleanup temp dir if exists
             try:

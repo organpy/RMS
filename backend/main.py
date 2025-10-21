@@ -22,7 +22,8 @@ from .routers import (
     payments_router,
     receipts_router,
     settings_router,
-        backups_router,
+    backup_router,
+    backups_router,
 )
 from .tasks.backup_scheduler import backup_scheduler
 
@@ -64,6 +65,7 @@ def create_app() -> FastAPI:
     app.include_router(receipts_router)
     app.include_router(analytics_router)
     app.include_router(dashboard_router)
+    app.include_router(backup_router)
     app.include_router(backups_router)
     app.include_router(settings_router)
     register_exception_handlers(app)
