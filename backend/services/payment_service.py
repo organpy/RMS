@@ -177,12 +177,11 @@ class PaymentService:
             return explicit
 
         today = self.clock().date()
+        # Treat payments with no due date or due today or in the future as PAID
         if next_due_date is None:
             return PaymentStatus.PAID
-        if next_due_date > today:
+        if next_due_date >= today:
             return PaymentStatus.PAID
-        if next_due_date == today:
-            return PaymentStatus.UNPAID
         return PaymentStatus.OVERDUE
 
     def _determine_member_status(self, next_due_date: Optional[date]) -> MemberStatus:
@@ -190,7 +189,9 @@ class PaymentService:
             return MemberStatus.ACTIVE
 
         today = self.clock().date()
-        inactive_threshold = today - timedelta(days=self.settings.payment_inactive_grace_days)
+        # Give a one-day cushion before marking members INACTIVE so that
+        # members falling exactly on the grace boundary are treated as SUSPENDED.
+        inactive_threshold = today - timedelta(days=self.settings.payment_inactive_grace_days + 1)
         if next_due_date < inactive_threshold:
             return MemberStatus.INACTIVE
         if next_due_date < today:

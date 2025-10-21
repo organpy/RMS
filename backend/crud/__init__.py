@@ -6,6 +6,7 @@ from .group import GroupCRUD
 from .payment import PaymentCRUD
 from .receipt import ReceiptCRUD
 from .business import BusinessCRUD
+from .backup import BackupCRUD
 
 __all__ = [
     "MemberCRUD",
@@ -14,4 +15,5 @@ __all__ = [
     "PaymentCRUD",
     "ReceiptCRUD",
     "BusinessCRUD",
+    "BackupCRUD",
 ]

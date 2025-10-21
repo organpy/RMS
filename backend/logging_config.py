@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from logging.config import dictConfig
+from pathlib import Path
 
 
 DEFAULT_LOGGING_CONFIG = {
@@ -20,9 +21,18 @@ DEFAULT_LOGGING_CONFIG = {
             "formatter": "standard",
             "level": "INFO",
         }
+        ,
+        "backup_file": {
+            "class": "logging.FileHandler",
+            "formatter": "standard",
+            "level": "INFO",
+            "filename": "logs/backup_restore.log",
+            "encoding": "utf-8",
+        }
     },
     "loggers": {
         "backend": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "backup": {"handlers": ["backup_file"], "level": "INFO", "propagate": False},
         "uvicorn.error": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "uvicorn.access": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
@@ -31,6 +41,7 @@ DEFAULT_LOGGING_CONFIG = {
 
 def configure_logging(config: dict | None = None) -> None:
     """Configure application logging using the supplied or default configuration."""
-
+    # Ensure logs directory exists so FileHandler can be created
+    Path("logs").mkdir(parents=True, exist_ok=True)
     dictConfig(config or DEFAULT_LOGGING_CONFIG)
     logging.getLogger(__name__).debug("Logging configured", extra={"config": config or DEFAULT_LOGGING_CONFIG})

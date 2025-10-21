@@ -131,6 +131,7 @@ class SettingsService:
         update_data: dict[str, Any] = {
             "backup_scheduler_enabled": payload.enabled,
             "backup_retention_count": payload.retention_count,
+            "backup_retention_days": payload.retention_days,
         }
         if payload.enabled and payload.cadence:
             cadence_value = payload.cadence.value
@@ -175,10 +176,55 @@ class SettingsService:
             archive.writestr("groups.csv", self._build_groups_csv())
             archive.writestr("members.csv", self._build_members_csv())
             archive.writestr("payments.csv", self._build_payments_csv())
+            # Receipts CSV will contain only the basename of the file path; include binary files under receipts/
             archive.writestr("receipts.csv", self._build_receipts_csv())
 
+            # Add receipt files (if present) into the archive under receipts/<basename>
+            receipts = self.session.query(Receipt).order_by(Receipt.id).all()
+            for receipt in receipts:
+                try:
+                    if receipt.file_path:
+                        p = Path(receipt.file_path)
+                        if p.exists() and p.is_file():
+                            arcname = f"receipts/{p.name}"
+                            archive.write(p, arcname)
+                except Exception:
+                    # Best-effort: don't break archive creation if a file can't be read
+                    continue
+
         zip_buffer.seek(0)
-        return BackupArchive(filename=archive_name, content=zip_buffer.getvalue(), generated_at=timestamp)
+        content = zip_buffer.getvalue()
+
+        # Attempt to persist a copy of the archive to the backups directory and record it in DB.
+        # This is best-effort: failures should not prevent returning the archive to the caller.
+        try:
+            # Ensure backups dir exists
+            self.backups_dir.mkdir(parents=True, exist_ok=True)
+            target = self.backups_dir / archive_name
+            tmp_path = target.with_suffix(".tmp")
+            # Atomic write: write to tmp then rename
+            tmp_path.write_bytes(content)
+            tmp_path.replace(target)
+
+            # Import here to avoid circular imports at module import time.
+            from backend.crud.backup import BackupCRUD
+
+            backup_crud = BackupCRUD(self.session)
+            backup_payload = {"path": str(target), "size": len(content), "status": "completed"}
+            # Create DB record for the backup
+            try:
+                backup_crud.create(backup_payload)
+            except Exception:
+                # Don't fail the overall operation if DB record creation fails; log and continue
+                import logging
+
+                logging.getLogger("backup").exception("Failed to record backup in DB")
+        except Exception:
+            import logging
+
+            logging.getLogger("backup").exception("Failed to persist backup archive to disk")
+
+        return BackupArchive(filename=archive_name, content=content, generated_at=timestamp)
 
     # ------------------------------------------------------------------
     # Internals
