@@ -67,25 +67,63 @@ class RestoreService:
         This is done by moving files; existing DB is backed up first.
         """
         active_db = Path(self.settings.database_url.split('///')[-1])
+        # Ensure the parent directory exists for the active DB
+        active_db.parent.mkdir(parents=True, exist_ok=True)
+
+        # If there is no active DB file, simply move temp into place
         if not active_db.exists():
-            # If no active DB, simply move temp into place
-            active_db.parent.mkdir(parents=True, exist_ok=True)
             temp_db_path.replace(active_db)
             return
 
-        backup_path = active_db.with_suffix('.db.bak')
-        # Use replace to attempt atomicity on the platform
-        active_db.replace(backup_path)
+        # Prefer using the SQLite backup API which writes into the existing DB file
+        # This avoids filesystem-level replace operations that often fail on Windows
+        # when the DB file is held open by processes.
         try:
-            temp_db_path.replace(active_db)
-        except Exception:  # pragma: no cover - raise after attempting to restore backup
-            # try to restore backup
-            if backup_path.exists():
-                backup_path.replace(active_db)
-            raise
-        # If success, remove backup
-        if backup_path.exists():
-            backup_path.unlink(missing_ok=True)
+            import sqlite3
+
+            # Connect to source (temp) and destination (active) and copy data
+            # src.backup(dest) will copy the entire database content into the
+            # destination database file while it's open.
+            with sqlite3.connect(str(temp_db_path)) as src_conn, sqlite3.connect(str(active_db)) as dest_conn:
+                src_conn.backup(dest_conn)
+                dest_conn.commit()
+
+            # If we reach here, the backup into the active DB succeeded. Nothing to remove.
+            return
+        except Exception:
+            # If the backup API approach fails (rare), fall back to file replace.
+            # Create a filesystem backup of the current active DB first if possible.
+            backup_path = active_db.with_suffix('.db.bak')
+            try:
+                try:
+                    shutil.copy2(active_db, backup_path)
+                except Exception:
+                    # If we cannot copy the active DB, continue to attempt replace below
+                    pass
+
+                # Attempt an atomic replace of the file as a last resort
+                active_db.replace(backup_path)
+                temp_db_path.replace(active_db)
+                # On success, remove the backup copy
+                if backup_path.exists():
+                    backup_path.unlink(missing_ok=True)
+                return
+            except Exception as exc:  # pragma: no cover - surface a clear error
+                # Try to restore the original DB file if we moved it
+                try:
+                    if backup_path.exists():
+                        backup_path.replace(active_db)
+                except Exception:
+                    # If we cannot restore, surface a helpful error
+                    pass
+
+                raise ValidationError(
+                    "Failed to replace the active database file. "
+                    "This can happen on Windows when the DB file is locked by running processes. "
+                    "Please stop the application (or any process holding the DB file) and retry the restore, "
+                    "or perform an offline restore by running the restore utility on the server filesystem. "
+                    f"Underlying error: {exc}"
+                )
 
     def restore_from_archive(self, archive_file: bytes, *, dry_run: bool = True) -> RestoreValidationResult:
         """Restore the database from a zip archive bytes.
