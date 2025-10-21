@@ -196,26 +196,26 @@ class ReceiptService:
         story.append(generated_text)
         story.append(Spacer(1, 15))
 
-        # Receipt details in a highlighted box with wider receipt number column
+        # Receipt details with prominent receipt number
         receipt_data = [
             ["Receipt Number", "Payment Date", "Status"],
             [payment.receipt_number, payment.payment_date.strftime("%B %d, %Y"), payment.status.value.title()],
         ]
-        receipt_table = Table(receipt_data, colWidths=[3 * inch, 1.5 * inch, 1.5 * inch])
+        receipt_table = Table(receipt_data, colWidths=[4 * inch, 1.5 * inch, 1.5 * inch])  # Wider column for receipt number
         receipt_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(business.primary_color or "#1f2937")),
-            # Highlight receipt number with different background
+            # Highlight receipt number with consistent font size
             ('BACKGROUND', (0, 1), (0, 1), colors.HexColor("#fef3c7")),  # Light yellow background
             ('TEXTCOLOR', (0, 1), (0, 1), colors.HexColor("#92400e")),  # Dark brown text
             ('FONTNAME', (0, 1), (0, 1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 1), (0, 1), 12),
+            ('FONTSIZE', (0, 1), (0, 1), 10),  
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 8), 
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8), 
             ('GRID', (0, 0), (-1, -1), 1, colors.HexColor(business.secondary_color or "#4b5563")),
         ]))
         story.append(receipt_table)
