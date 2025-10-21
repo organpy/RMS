@@ -17,6 +17,23 @@ export default function BackupHistory() {
     load()
   }, [])
 
+  const columns = [
+    { key: 'created_at', header: 'Timestamp' },
+    { key: 'size', header: 'Size' },
+    { key: 'status', header: 'Status' },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (row) => (
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => handleDownload(row)}>Download</Button>
+          <Button size="sm" onClick={() => handleRestore(row)}>Restore</Button>
+          <Button size="sm" variant="destructive" onClick={() => handleDelete(row)}>Delete</Button>
+        </div>
+      ),
+    },
+  ]
+
   async function load() {
     setLoading(true)
     try {
@@ -90,20 +107,7 @@ export default function BackupHistory() {
         <Button onClick={load} variant="secondary">Refresh</Button>
       </div>
       <div className="mt-4">
-        <Table isLoading={loading} columns={["timestamp", "size", "status", "actions"]}>
-          {backups.map((b) => (
-            <tr key={b.id}>
-              <td>{new Date(b.created_at).toLocaleString()}</td>
-              <td>{b.size}</td>
-              <td>{b.status}</td>
-              <td className="flex gap-2">
-                <Button size="sm" onClick={() => handleDownload(b)}>Download</Button>
-                <Button size="sm" onClick={() => handleRestore(b)}>Restore</Button>
-                <Button size="sm" variant="destructive" onClick={() => handleDelete(b)}>Delete</Button>
-              </td>
-            </tr>
-          ))}
-        </Table>
+        <Table isLoading={loading} columns={columns} data={backups} emptyState={{ title: 'No backups', description: 'No backup archives found.' }} />
       </div>
 
       <Modal open={showRestoreModal} onClose={() => setShowRestoreModal(false)} title="Confirm restore">
