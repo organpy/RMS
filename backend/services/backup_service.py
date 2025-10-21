@@ -65,5 +65,12 @@ class BackupService:
 
         return removed
 
+    def get_backup_file(self, backup_id: int) -> str | None:
+        """Return the filesystem path for a backup by id, or None if not found."""
+        b = self._crud.get(backup_id)
+        if not b:
+            return None
+        return str(b.path)
+
 
 __all__ = ["BackupService"]

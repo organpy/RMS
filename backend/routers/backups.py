@@ -6,6 +6,8 @@ from fastapi.concurrency import run_in_threadpool
 
 from backend.database import get_db
 from backend.services.backup_service import BackupService
+from fastapi.responses import StreamingResponse
+import os
 
 router = APIRouter(prefix="/api/backups", tags=["Backups"])
 
@@ -55,3 +57,25 @@ async def run_cleanup(service: BackupService = Depends(get_backup_service)):
 
     removed = await run_in_threadpool(_work)
     return {"removed": removed}
+
+
+@router.get("/{backup_id}/download")
+async def download_backup(backup_id: int, service: BackupService = Depends(get_backup_service)):
+    """Stream a persisted backup archive as an attachment."""
+    path = await run_in_threadpool(service.get_backup_file, backup_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="Backup not found")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Backup file not found on disk")
+
+    def file_iter():
+        with open(path, 'rb') as f:
+            while True:
+                chunk = f.read(8192)
+                if not chunk:
+                    break
+                yield chunk
+
+    filename = os.path.basename(path)
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return StreamingResponse(file_iter(), media_type="application/zip", headers=headers)
