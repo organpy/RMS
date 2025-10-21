@@ -80,16 +80,38 @@ class RestoreService:
         # when the DB file is held open by processes.
         try:
             import sqlite3
+            import time
+            import logging
 
-            # Connect to source (temp) and destination (active) and copy data
-            # src.backup(dest) will copy the entire database content into the
-            # destination database file while it's open.
-            with sqlite3.connect(str(temp_db_path)) as src_conn, sqlite3.connect(str(active_db)) as dest_conn:
-                src_conn.backup(dest_conn)
-                dest_conn.commit()
+            logger = logging.getLogger("restore")
 
-            # If we reach here, the backup into the active DB succeeded. Nothing to remove.
-            return
+            # Try sqlite3 backup with retries to handle transient locks on Windows.
+            backoff = [0.5, 1.0, 2.0, 4.0]
+            last_exc: Exception | None = None
+            for wait in backoff:
+                try:
+                    with sqlite3.connect(str(temp_db_path)) as src_conn, sqlite3.connect(str(active_db)) as dest_conn:
+                        src_conn.backup(dest_conn)
+                        dest_conn.commit()
+                    # Success
+                    return
+                except sqlite3.OperationalError as op_err:
+                    last_exc = op_err
+                    # common locked error on Windows; wait and retry
+                    logger.debug("sqlite3.backup failed (will retry): %s", op_err)
+                    time.sleep(wait)
+                    continue
+                except Exception as exc:  # non-retryable
+                    last_exc = exc
+                    logger.exception("sqlite3.backup failed with unexpected error")
+                    break
+
+            # If we get here, backup API didn't succeed
+            if last_exc:
+                logger.warning("sqlite3.backup did not succeed after retries: %s", last_exc)
+            else:
+                logger.warning("sqlite3.backup did not succeed for unknown reasons")
+
         except Exception:
             # If the backup API approach fails (rare), fall back to file replace.
             # Create a filesystem backup of the current active DB first if possible.
@@ -117,13 +139,23 @@ class RestoreService:
                     # If we cannot restore, surface a helpful error
                     pass
 
-                raise ValidationError(
-                    "Failed to replace the active database file. "
-                    "This can happen on Windows when the DB file is locked by running processes. "
-                    "Please stop the application (or any process holding the DB file) and retry the restore, "
-                    "or perform an offline restore by running the restore utility on the server filesystem. "
-                    f"Underlying error: {exc}"
+                # If we failed to perform the swap, persist a diagnostic copy of the temp DB
+                try:
+                    diag_dir = Path(self.settings.scheduled_backup_dir)
+                    diag_dir.mkdir(parents=True, exist_ok=True)
+                    diag_path = diag_dir / f"failed-restore-diagnostic-{int(time.time())}.db"
+                    shutil.copy2(temp_db_path, diag_path)
+                except Exception:
+                    diag_path = None
+
+                msg = (
+                    "Failed to replace the active database file. This often happens on Windows when the DB file is locked by running processes. "
+                    "Please stop the application (or any process holding the DB file) and retry the restore, or perform an offline restore by running the restore utility on the server filesystem."
                 )
+                if diag_path:
+                    msg += f" A diagnostic copy of the attempted restore was saved to: {diag_path}"
+
+                raise ValidationError(msg + f" Underlying error: {exc}")
 
     def restore_from_archive(self, archive_file: bytes, *, dry_run: bool = True) -> RestoreValidationResult:
         """Restore the database from a zip archive bytes.
