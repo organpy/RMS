@@ -25,7 +25,27 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+        env:
+          PIP_NO_CACHE_DIR: 'off'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Ensure data directories
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          Path('data').mkdir(parents=True, exist_ok=True)
+          Path('data/receipts').mkdir(parents=True, exist_ok=True)
+          Path('data/backups').mkdir(parents=True, exist_ok=True)
+          print('Created data dirs')
+          PY
 
       - name: Run backend tests
         run: |
-          pytest -q
+          pytest -q --maxfail=1
