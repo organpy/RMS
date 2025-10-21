@@ -161,6 +161,18 @@ class RestoreService:
                         reader = csv.DictReader(TextIOWrapper(f, encoding='utf-8-sig'))
                         return list(reader)
 
+                # Ensure receipts directory exists for file restoration
+                receipts_dir = Path(self.settings.receipt_output_dir)
+                receipts_dir.mkdir(parents=True, exist_ok=True)
+
+                # Extract receipt binary files (if any) into receipts_dir so DB rows can reference them
+                for name in zf.namelist():
+                    if name.startswith('receipts/') and not name.endswith('/'):
+                        target_name = Path(name).name
+                        target_path = receipts_dir / target_name
+                        with zf.open(name) as srcf, open(target_path, 'wb') as dstf:
+                            shutil.copyfileobj(srcf, dstf)
+
                 if use_active_session:
                     # Import directly into the active session inside a top-level transaction.
                     # Use a nested transaction if the session already has an active transaction.
@@ -248,11 +260,20 @@ class RestoreService:
                             _rows('payments.csv'),
                         )
 
-                        # Receipts
+                        # Receipts - CSV contains file basenames; convert to restored path
+                        receipts_rows = []
+                        for r in _rows('receipts.csv'):
+                            # If file_path is a basename, make absolute path into receipts_dir
+                            fp = r.get('file_path') or ''
+                            if fp and not Path(fp).is_absolute():
+                                fp = str((receipts_dir / Path(fp).name).resolve())
+                            r['file_path'] = fp
+                            receipts_rows.append(r)
+
                         _upsert(
                             'receipts',
                             ['id', 'payment_id', 'file_path', 'created_at', 'updated_at'],
-                            _rows('receipts.csv'),
+                            receipts_rows,
                         )
 
                         top_trans.commit()
