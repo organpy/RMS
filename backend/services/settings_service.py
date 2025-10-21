@@ -178,7 +178,38 @@ class SettingsService:
             archive.writestr("receipts.csv", self._build_receipts_csv())
 
         zip_buffer.seek(0)
-        return BackupArchive(filename=archive_name, content=zip_buffer.getvalue(), generated_at=timestamp)
+        content = zip_buffer.getvalue()
+
+        # Attempt to persist a copy of the archive to the backups directory and record it in DB.
+        # This is best-effort: failures should not prevent returning the archive to the caller.
+        try:
+            # Ensure backups dir exists
+            self.backups_dir.mkdir(parents=True, exist_ok=True)
+            target = self.backups_dir / archive_name
+            tmp_path = target.with_suffix(".tmp")
+            # Atomic write: write to tmp then rename
+            tmp_path.write_bytes(content)
+            tmp_path.replace(target)
+
+            # Import here to avoid circular imports at module import time.
+            from backend.crud.backup import BackupCRUD
+
+            backup_crud = BackupCRUD(self.session)
+            backup_payload = {"path": str(target), "size": len(content), "status": "completed"}
+            # Create DB record for the backup
+            try:
+                backup_crud.create(backup_payload)
+            except Exception:
+                # Don't fail the overall operation if DB record creation fails; log and continue
+                import logging
+
+                logging.getLogger("backup").exception("Failed to record backup in DB")
+        except Exception:
+            import logging
+
+            logging.getLogger("backup").exception("Failed to persist backup archive to disk")
+
+        return BackupArchive(filename=archive_name, content=content, generated_at=timestamp)
 
     # ------------------------------------------------------------------
     # Internals

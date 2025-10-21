@@ -9,6 +9,7 @@ from .dashboard import router as dashboard_router
 from .analytics import router as analytics_router
 from .settings import router as settings_router
 from .backup import router as backup_router
+from .backups import router as backups_router
 
 __all__ = [
     "members_router",
@@ -20,4 +21,5 @@ __all__ = [
     "analytics_router",
     "settings_router",
     "backup_router",
+    "backups_router",
 ]
