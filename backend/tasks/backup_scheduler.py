@@ -12,6 +12,7 @@ from backend.config import get_settings
 from backend.database import SessionLocal
 from backend.schemas.settings import BackupCadence
 from backend.services.settings_service import SettingsService
+from backend.services.backup_service import BackupService
 
 logger = logging.getLogger(__name__)
 
@@ -85,8 +86,18 @@ class BackupScheduler:
 
             # Persist metadata and enforce retention.
             updated = service.finalize_scheduled_backup(archive.generated_at, cadence)
-            retention = (updated.backup_retention_count or business.backup_retention_count or 1)
-            service.prune_backup_archives(retention)
+            # Enforce retention policies: prefer retention_days (age-based), fall back to retention_count.
+            retention_days = getattr(updated, "backup_retention_days", None) or getattr(business, "backup_retention_days", None)
+            if retention_days:
+                try:
+                    backup_svc = BackupService(session)
+                    backup_svc.cleanup_older_than(retention_days)
+                except Exception:
+                    logger.exception("Scheduled cleanup by age failed")
+            else:
+                # Fall back to count-based pruning
+                retention = (updated.backup_retention_count or business.backup_retention_count or 1)
+                service.prune_backup_archives(retention)
         except Exception:  # pragma: no cover - captured for observability
             logger.exception("Scheduled backup execution failed")
         finally:

@@ -1,6 +1,7 @@
 """SQLAlchemy ORM models for the registration management system."""
 
 from .business import Business
+from .backup import Backup
 from .class_course import ClassCourse
 from .group import Group
 from .member import Member, MemberStatus
@@ -16,6 +17,7 @@ from .staff import Staff, StaffRole
 
 __all__ = [
     "Business",
+    "Backup",
     "ClassCourse",
     "Group",
     "Member",

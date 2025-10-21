@@ -47,6 +47,7 @@ class BusinessSettingsCreate(BusinessSettingsBase):
 
     backup_scheduler_enabled: bool = False
     backup_retention_count: int = Field(default=5, ge=1, le=60)
+    backup_retention_days: int = Field(default=30, ge=1)
 
 
 class BusinessSettingsUpdate(BaseModel):
@@ -91,6 +92,7 @@ class BusinessSettingsResponse(TimestampedSchema):
     backup_scheduler_enabled: bool
     backup_cadence: BackupCadence | None = None
     backup_retention_count: int
+    backup_retention_days: int
     backup_last_run_at: datetime | None = None
     backup_next_run_at: datetime | None = None
 
@@ -129,6 +131,7 @@ class BackupScheduleUpdate(BaseModel):
     enabled: bool = Field(default=False)
     cadence: BackupCadence | None = Field(default=None)
     retention_count: int = Field(default=5, ge=1, le=60)
+    retention_days: int = Field(default=30, ge=1)
 
     @model_validator(mode="after")
     def _validate_payload(self) -> "BackupScheduleUpdate":

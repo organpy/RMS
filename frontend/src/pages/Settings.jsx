@@ -9,6 +9,7 @@ import { useBusiness } from '../context/BusinessContext'
 import { useTheme } from '../context/ThemeContext'
 import { useToast } from '@/hooks/use-toast'
 import api from '../services/api'
+import BackupHistory from '../components/backups/BackupHistory'
 
 const languages = [
   { value: 'EN', label: 'English' },
@@ -295,6 +296,9 @@ export default function Settings() {
                 Up to {Number(backupForm.retention) || 1} archives will be kept.
               </p>
             )}
+          </div>
+          <div className="mt-6">
+            <BackupHistory />
           </div>
         </div>
       </Card>
