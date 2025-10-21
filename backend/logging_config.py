@@ -20,9 +20,18 @@ DEFAULT_LOGGING_CONFIG = {
             "formatter": "standard",
             "level": "INFO",
         }
+        ,
+        "backup_file": {
+            "class": "logging.FileHandler",
+            "formatter": "standard",
+            "level": "INFO",
+            "filename": "logs/backup_restore.log",
+            "encoding": "utf-8",
+        }
     },
     "loggers": {
         "backend": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "backup": {"handlers": ["backup_file"], "level": "INFO", "propagate": False},
         "uvicorn.error": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "uvicorn.access": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
