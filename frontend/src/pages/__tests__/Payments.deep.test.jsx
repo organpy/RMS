@@ -1,6 +1,7 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
+import { setTestPayments, clearTestPayments, setMockDownloadReceipt, clearMockDownloadReceipt } from '@/test/utils/testHelpers'
 // Don't import Payments at top-level; import dynamically in tests so mocks apply
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -70,7 +71,7 @@ describe('Payments deep flows', () => {
     global.URL.createObjectURL = vi.fn(() => 'blob:mock-url')
     global.URL.revokeObjectURL = vi.fn()
     // install a mock downloadReceipt helper accessible to the DataTable mock
-    global.__MOCK_DOWNLOAD_RECEIPT__ = vi.fn().mockImplementation(async (id) => new Blob(['PDF-DATA'], { type: 'application/pdf' }))
+    setMockDownloadReceipt(vi.fn().mockImplementation(async (id) => new Blob(['PDF-DATA'], { type: 'application/pdf' })))
     // mock document.createElement/appendChild/click/removeChild for link download
     const appendSpy = vi.spyOn(document.body, 'appendChild')
     const removeSpy = vi.spyOn(document.body, 'removeChild')
@@ -81,8 +82,8 @@ describe('Payments deep flows', () => {
   afterEach(() => {
     vi.resetAllMocks()
     // ensure no leftover test data
-    global.__TEST_PAYMENTS__ = undefined
-    delete global.__MOCK_DOWNLOAD_RECEIPT__
+    clearTestPayments()
+    clearMockDownloadReceipt()
   })
 
   test('Export CSV button disabled when no payments and enabled when payments exist', async () => {
@@ -94,8 +95,8 @@ describe('Payments deep flows', () => {
       </Wrapper>,
     )
 
-    // Initially, Export CSV should be present but may be disabled (DataTable mock uses data length)
-    const exportBtn = await screen.findByText('Export CSV')
+  // Initially, Export CSV should be present but may be disabled (DataTable mock uses data length)
+  const exportBtn = await screen.findByRole('button', { name: /Export CSV/i })
     // no payments in mocked hook => disabled
     expect(exportBtn).toBeDisabled()
 
@@ -107,9 +108,9 @@ describe('Payments deep flows', () => {
   })
 
   test('Download receipt triggers blob URL creation and revocation', async () => {
-    // Render Payments with a mocked payments dataset by injecting into global.__TEST_PAYMENTS__
-    const paymentsData = [{ id: 1, member_name: 'Test', membership_plan: 'Basic' }]
-    global.__TEST_PAYMENTS__ = paymentsData
+  // Render Payments with a mocked payments dataset by injecting via test helper
+  const paymentsData = [{ id: 1, member_name: 'Test', membership_plan: 'Basic' }]
+  setTestPayments(paymentsData)
 
     const { default: PaymentsWithPayments } = await import('@/pages/Payments')
 
@@ -119,17 +120,17 @@ describe('Payments deep flows', () => {
       </Wrapper>,
     )
 
-    // Click the Download receipt button rendered by the DataTable mock
-    const downloadBtn = await screen.findByText('Download receipt')
-    fireEvent.click(downloadBtn)
+  // Click the first Download receipt button rendered by the DataTable mock
+  const downloadBtns = await screen.findAllByText('Download receipt')
+  fireEvent.click(downloadBtns[0])
 
     await waitFor(() => {
       expect(global.URL.createObjectURL).toHaveBeenCalled()
       expect(global.URL.revokeObjectURL).toHaveBeenCalled()
     })
 
-    // clean up global injection
-    global.__TEST_PAYMENTS__ = undefined
+  // clean up test helper injection
+  clearTestPayments()
   })
 })
 
