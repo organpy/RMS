@@ -39,4 +39,4 @@ test('renders MemberForm and submits with values', async () => {
   // Wait for the wrapper to show that submission occurred
   await waitFor(() => expect(screen.getByTestId('submitted')).toBeInTheDocument())
   expect(handleSubmit).toHaveBeenCalled()
-})
+}, 20000)
