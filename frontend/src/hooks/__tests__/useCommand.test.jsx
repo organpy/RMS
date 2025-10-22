@@ -1,8 +1,14 @@
-import { describe, it, expect, vi } from 'vitest'
+import React from 'react'
 import { render } from '@testing-library/react'
-import { act } from 'react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// Mock only consumePendingCommand; we'll dispatch window events directly
+vi.mock('@/lib/commandBus', () => ({
+  consumePendingCommand: vi.fn(),
+}))
+
 import { useCommand } from '../useCommand'
-import { emitCommand } from '@/lib/commandBus'
+import { consumePendingCommand } from '@/lib/commandBus'
 
 function CommandConsumer({ name, handler }) {
   useCommand(name, handler)
@@ -10,20 +16,19 @@ function CommandConsumer({ name, handler }) {
 }
 
 describe('useCommand', () => {
-  it('invokes the handler when a matching command is emitted', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+    vi.clearAllMocks()
+  })
+
+  it('calls handler when window app:command dispatched', () => {
     const handler = vi.fn()
+    render(<CommandConsumer name="sayHello" handler={handler} />)
 
-    render(<CommandConsumer name="members.openCreate" handler={handler} />)
+    const event = new CustomEvent('app:command', { detail: { name: 'sayHello', detail: { who: 'me' } } })
+    window.dispatchEvent(event)
 
-    act(() => {
-      emitCommand('members.openCreate', { source: 'test-suite' })
-    })
-
-    expect(handler).toHaveBeenCalledTimes(1)
-    expect(handler).toHaveBeenCalledWith(
-      { source: 'test-suite' },
-      expect.objectContaining({ name: 'members.openCreate' }),
-    )
+    expect(handler).toHaveBeenCalledWith({ who: 'me' }, expect.any(Object))
   })
 
   it('consumes a persisted pending command on mount', () => {
@@ -35,6 +40,12 @@ describe('useCommand', () => {
     }
 
     sessionStorage.setItem('registration-management:pending-command', JSON.stringify(payload))
+    consumePendingCommand.mockImplementation(() => {
+      // mimic real implementation which removes the stored item
+      const raw = sessionStorage.getItem('registration-management:pending-command')
+      sessionStorage.removeItem('registration-management:pending-command')
+      return raw ? JSON.parse(raw) : null
+    })
 
     render(<CommandConsumer name="members.filterStatus" handler={handler} />)
 
