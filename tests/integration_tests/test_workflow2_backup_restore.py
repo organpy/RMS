@@ -1,3 +1,21 @@
+import pytest
+
+
+def test_backup_and_restore_flow(client):
+    """Workflow 2: Create backup -> Delete records -> Restore backup -> Verify data restored
+
+    This is a skeleton test that expects the backend to expose a manual backup endpoint
+    and a restore endpoint. Test asserts are minimal and should be extended.
+    """
+    # Trigger manual backup
+    backup_resp = client.get("/api/settings/backup/manual")
+    assert backup_resp.status_code == 200
+
+    # For the skeleton, simply check that a backup blob was returned
+    # If the endpoint returns an attachment, it should have content-type application/zip or similar
+    assert backup_resp.headers.get("content-type") in ("application/zip", "application/octet-stream")
+
+    # TODO: Add steps to delete records, call restore endpoint, and verify restored data
 """Integration test: create backup -> delete record -> restore backup -> verify data restored."""
 
 from io import BytesIO
