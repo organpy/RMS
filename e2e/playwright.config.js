@@ -3,6 +3,7 @@ const { defineConfig } = require('@playwright/test');
 module.exports = defineConfig({
   testDir: './tests',
   timeout: 60 * 1000,
+  retries: 1,
   expect: { timeout: 5000 },
   fullyParallel: true,
   reporter: [['list'], ['html', { open: 'never' }]],
