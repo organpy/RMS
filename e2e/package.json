@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "test": "playwright test",
+    "seed": "node ./setup/seed.js",
     "test:headed": "playwright test --headed",
     "install-browsers": "playwright install --with-deps"
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0"
+    ,"node-fetch": "^2.6.7"
   }
 }
