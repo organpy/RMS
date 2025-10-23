@@ -9,11 +9,14 @@ test.describe('Journey 2 - Members bulk status change', () => {
 
     // Wait for members table or empty state
     const table = page.locator('[data-test=member-table], table');
-    await expect(table.first()).toBeVisible({ timeout: 5000 }).catch(() => {
+    try {
+      await expect(table.first()).toBeVisible({ timeout: 5000 });
+    } catch (err) {
       // If no table, ensure empty state is visible
-      expect(page.locator('[data-test=empty-members], .empty-state').count()).toBeGreaterThan(0);
+      const emptyCount = await page.locator('[data-test=empty-members], .empty-state').count();
+      expect(emptyCount).toBeGreaterThan(0);
       test.skip(true, 'No members table present in this environment');
-    });
+    }
 
     // Apply a status filter if present
     const statusSelect = page.locator('select[data-test=filter-status], select[name="status"]');
