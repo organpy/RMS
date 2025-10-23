@@ -1,12 +1,25 @@
-"""Shared pytest fixtures for API tests."""
+"""Shared pytest fixtures for API tests.
+
+This file runs under pytest where the import path may not include the
+repository root. Add the project root to sys.path early so imports like
+`from backend...` succeed when running `pytest` from the repo root or
+inside a virtualenv.
+"""
 
 from collections.abc import Generator
+import sys
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
+
+# Ensure repository root is on sys.path so `backend` package imports work
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from backend.database import get_db
 from backend.main import create_app
