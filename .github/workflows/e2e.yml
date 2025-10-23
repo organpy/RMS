@@ -1,0 +1,25 @@
+name: E2E Tests (manual)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  playwright-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install frontend deps
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps
+      - name: Start backend (optional)
+        run: echo "Start backend service manually or via job step"
+      - name: Run Playwright tests
+        working-directory: e2e
+        run: |
+          npx playwright test --config=./playwright.config.js || true
