@@ -1,4 +1,5 @@
 import pytest
+from datetime import date
 
 
 def test_add_member_record_payment_and_check_payments(client):
@@ -13,6 +14,7 @@ def test_add_member_record_payment_and_check_payments(client):
         "last_name": "Tester",
         "email": "int+tester@example.com",
         "membership_plan": "Basic",
+        "business_id": 1,
     }
     resp = client.post("/api/members", json=member_payload)
     assert resp.status_code == 201
@@ -22,6 +24,7 @@ def test_add_member_record_payment_and_check_payments(client):
     payment_payload = {
         "member_id": member["id"],
         "amount": 25.0,
+        "payment_date": date.today().isoformat(),
         "status": "paid",
     }
     pay_resp = client.post("/api/payments", json=payment_payload)

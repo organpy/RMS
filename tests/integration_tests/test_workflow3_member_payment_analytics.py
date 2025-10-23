@@ -1,5 +1,6 @@
 import csv
 from io import StringIO
+from datetime import date
 
 
 def test_member_payment_to_analytics_export(client, db_session):
@@ -15,14 +16,25 @@ def test_member_payment_to_analytics_export(client, db_session):
         "last_name": "User",
         "email": "analytics.user@example.com",
         "membership_plan": "Premium",
+        "business_id": 1,
     }
     resp = client.post("/api/members", json=member_payload)
     assert resp.status_code == 201
     member = resp.json()
 
     # Record two payments for the member
-    payment_payload1 = {"member_id": member["id"], "amount": 50.0, "status": "paid"}
-    payment_payload2 = {"member_id": member["id"], "amount": 75.5, "status": "paid"}
+    payment_payload1 = {
+        "member_id": member["id"],
+        "amount": 50.0,
+        "payment_date": date.today().isoformat(),
+        "status": "paid",
+    }
+    payment_payload2 = {
+        "member_id": member["id"],
+        "amount": 75.5,
+        "payment_date": date.today().isoformat(),
+        "status": "paid",
+    }
     p1 = client.post("/api/payments", json=payment_payload1)
     assert p1.status_code in (200, 201)
     p2 = client.post("/api/payments", json=payment_payload2)
