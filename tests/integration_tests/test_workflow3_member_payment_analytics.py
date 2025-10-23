@@ -11,11 +11,15 @@ def test_member_payment_to_analytics_export(client, db_session):
     validates that the response is CSV and contains the expected header row.
     """
     # Create a member
+    # Ensure a business exists for payments/receipt generation
+    settings_payload = {"name": "Analytics Test Business"}
+    sresp = client.put("/api/settings", json=settings_payload)
+    assert sresp.status_code in (200, 201)
+
     member_payload = {
         "first_name": "Analytics",
         "last_name": "User",
         "email": "analytics.user@example.com",
-        "membership_plan": "Premium",
         "business_id": 1,
     }
     resp = client.post("/api/members", json=member_payload)

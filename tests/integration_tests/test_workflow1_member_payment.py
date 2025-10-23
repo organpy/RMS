@@ -9,11 +9,15 @@ def test_add_member_record_payment_and_check_payments(client):
     the API endpoints `/api/members` and `/api/payments` exist.
     """
     # Create a member
+    # Ensure a business exists (settings API persists Business used by members)
+    settings_payload = {"name": "Test Business"}
+    sresp = client.put("/api/settings", json=settings_payload)
+    assert sresp.status_code in (200, 201)
+
     member_payload = {
         "first_name": "Integration",
         "last_name": "Tester",
         "email": "int+tester@example.com",
-        "membership_plan": "Basic",
         "business_id": 1,
     }
     resp = client.post("/api/members", json=member_payload)
@@ -21,6 +25,7 @@ def test_add_member_record_payment_and_check_payments(client):
     member = resp.json()
 
     # Record a payment for that member
+    # payments endpoint should be available via router
     payment_payload = {
         "member_id": member["id"],
         "amount": 25.0,
