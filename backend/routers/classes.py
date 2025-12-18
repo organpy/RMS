@@ -39,7 +39,7 @@ def _get_class_or_404(class_id: int, crud: ClassCourseCRUD):
 def list_classes(
     business_id: int | None = Query(default=None, ge=1),
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=100),
+    limit: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
 ) -> ClassListResponse:
     """Return classes with optional business scoping."""

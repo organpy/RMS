@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, UploadFile, status
-from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -25,58 +24,58 @@ def get_settings_service(db: Session = Depends(get_db)) -> SettingsService:
 
 
 @router.get("", response_model=BusinessSettingsResponse)
-async def read_business_settings(
+def read_business_settings(
     service: SettingsService = Depends(get_settings_service),
 ) -> BusinessSettingsResponse:
     """Return the persisted business branding settings."""
 
-    business = await run_in_threadpool(service.get_business)
+    business = service.get_business()
     return BusinessSettingsResponse.model_validate(business, from_attributes=True)
 
 
 @router.put("", response_model=BusinessSettingsResponse)
-async def update_business_settings(
+def update_business_settings(
     payload: BusinessSettingsUpdate,
     service: SettingsService = Depends(get_settings_service),
 ) -> BusinessSettingsResponse:
     """Persist updates to the business branding settings."""
 
-    business = await run_in_threadpool(service.update_business, payload.model_dump(exclude_none=True))
+    business = service.update_business(payload.model_dump(exclude_none=True))
     return BusinessSettingsResponse.model_validate(business, from_attributes=True)
 
 
 @router.post("/logo", response_model=BusinessSettingsResponse, status_code=status.HTTP_201_CREATED)
-async def upload_logo(
+def upload_logo(
     file: UploadFile = File(...),
     service: SettingsService = Depends(get_settings_service),
 ) -> BusinessSettingsResponse:
     """Upload a new logo asset and update the business settings."""
 
-    content = await file.read()
-    business = await run_in_threadpool(service.store_logo, filename=file.filename or "logo", content=content)
-    await file.close()
+    content = file.file.read()
+    business = service.store_logo(filename=file.filename or "logo", content=content)
+    file.file.close()
     return BusinessSettingsResponse.model_validate(business, from_attributes=True)
 
 
 @router.get("/backup-config", response_model=BackupConfigResponse)
-async def read_backup_configuration(
+def read_backup_configuration(
     service: SettingsService = Depends(get_settings_service),
 ) -> BackupConfigResponse:
     """Return the configuration payload used for offline backups."""
 
-    backup = await run_in_threadpool(service.generate_backup_configuration)
+    backup = service.generate_backup_configuration()
     business = BusinessSettingsResponse.model_validate(backup.business, from_attributes=True)
     environment = BackupEnvironmentSchema(**backup.environment)
     return BackupConfigResponse(business=business, environment=environment)
 
 
 @router.get("/backup/manual")
-async def download_manual_backup(
+def download_manual_backup(
     service: SettingsService = Depends(get_settings_service),
 ) -> StreamingResponse:
     """Stream a zipped archive containing CSV exports for core entities."""
 
-    archive = await run_in_threadpool(service.generate_backup_archive)
+    archive = service.generate_backup_archive()
     headers = {
         "Content-Disposition": f'attachment; filename="{archive.filename}"'
     }
@@ -84,11 +83,11 @@ async def download_manual_backup(
 
 
 @router.put("/backup/schedule", response_model=BusinessSettingsResponse)
-async def update_backup_schedule(
+def update_backup_schedule(
     payload: BackupScheduleUpdate,
     service: SettingsService = Depends(get_settings_service),
 ) -> BusinessSettingsResponse:
     """Update automated backup scheduling preferences."""
 
-    business = await run_in_threadpool(service.update_backup_schedule, payload)
+    business = service.update_backup_schedule(payload)
     return BusinessSettingsResponse.model_validate(business, from_attributes=True)

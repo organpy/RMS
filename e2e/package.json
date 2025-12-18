@@ -3,14 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "pretest": "node ./setup/prepare_and_seed.js",
-  "test": "playwright test -j 1",
+    "test": "node ./setup/run_e2e.js",
     "seed": "node ./setup/seed.js",
-    "test:headed": "playwright test --headed",
+    "test:headed": "node ./setup/run_e2e.js --headed",
     "install-browsers": "playwright install --with-deps"
   },
   "devDependencies": {
-    "@playwright/test": "^1.40.0"
-    ,"node-fetch": "^2.6.7"
+    "@playwright/test": "^1.40.0",
+    "node-fetch": "^2.6.7"
   }
 }
