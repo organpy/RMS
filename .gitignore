@@ -61,11 +61,16 @@ Thumbs.db
 receipts/
 *.pdf
 
-# Docs excluded from commits
-*.md
-receipt_test.py
-backup.zip
-
-# e2e
+# Playwright / E2E artifacts
 e2e/test-results/
 e2e/playwright-report/
+test-results/
+playwright-report/
+
+# Local ad-hoc artifacts
+backup.zip
+
+# Local ad-hoc scripts/files
+receipt_test.py
+docs/
+.github/
