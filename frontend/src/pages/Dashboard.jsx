@@ -262,8 +262,8 @@ export default function Dashboard() {
 
       <section className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Dashboard Overview</h1>
-          <p className="mt-1 text-sm text-slate-500">
+            <h1 className="text-2xl font-semibold text-foreground">Dashboard Overview</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
             Stay on top of member activity, payments, and upcoming renewals at a glance.
           </p>
         </div>

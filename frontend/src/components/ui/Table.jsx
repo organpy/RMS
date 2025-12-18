@@ -20,16 +20,17 @@ export default function Table({
   const columnCount = columns.length || 1
 
   return (
-    <div className={cx('overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm', className)}>
-      <table className="min-w-full divide-y divide-slate-200">
-        <thead className="bg-slate-50">
+    <div className={cx('overflow-hidden rounded-xl border border-border bg-card shadow-sm', className)}>
+      <div className="w-full overflow-x-auto">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="bg-muted/40">
           <tr>
             {columns.map((column) => (
               <th
                 key={column.key}
                 scope="col"
                 className={cx(
-                  'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500',
+                  'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground',
                   alignmentMap[column.align ?? 'left'],
                   column.headerClassName,
                 )}
@@ -38,8 +39,8 @@ export default function Table({
               </th>
             ))}
           </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-200 bg-white">
+          </thead>
+          <tbody className="divide-y divide-border bg-card">
           {hasData ? (
             data.map((row, index) => (
               <tr key={keyForRow(row, index)} className={row.rowClassName}>
@@ -47,7 +48,7 @@ export default function Table({
                   <td
                     key={column.key}
                     className={cx(
-                      'whitespace-nowrap px-4 py-3 text-sm text-slate-700',
+                      'whitespace-nowrap px-4 py-3 text-sm text-foreground',
                       alignmentMap[column.align ?? 'left'],
                       column.cellClassName,
                     )}
@@ -59,11 +60,11 @@ export default function Table({
             ))
           ) : (
             <tr>
-              <td className="px-6 py-10 text-center text-sm text-slate-500" colSpan={columnCount}>
+              <td className="px-6 py-10 text-center text-sm text-muted-foreground" colSpan={columnCount}>
                 {emptyState ? (
                   <div className="space-y-1">
                     {emptyState.title ? (
-                      <p className="text-base font-semibold text-slate-700">{emptyState.title}</p>
+                      <p className="text-base font-semibold text-foreground">{emptyState.title}</p>
                     ) : null}
                     {emptyState.description ? <p>{emptyState.description}</p> : null}
                   </div>
@@ -73,23 +74,24 @@ export default function Table({
               </td>
             </tr>
           )}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
 
 export function TableContainer({ children, className }) {
   return (
-    <div className={cx('overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm', className)}>
-      {children}
+    <div className={cx('overflow-hidden rounded-xl border border-border bg-card shadow-sm', className)}>
+      <div className="w-full overflow-x-auto">{children}</div>
     </div>
   )
 }
 
 export function THead({ children }) {
   return (
-    <thead className="bg-slate-50">
+    <thead className="bg-muted/40">
       <tr>{children}</tr>
     </thead>
   )
@@ -100,7 +102,7 @@ export function TH({ children, align = 'left', className }) {
     <th
       scope="col"
       className={cx(
-        'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500',
+        'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground',
         alignmentMap[align],
         className,
       )}
@@ -111,7 +113,7 @@ export function TH({ children, align = 'left', className }) {
 }
 
 export function TBody({ children }) {
-  return <tbody className="divide-y divide-slate-200 bg-white">{children}</tbody>
+  return <tbody className="divide-y divide-border bg-card">{children}</tbody>
 }
 
 export function TR({ children, className }) {
@@ -120,7 +122,7 @@ export function TR({ children, className }) {
 
 export function TD({ children, align = 'left', className }) {
   return (
-    <td className={cx('whitespace-nowrap px-4 py-3 text-sm text-slate-700', alignmentMap[align], className)}>
+    <td className={cx('whitespace-nowrap px-4 py-3 text-sm text-foreground', alignmentMap[align], className)}>
       {children}
     </td>
   )

@@ -758,8 +758,8 @@ export default function Payments() {
     <div className="space-y-6">
       <section className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Payments</h1>
-          <p className="mt-1 text-sm text-slate-500">Monitor transactions, follow up on outstanding invoices, and stay on top of cash flow.</p>
+          <h1 className="text-2xl font-semibold text-foreground">Payments</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Monitor transactions, follow up on outstanding invoices, and stay on top of cash flow.</p>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>

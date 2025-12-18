@@ -83,6 +83,36 @@
     --chart-5: 340 75% 55%;
   }
 
+  .dark .bg-white {
+    background-color: hsl(var(--card)) !important;
+  }
+
+  .dark .bg-slate-50,
+  .dark .bg-slate-100 {
+    background-color: hsl(var(--muted)) !important;
+  }
+
+  .dark .border-slate-100,
+  .dark .border-slate-200 {
+    border-color: hsl(var(--border)) !important;
+  }
+
+  .dark .ring-slate-200 {
+    --tw-ring-color: hsl(var(--border)) !important;
+  }
+
+  .dark .text-slate-900,
+  .dark .text-slate-800,
+  .dark .text-slate-700 {
+    color: hsl(var(--foreground)) !important;
+  }
+
+  .dark .text-slate-600,
+  .dark .text-slate-500,
+  .dark .text-slate-400 {
+    color: hsl(var(--muted-foreground)) !important;
+  }
+
   * {
     border-color: hsl(var(--border));
   }
