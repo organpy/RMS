@@ -2,6 +2,7 @@
 
 const { spawn } = require('child_process');
 const fs = require('fs');
+const net = require('net');
 const path = require('path');
 const fetch = require('node-fetch');
 
@@ -11,15 +12,38 @@ const e2eDir = path.resolve(__dirname, '..');
 const repoRoot = path.resolve(e2eDir, '..');
 const frontendDir = path.join(repoRoot, 'frontend');
 
-const BACKEND_BASE = process.env.API_BASE || 'http://127.0.0.1:8000';
-const FRONTEND_BASE = process.env.UI_BASE || 'http://127.0.0.1:5173';
+const DEFAULT_BACKEND_PORT = Number(process.env.BACKEND_PORT || 8000);
+const DEFAULT_FRONTEND_PORT = Number(process.env.FRONTEND_PORT || 5173);
 
 const pythonExe = isWindows
   ? path.join(repoRoot, '.venv', 'Scripts', 'python.exe')
   : path.join(repoRoot, '.venv', 'bin', 'python');
 
+const playwrightExe = isWindows
+  ? path.join(e2eDir, 'node_modules', '.bin', 'playwright.cmd')
+  : path.join(e2eDir, 'node_modules', '.bin', 'playwright');
+
 function mkdirp(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
+}
+
+async function isPortAvailable(port, host = '127.0.0.1') {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once('error', () => resolve(false));
+    server.once('listening', () => server.close(() => resolve(true)));
+    server.listen(port, host);
+  });
+}
+
+async function findAvailablePort(startPort, host = '127.0.0.1', maxTries = 25) {
+  let port = startPort;
+  for (let i = 0; i < maxTries; i++) {
+    // eslint-disable-next-line no-await-in-loop
+    if (await isPortAvailable(port, host)) return port;
+    port += 1;
+  }
+  throw new Error(`Could not find an available port starting at ${startPort}`);
 }
 
 async function waitForUrl(url, timeoutMs = 60_000) {
@@ -78,6 +102,11 @@ async function killTree(child) {
 async function main() {
   const headed = process.argv.includes('--headed');
 
+  const backendPort = await findAvailablePort(DEFAULT_BACKEND_PORT);
+  const frontendPort = await findAvailablePort(DEFAULT_FRONTEND_PORT);
+  const BACKEND_BASE = `http://127.0.0.1:${backendPort}`;
+  const FRONTEND_BASE = `http://127.0.0.1:${frontendPort}`;
+
   // Ensure local data dirs exist (backend defaults to ./data/app.db)
   mkdirp(path.join(repoRoot, 'data'));
   mkdirp(path.join(repoRoot, 'data', 'receipts'));
@@ -109,7 +138,7 @@ async function main() {
   console.log('[e2e] Starting backend...');
   backendProc = spawnLogged(
     pythonExe,
-    ['-m', 'uvicorn', 'backend.main:app', '--host', '127.0.0.1', '--port', '8000'],
+    ['-m', 'uvicorn', 'backend.main:app', '--host', '127.0.0.1', '--port', String(backendPort)],
     { cwd: repoRoot, shell: false, env: { ...process.env } },
   );
 
@@ -118,8 +147,8 @@ async function main() {
   // Use shell on Windows so `npm` resolves to npm.cmd.
   frontendProc = spawnLogged(
     'npm',
-    ['run', 'dev', '--', '--host', '127.0.0.1', '--port', '5173', '--strictPort'],
-    { cwd: frontendDir, shell: true, env: { ...process.env, VITE_API_BASE_URL: 'http://127.0.0.1:8000' } },
+    ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(frontendPort), '--strictPort'],
+    { cwd: frontendDir, shell: true, env: { ...process.env, VITE_API_BASE_URL: BACKEND_BASE } },
   );
 
   // Wait for readiness
@@ -146,10 +175,18 @@ async function main() {
 
   // Run Playwright
   console.log('[e2e] Running Playwright...');
-  const pwArgs = ['playwright', 'test', '-j', '1'];
+  if (!fs.existsSync(playwrightExe)) {
+    throw new Error(`Playwright executable not found at ${playwrightExe}. Run npm install in e2e/.`);
+  }
+
+  const pwArgs = ['test', '-j', '1'];
   if (headed) pwArgs.push('--headed');
 
-  const pwProc = spawnLogged('npx', pwArgs, { cwd: e2eDir, shell: true, env: { ...process.env, BASE_URL: FRONTEND_BASE } });
+  const pwProc = spawnLogged(playwrightExe, pwArgs, {
+    cwd: e2eDir,
+    shell: true,
+    env: { ...process.env, BASE_URL: FRONTEND_BASE, API_BASE: BACKEND_BASE },
+  });
   const exitCode = await new Promise((resolve) => {
     pwProc.on('close', (code) => resolve(code ?? 1));
   });
