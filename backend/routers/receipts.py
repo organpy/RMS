@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/receipts", tags=["Receipts"])
 
 
 @router.get("", response_model=ReceiptListResponse)
-def list_receipts(
+async def list_receipts(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -34,7 +34,7 @@ def list_receipts(
 
 
 @router.get("/{receipt_id}")
-def get_receipt_file(receipt_id: int, db: Session = Depends(get_db)) -> FileResponse:
+async def get_receipt_file(receipt_id: int, db: Session = Depends(get_db)) -> FileResponse:
     """Download an existing receipt by its identifier."""
 
     crud = ReceiptCRUD(db)
@@ -49,7 +49,7 @@ def get_receipt_file(receipt_id: int, db: Session = Depends(get_db)) -> FileResp
 
 
 @router.post("/{payment_id}/regenerate", response_model=ReceiptResponse, status_code=status.HTTP_201_CREATED)
-def regenerate_receipt(payment_id: int, db: Session = Depends(get_db)) -> ReceiptResponse:
+async def regenerate_receipt(payment_id: int, db: Session = Depends(get_db)) -> ReceiptResponse:
     """Regenerate a receipt for an existing payment and return its metadata."""
 
     payment_service = PaymentService(db)
