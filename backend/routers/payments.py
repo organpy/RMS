@@ -92,7 +92,7 @@ router = APIRouter(prefix="/api/payments", tags=["Payments"])
 
 
 @router.get("", response_model=PaymentListResponse)
-def list_payments(
+async def list_payments(
     status_filter: PaymentStatus | None = Query(default=None, alias="status"),
     method: PaymentMethod | None = Query(default=None),
     member_id: int | None = Query(default=None, ge=1),
@@ -121,7 +121,7 @@ def list_payments(
 
 
 @router.post("", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
-def create_payment(payload: PaymentCreate, db: Session = Depends(get_db)) -> PaymentResponse:
+async def create_payment(payload: PaymentCreate, db: Session = Depends(get_db)) -> PaymentResponse:
     """Record a new payment and generate its receipt."""
 
     service = PaymentService(db)
@@ -136,7 +136,7 @@ def create_payment(payload: PaymentCreate, db: Session = Depends(get_db)) -> Pay
 
 
 @router.put("/{payment_id}", response_model=PaymentResponse)
-def update_payment(
+async def update_payment(
     payment_id: int,
     payload: PaymentUpdate,
     db: Session = Depends(get_db),
@@ -158,7 +158,7 @@ def update_payment(
 
 
 @router.get("/{payment_id}/receipt")
-def download_receipt(payment_id: int, db: Session = Depends(get_db)) -> FileResponse:
+async def download_receipt(payment_id: int, db: Session = Depends(get_db)) -> FileResponse:
     """Return the PDF receipt for the requested payment, generating it if missing."""
 
     service = PaymentService(db)
@@ -177,7 +177,7 @@ def download_receipt(payment_id: int, db: Session = Depends(get_db)) -> FileResp
 
 
 @router.get("/{payment_id}/reminders", response_model=PaymentReminderEnvelope)
-def get_payment_reminders(payment_id: int, db: Session = Depends(get_db)) -> PaymentReminderEnvelope:
+async def get_payment_reminders(payment_id: int, db: Session = Depends(get_db)) -> PaymentReminderEnvelope:
     """Return reminder summary and recent history for a payment."""
 
     service = PaymentReminderService(db)
@@ -186,7 +186,7 @@ def get_payment_reminders(payment_id: int, db: Session = Depends(get_db)) -> Pay
 
 
 @router.post("/{payment_id}/reminders", response_model=PaymentReminderEnvelope, status_code=status.HTTP_201_CREATED)
-def queue_payment_reminder(
+async def queue_payment_reminder(
     payment_id: int,
     payload: QueuePaymentReminderRequest,
     db: Session = Depends(get_db),
@@ -200,7 +200,7 @@ def queue_payment_reminder(
 
 
 @router.get("/overdue", response_model=PaymentListResponse)
-def list_overdue_payments(
+async def list_overdue_payments(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -217,7 +217,7 @@ def list_overdue_payments(
 
 
 @router.get("/due-today", response_model=PaymentListResponse)
-def list_due_today_payments(
+async def list_due_today_payments(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
