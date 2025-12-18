@@ -24,7 +24,7 @@ def get_settings_service(db: Session = Depends(get_db)) -> SettingsService:
 
 
 @router.get("", response_model=BusinessSettingsResponse)
-def read_business_settings(
+async def read_business_settings(
     service: SettingsService = Depends(get_settings_service),
 ) -> BusinessSettingsResponse:
     """Return the persisted business branding settings."""
@@ -34,7 +34,7 @@ def read_business_settings(
 
 
 @router.put("", response_model=BusinessSettingsResponse)
-def update_business_settings(
+async def update_business_settings(
     payload: BusinessSettingsUpdate,
     service: SettingsService = Depends(get_settings_service),
 ) -> BusinessSettingsResponse:
@@ -45,20 +45,20 @@ def update_business_settings(
 
 
 @router.post("/logo", response_model=BusinessSettingsResponse, status_code=status.HTTP_201_CREATED)
-def upload_logo(
+async def upload_logo(
     file: UploadFile = File(...),
     service: SettingsService = Depends(get_settings_service),
 ) -> BusinessSettingsResponse:
     """Upload a new logo asset and update the business settings."""
 
-    content = file.file.read()
+    content = await file.read()
     business = service.store_logo(filename=file.filename or "logo", content=content)
-    file.file.close()
+    await file.close()
     return BusinessSettingsResponse.model_validate(business, from_attributes=True)
 
 
 @router.get("/backup-config", response_model=BackupConfigResponse)
-def read_backup_configuration(
+async def read_backup_configuration(
     service: SettingsService = Depends(get_settings_service),
 ) -> BackupConfigResponse:
     """Return the configuration payload used for offline backups."""
@@ -70,7 +70,7 @@ def read_backup_configuration(
 
 
 @router.get("/backup/manual")
-def download_manual_backup(
+async def download_manual_backup(
     service: SettingsService = Depends(get_settings_service),
 ) -> StreamingResponse:
     """Stream a zipped archive containing CSV exports for core entities."""
@@ -83,7 +83,7 @@ def download_manual_backup(
 
 
 @router.put("/backup/schedule", response_model=BusinessSettingsResponse)
-def update_backup_schedule(
+async def update_backup_schedule(
     payload: BackupScheduleUpdate,
     service: SettingsService = Depends(get_settings_service),
 ) -> BusinessSettingsResponse:
