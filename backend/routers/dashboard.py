@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 
 
 @router.get("/widgets", response_model=DashboardWidgetsResponse)
-def read_dashboard_widgets(
+async def read_dashboard_widgets(
     query: DashboardWidgetsQuery = Depends(),
     db: Session = Depends(get_db),
 ) -> DashboardWidgetsResponse:
@@ -38,7 +38,7 @@ def read_dashboard_widgets(
 
 
 @router.get("/alerts", response_model=DashboardAlertsResponse)
-def read_dashboard_alerts(
+async def read_dashboard_alerts(
     query: DashboardAlertsQuery = Depends(),
     db: Session = Depends(get_db),
 ) -> DashboardAlertsResponse:
@@ -53,7 +53,7 @@ def read_dashboard_alerts(
 
 
 @router.get("/recent-activity", response_model=DashboardRecentActivityResponse)
-def read_dashboard_recent_activity(
+async def read_dashboard_recent_activity(
     query: DashboardRecentActivityQuery = Depends(),
     db: Session = Depends(get_db),
 ) -> DashboardRecentActivityResponse:
@@ -66,7 +66,7 @@ def read_dashboard_recent_activity(
 
 
 @router.get("/quick-stats", response_model=DashboardQuickStatsResponse)
-def read_dashboard_quick_stats(
+async def read_dashboard_quick_stats(
     query: DashboardQuickStatsQuery = Depends(),
     db: Session = Depends(get_db),
 ) -> DashboardQuickStatsResponse:
