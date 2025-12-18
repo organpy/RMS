@@ -8,7 +8,7 @@ module.exports = defineConfig({
   fullyParallel: true,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: process.env.BASE_URL || 'http://127.0.0.1:5173',
     headless: true,
     viewport: { width: 1280, height: 800 },
     actionTimeout: 5000,
