@@ -65,3 +65,7 @@ receipts/
 *.md
 receipt_test.py
 backup.zip
+
+# e2e
+e2e/test-results/
+e2e/playwright-report/
