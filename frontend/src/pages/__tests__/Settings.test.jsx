@@ -6,6 +6,8 @@ vi.mock('@/context/BusinessContext', () => ({
   useBusiness: () => ({
     business: { currency: 'USD', name: 'Test Studio' },
     backupConfig: {},
+    backupStatus: { loading: false, error: null },
+    loadBackupConfig: async () => ({}),
     status: { loading: false, error: null },
     refresh: () => {},
     updateBackupSchedule: async () => ({}),
@@ -13,7 +15,15 @@ vi.mock('@/context/BusinessContext', () => ({
 }))
 // Mock ThemeContext to avoid needing ThemeProvider
 vi.mock('@/context/ThemeContext', () => ({
-  useTheme: () => ({ theme: 'light', setTheme: () => {}, resetTheme: () => {} }),
+  useTheme: () => ({
+    theme: { primaryColor: '#2563eb', secondaryColor: '#1e293b' },
+    setTheme: () => {},
+    resetTheme: () => {},
+    colorMode: 'light',
+    resolvedColorMode: 'light',
+    toggleColorMode: () => {},
+    setColorMode: () => {},
+  }),
 }))
 import Settings from '@/pages/Settings'
 

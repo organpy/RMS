@@ -3,6 +3,7 @@ const baseStyles = 'inline-flex items-center justify-center rounded-lg font-medi
 const variants = {
   primary: 'bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:outline-ring',
   secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/90 focus-visible:outline-ring',
+  outline: 'border border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-ring',
   ghost: 'bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-ring',
   danger: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:outline-ring',
 }
