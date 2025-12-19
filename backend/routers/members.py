@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from backend.crud.member import MemberCRUD
-from backend.database import get_db
+from backend.database import get_db, get_current_user
 from backend.models.member import MemberStatus
 from backend.schemas.common import PaginationMeta
 from backend.schemas.member import (
@@ -38,6 +39,7 @@ def list_members(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=25, ge=1, le=100),
     include_archived: bool = Query(default=False, description="Include archived members in the results"),
+    business_id: Annotated[str, Depends(get_current_user)] = None,
     db: Session = Depends(get_db),
 ) -> MemberListResponse:
     """Return members filtered and paginated according to the supplied query parameters."""

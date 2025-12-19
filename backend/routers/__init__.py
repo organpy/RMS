@@ -1,5 +1,6 @@
 """API routers exposed by the backend."""
 
+from .auth import auth_router
 from .members import router as members_router
 from .classes import router as classes_router
 from .groups import router as groups_router
@@ -12,6 +13,7 @@ from .backup import router as backup_router
 from .backups import router as backups_router
 
 __all__ = [
+    "auth_router",
     "members_router",
     "classes_router",
     "groups_router",

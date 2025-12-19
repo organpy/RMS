@@ -14,6 +14,7 @@ from .config import Settings, get_settings
 from .error_handlers import register_exception_handlers
 from .logging_config import configure_logging
 from .routers import (
+    auth_router,
     analytics_router,
     classes_router,
     dashboard_router,
@@ -58,6 +59,7 @@ def create_app() -> FastAPI:
 
         return {"status": "ok", "message": "Hello World"}
 
+    app.include_router(auth_router)
     app.include_router(members_router)
     app.include_router(classes_router)
     app.include_router(groups_router)

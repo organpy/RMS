@@ -41,3 +41,18 @@ class ValidationError(AppError):
 
     def __init__(self, message: str, *, extra: Mapping[str, Any] | None = None) -> None:
         super().__init__(message, status_code=422, code="validation_error", extra=extra)
+
+
+class AuthenticationError(AppError):
+    """Raised when authentication fails (invalid/missing token)."""
+
+    def __init__(self, message: str = "Invalid or missing authentication token") -> None:
+        super().__init__(message, status_code=401, code="authentication_error")
+
+
+class UnauthorizedError(AppError):
+    """Raised when authenticated user lacks permission for the resource."""
+
+    def __init__(self, message: str = "Insufficient permissions") -> None:
+        super().__init__(message, status_code=403, code="unauthorized_error")
+

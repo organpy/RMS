@@ -7,6 +7,7 @@ inside a virtualenv.
 """
 
 from collections.abc import Generator
+import os
 import sys
 from pathlib import Path
 
@@ -15,6 +16,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
+
+# Disable auth for all tests
+os.environ["require_auth"] = "false"
 
 # Ensure repository root is on sys.path so `backend` package imports work
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -66,3 +70,4 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
