@@ -52,6 +52,7 @@ class Member(TimestampMixin, Base):
 
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    membership_plan: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     phone_number: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     status: Mapped[MemberStatus] = mapped_column(

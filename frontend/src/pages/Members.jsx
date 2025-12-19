@@ -512,6 +512,7 @@ export default function Members() {
         first_name: values.first_name,
         last_name: values.last_name,
         email: values.email,
+        membership_plan: values.membership_plan,
         status: values.status,
       }
 
@@ -595,6 +596,7 @@ export default function Members() {
         first_name: values.first_name,
         last_name: values.last_name,
         email: values.email,
+        membership_plan: values.membership_plan,
         status: values.status,
       }
 

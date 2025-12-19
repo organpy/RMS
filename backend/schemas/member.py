@@ -14,6 +14,7 @@ from .common import ClassSummary, GroupSummary, PaginationMeta, TimestampedSchem
 NameStr = Annotated[str, StringConstraints(min_length=1, max_length=100)]
 PhoneStr = Annotated[str, StringConstraints(min_length=7, max_length=20)]
 SearchStr = Annotated[str, StringConstraints(min_length=1, max_length=100)]
+PlanStr = Annotated[str, StringConstraints(min_length=1, max_length=100)]
 
 
 class MemberBase(BaseModel):
@@ -23,6 +24,7 @@ class MemberBase(BaseModel):
 
     first_name: NameStr
     last_name: NameStr
+    membership_plan: Optional[PlanStr] = None
     phone_number: Optional[PhoneStr] = Field(default=None, description="E.164 or local format phone number")
     email: Optional[EmailStr] = None
     status: MemberStatus = Field(default=MemberStatus.ACTIVE)
@@ -46,6 +48,7 @@ class MemberUpdate(BaseModel):
 
     first_name: Optional[NameStr] = None
     last_name: Optional[NameStr] = None
+    membership_plan: Optional[PlanStr] = None
     phone_number: Optional[PhoneStr] = Field(default=None)
     email: Optional[EmailStr] = Field(default=None)
     status: Optional[MemberStatus] = None

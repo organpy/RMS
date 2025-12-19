@@ -63,6 +63,7 @@ class MemberCRUD:
             search_filter = or_(
                 func.lower(Member.first_name).like(search_term),
                 func.lower(Member.last_name).like(search_term),
+                func.lower(Member.membership_plan).like(search_term),
                 func.lower(Member.email).like(search_term),
                 func.lower(Member.phone_number).like(search_term),
             )
