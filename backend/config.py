@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     scheduled_backup_dir: str = Field(default="data/backups")
     backup_scheduler_poll_seconds: int = Field(default=3600, ge=60)
     secret_key: str = Field(default="dev-secret-key-change-in-production", description="Secret key for JWT token signing. Change in production.")
-    require_auth: bool = Field(default=True, description="Set to False to disable authentication (for testing)")
+    require_auth: bool = Field(default=False)  # Set to False temporarily
     cors_allowed_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"],
         description="Origins allowed to access the API via CORS.",
