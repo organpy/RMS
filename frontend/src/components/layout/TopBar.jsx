@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Menu, LogOut, Settings as SettingsIcon, User, Command as CommandIcon } from 'lucide-react'
+import { Menu, LogOut, Settings as SettingsIcon, User, Command as CommandIcon, Moon, Sun } from 'lucide-react'
 import Button from '../ui/Button'
 import { NAVIGATION } from '../../utils/navigation'
 import { useAuth } from '../../context/AuthContext'
+import { useTheme } from '../../context/ThemeContext'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,12 +33,14 @@ import {
 import { toast } from '@/hooks/use-toast'
 import { useBusiness } from '@/context/BusinessContext'
 import { emitCommand } from '@/lib/commandBus'
+import { prefetchRoute } from '../../routes/prefetchRoutes'
 
 export default function TopBar() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, isAuthenticated, logout } = useAuth()
   const { business } = useBusiness()
+  const { resolvedColorMode, toggleColorMode } = useTheme()
   const [isMobileNavOpen, setMobileNavOpen] = useState(false)
   const [isCommandOpen, setCommandOpen] = useState(false)
 
@@ -176,6 +179,8 @@ export default function TopBar() {
                     <SheetClose asChild key={item.to}>
                       <button
                         type="button"
+                        onMouseEnter={() => prefetchRoute(item.to)}
+                        onFocus={() => prefetchRoute(item.to)}
                         onClick={() => handleNavigate(item.to)}
                         className={[
                           'text-left text-sm font-medium transition-colors rounded-lg px-4 py-2',
@@ -198,6 +203,16 @@ export default function TopBar() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="inline-flex items-center gap-2"
+            onClick={toggleColorMode}
+            aria-label={resolvedColorMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {resolvedColorMode === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            <span className="hidden sm:inline">{resolvedColorMode === 'dark' ? 'Light' : 'Dark'}</span>
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -279,6 +294,8 @@ function CommandPalette({ open, onOpenChange, onNavigate, quickActions = [], onE
             <CommandItem
               key={item.to}
               value={item.name}
+              onMouseEnter={() => prefetchRoute(item.to)}
+              onFocus={() => prefetchRoute(item.to)}
               onSelect={() => onNavigate(item.to)}
             >
               {item.name}

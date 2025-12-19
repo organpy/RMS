@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react'
+import { lazy } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
@@ -45,44 +45,33 @@ function AppShell() {
     return (
       <FullScreenState>
         <Spinner size="lg" className="text-primary" />
-        <p className="mt-4 text-sm text-slate-500">Loading your workspace…</p>
+        <p className="mt-4 text-sm text-muted-foreground">Loading your workspace…</p>
       </FullScreenState>
     )
   }
 
   return (
     <BrowserRouter>
-      <Suspense fallback={<RouteFallback />}>
-        <Routes>
-          <Route path="/" element={<AppLayout globalError={error} onRetry={refresh} />}>
-            <Route index element={<Dashboard />} />
-            <Route path="members" element={<Members />} />
-            <Route path="classes" element={<Classes />} />
-            <Route path="payments" element={<Payments />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </Suspense>
+      <Routes>
+        <Route path="/" element={<AppLayout globalError={error} onRetry={refresh} />}>
+          <Route index element={<Dashboard />} />
+          <Route path="members" element={<Members />} />
+          <Route path="classes" element={<Classes />} />
+          <Route path="payments" element={<Payments />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
     </BrowserRouter>
   )
 }
 
 function FullScreenState({ children }) {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6 py-16 text-center">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background px-6 py-16 text-center">
       <div className="w-full max-w-md space-y-4">{children}</div>
     </main>
-  )
-}
-
-function RouteFallback() {
-  return (
-    <FullScreenState>
-      <Spinner size="lg" className="text-primary" />
-      <p className="mt-4 text-sm text-slate-500">Loading the next view…</p>
-    </FullScreenState>
   )
 }
 

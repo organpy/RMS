@@ -24,7 +24,7 @@ const cadenceOptions = [
 ]
 
 export default function Settings() {
-  const { business, backupConfig, status, refresh, updateBackupSchedule } = useBusiness()
+  const { business, backupConfig, backupStatus, loadBackupConfig, status, refresh, updateBackupSchedule } = useBusiness()
   const { theme, setTheme, resetTheme } = useTheme()
   const { toast } = useToast()
   const [isBackupLoading, setBackupLoading] = useState(false)
@@ -42,6 +42,12 @@ export default function Settings() {
       retention: business?.backup_retention_count ?? 5,
     })
   }, [business?.backup_cadence, business?.backup_retention_count, business?.backup_scheduler_enabled])
+
+  useEffect(() => {
+    if (!business) return
+    if (backupConfig || backupStatus.loading) return
+    loadBackupConfig()
+  }, [backupConfig, backupStatus.loading, business, loadBackupConfig])
 
   const handleManualBackup = useCallback(async () => {
     try {
@@ -158,8 +164,8 @@ export default function Settings() {
     <div className="space-y-6">
       <section className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Configure your organization profile, theme, and localization preferences.
           </p>
         </div>

@@ -11,6 +11,7 @@ const SETTINGS_BACKUP_SCHEDULE_ENDPOINT = `${SETTINGS_ENDPOINT}/backup/schedule`
 export function BusinessProvider({ children }) {
   const [business, setBusiness] = useState(null)
   const [backupConfig, setBackupConfig] = useState(null)
+  const [backupStatus, setBackupStatus] = useState({ loading: false, error: null })
   const [status, setStatus] = useState({ loading: true, error: null })
 
   useEffect(() => {
@@ -26,13 +27,25 @@ export function BusinessProvider({ children }) {
         document.documentElement.style.setProperty('--color-primary', data.primary_color ?? '#2563eb')
         document.documentElement.style.setProperty('--color-secondary', data.secondary_color ?? '#1e293b')
       }
-      const backup = await get(SETTINGS_BACKUP_ENDPOINT)
-      setBackupConfig(backup)
       setStatus({ loading: false, error: null })
     } catch (error) {
       setStatus({ loading: false, error })
     }
   }
+
+  const loadBackupConfig = useCallback(async () => {
+    if (backupConfig) return backupConfig
+    setBackupStatus((prev) => ({ ...prev, loading: true, error: null }))
+    try {
+      const backup = await get(SETTINGS_BACKUP_ENDPOINT)
+      setBackupConfig(backup)
+      setBackupStatus({ loading: false, error: null })
+      return backup
+    } catch (error) {
+      setBackupStatus({ loading: false, error })
+      return null
+    }
+  }, [backupConfig])
 
   const updateBusiness = async (payload) => {
     const data = await put(SETTINGS_ENDPOINT, payload)
@@ -64,13 +77,15 @@ export function BusinessProvider({ children }) {
     () => ({
       business,
       backupConfig,
+      backupStatus,
       status,
       refresh,
       updateBusiness,
       uploadLogo,
       updateBackupSchedule,
+      loadBackupConfig,
     }),
-    [business, backupConfig, status, updateBackupSchedule],
+    [business, backupConfig, backupStatus, status, updateBackupSchedule, loadBackupConfig],
   )
 
   return <BusinessContext.Provider value={value}>{children}</BusinessContext.Provider>

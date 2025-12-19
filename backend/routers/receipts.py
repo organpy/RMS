@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query, status
-from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -28,7 +27,7 @@ async def list_receipts(
     """Return paginated receipt metadata for administrative tooling."""
 
     crud = ReceiptCRUD(db)
-    receipts, total = await run_in_threadpool(crud.list, skip=skip, limit=limit)
+    receipts, total = crud.list(skip=skip, limit=limit)
     data = [ReceiptResponse.model_validate(receipt, from_attributes=True) for receipt in receipts]
     meta = PaginationMeta(total=total, skip=skip, limit=limit)
     return ReceiptListResponse(data=data, meta=meta)
@@ -39,7 +38,7 @@ async def get_receipt_file(receipt_id: int, db: Session = Depends(get_db)) -> Fi
     """Download an existing receipt by its identifier."""
 
     crud = ReceiptCRUD(db)
-    receipt = await run_in_threadpool(crud.get, receipt_id)
+    receipt = crud.get(receipt_id)
     if receipt is None:
         raise NotFoundError("Receipt not found")
 
@@ -54,9 +53,9 @@ async def regenerate_receipt(payment_id: int, db: Session = Depends(get_db)) -> 
     """Regenerate a receipt for an existing payment and return its metadata."""
 
     payment_service = PaymentService(db)
-    payment = await run_in_threadpool(payment_service.get, payment_id)
+    payment = payment_service.get(payment_id)
 
     receipt_service = ReceiptService(db)
-    receipt = await run_in_threadpool(receipt_service.generate, payment, regenerate=True)
+    receipt = receipt_service.generate(payment, regenerate=True)
 
     return ReceiptResponse.model_validate(receipt, from_attributes=True)

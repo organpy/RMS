@@ -1,10 +1,28 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
 const ThemeContext = createContext(null)
+
+const COLOR_MODE_STORAGE_KEY = 'rms:color-mode'
 
 const DEFAULT_THEME = {
   primaryColor: '#2563eb',
   secondaryColor: '#1e293b',
+}
+
+function getSystemPrefersDark() {
+  if (typeof window === 'undefined' || !window.matchMedia) return false
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
+function resolveColorMode(mode) {
+  if (mode === 'dark' || mode === 'light') return mode
+  return getSystemPrefersDark() ? 'dark' : 'light'
+}
+
+function applyColorMode(mode) {
+  const root = document.documentElement
+  const resolved = resolveColorMode(mode)
+  root.classList.toggle('dark', resolved === 'dark')
 }
 
 function hexToHslTuple(hex) {
@@ -88,18 +106,63 @@ function applyTheme({ primaryColor, secondaryColor }) {
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(DEFAULT_THEME)
+  const [colorMode, setColorMode] = useState('system')
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const saved = window.localStorage.getItem(COLOR_MODE_STORAGE_KEY)
+    if (saved === 'light' || saved === 'dark' || saved === 'system') {
+      setColorMode(saved)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(COLOR_MODE_STORAGE_KEY, colorMode)
+  }, [colorMode])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    applyColorMode(colorMode)
+
+    if (colorMode !== 'system' || !window.matchMedia) return
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = () => applyColorMode('system')
+
+    if (media.addEventListener) {
+      media.addEventListener('change', handler)
+      return () => media.removeEventListener('change', handler)
+    }
+
+    media.addListener(handler)
+    return () => media.removeListener(handler)
+  }, [colorMode])
 
   useEffect(() => {
     applyTheme(theme)
   }, [theme])
+
+  const resolvedColorMode = useMemo(() => resolveColorMode(colorMode), [colorMode])
+
+  const toggleColorMode = useCallback(() => {
+    setColorMode((prev) => {
+      const resolved = resolveColorMode(prev)
+      return resolved === 'dark' ? 'light' : 'dark'
+    })
+  }, [])
 
   const value = useMemo(
     () => ({
       theme,
       setTheme,
       resetTheme: () => setTheme(DEFAULT_THEME),
+      colorMode,
+      resolvedColorMode,
+      setColorMode,
+      toggleColorMode,
     }),
-    [theme],
+    [colorMode, resolvedColorMode, theme, toggleColorMode],
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
