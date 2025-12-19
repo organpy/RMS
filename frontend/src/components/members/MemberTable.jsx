@@ -488,6 +488,9 @@ export function MemberTable({
         onPageChange={onPageChange}
         isPageLoading={isFetching}
         toolbarContent={toolbarContent}
+        virtualizeRows
+        virtualRowHeight={56}
+        virtualMaxHeight={640}
       />
     </div>
   )
