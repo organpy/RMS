@@ -45,6 +45,9 @@ describe('Members page', () => {
       updateMemberStatus: vi.fn().mockResolvedValue({}),
       deleteMember: vi.fn().mockResolvedValue({}),
     }))
+    vi.doMock('../../context/BusinessContext', () => ({
+      useBusiness: () => ({ business: { id: 1, currency: 'USD' } }),
+    }))
     vi.doMock('@/utils/exporters/members', () => ({ exportAllMembersCsv: async () => ({ count: 0 }) }))
     // Mock DataTable so toolbarContent (MemberFilters) is rendered predictably.
     // Members.jsx imports DataTable via a relative path ('../components/data/DataTable'),

@@ -19,6 +19,7 @@ import { useMemberPaymentHistory } from '../hooks/useMemberPaymentHistory'
 import { normalizeMemberStatus } from '@/utils/members'
 import { exportAllMembersCsv } from '@/utils/exporters/members'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { useBusiness } from '../context/BusinessContext'
 
 const statusOptions = [
   { value: 'ALL', label: 'All statuses' },
@@ -53,6 +54,7 @@ export default function Members() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
+  const { business } = useBusiness()
   const { classOptions, groupOptions, loading: filtersLoading } = useMemberFilters()
 
   const handleCommandOpenCreate = useCallback(() => {
@@ -496,17 +498,26 @@ export default function Members() {
 
   const handleCreateMember = useCallback(
     (values) => {
+      if (!business?.id) {
+        toast({
+          variant: 'destructive',
+          title: 'Business settings not loaded',
+          description: 'Please wait a moment and try again.',
+        })
+        return
+      }
+
       const payload = {
+        business_id: business.id,
         first_name: values.first_name,
         last_name: values.last_name,
         email: values.email,
-        membership_plan: values.membership_plan ?? undefined,
         status: values.status,
       }
 
       createMemberMutation.mutate(payload)
     },
-    [createMemberMutation],
+    [business?.id, createMemberMutation, toast],
   )
 
   const handleChangeStatus = useCallback(
@@ -584,7 +595,6 @@ export default function Members() {
         first_name: values.first_name,
         last_name: values.last_name,
         email: values.email,
-        membership_plan: values.membership_plan ?? undefined,
         status: values.status,
       }
 
