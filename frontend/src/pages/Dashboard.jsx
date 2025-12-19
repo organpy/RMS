@@ -250,7 +250,7 @@ export default function Dashboard() {
   const overdueAlerts = data?.alerts?.overdue ?? []
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <AlertsDialog
         open={isAlertsOpen && totalAlerts > 0}
         onOpenChange={setAlertsOpen}
@@ -260,18 +260,18 @@ export default function Dashboard() {
         onViewOverdue={() => handleWidgetClick('overdue')}
       />
 
-      <section className="flex flex-wrap items-center justify-between gap-4">
+      <section className="flex flex-wrap items-center justify-between gap-6">
         <div>
-            <h1 className="text-2xl font-semibold text-foreground">Dashboard Overview</h1>
+            <h1 className="text-2xl font-semibold text-foreground" data-testid="dashboard-title">Dashboard Overview</h1>
             <p className="mt-1 text-sm text-muted-foreground">
             Stay on top of member activity, payments, and upcoming renewals at a glance.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="secondary" size="sm" onClick={refresh}>
+          <Button variant="secondary" size="sm" onClick={refresh} data-testid="refresh-button">
             Refresh Data
           </Button>
-          <Button size="sm" onClick={() => runQuickAction(recordPaymentAction)}>Record Payment</Button>
+          <Button size="sm" onClick={() => runQuickAction(recordPaymentAction)} data-testid="record-payment-button">Record Payment</Button>
         </div>
       </section>
 
@@ -282,11 +282,12 @@ export default function Dashboard() {
         </div>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3" data-testid="dashboard-widgets">
         {widgetLabels.map(({ key, label }) => (
           <Card
             key={key}
-            className={widgetActions[key] ? 'border border-transparent transition hover:border-primary/50' : undefined}
+            className={widgetActions[key] ? 'border border-transparent cursor-pointer transition-all duration-200 hover:border-primary/50 hover:shadow-lg' : undefined}
+            data-testid={`widget-${key}`}
           >
             <div
               role={widgetActions[key] ? 'button' : undefined}

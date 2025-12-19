@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
-import Dialog from '../ui/Dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { post } from '../../services/api'
 
@@ -66,14 +66,13 @@ export function ClassCreateDialog({ open, onOpenChange, businessId }) {
   )
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Create Class"
-      description="Add a new class to your schedule"
-      size="sm"
-    >
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create Class</DialogTitle>
+          <DialogDescription>Add a new class to your schedule</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <div className="space-y-1">
           <label className="text-sm font-medium text-slate-700">Class name *</label>
           <Input
@@ -141,6 +140,7 @@ export function ClassCreateDialog({ open, onOpenChange, businessId }) {
           </Button>
         </div>
       </form>
+      </DialogContent>
     </Dialog>
   )
 }

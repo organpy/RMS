@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
-import Dialog from '../ui/Dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { post } from '../../services/api'
 
@@ -60,14 +60,13 @@ export function GroupCreateDialog({ open, onOpenChange, classId, className }) {
   )
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={`Create Group in "${className}"`}
-      description="Add a new group to this class"
-      size="sm"
-    >
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create Group in "{className}"</DialogTitle>
+          <DialogDescription>Add a new group to this class</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <div className="space-y-1">
           <label className="text-sm font-medium text-slate-700">Group name *</label>
           <Input
@@ -107,6 +106,7 @@ export function GroupCreateDialog({ open, onOpenChange, classId, className }) {
           </Button>
         </div>
       </form>
+      </DialogContent>
     </Dialog>
   )
 }

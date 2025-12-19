@@ -9,11 +9,12 @@ export default function Card({
   className,
   header,
   footer,
+  ...rest
 }) {
   return (
-    <section className={cx('rounded-2xl border border-border bg-card p-5 shadow-sm', className)}>
+    <section className={cx('rounded-2xl border border-border bg-card p-8 shadow-sm', className)} {...rest}>
       {(title || subtitle || header) && (
-        <div className="mb-4 flex flex-col gap-1">
+        <div className="mb-6 flex flex-col gap-2">
           {header ?? (
             <>
               {title && <h2 className="text-lg font-semibold text-foreground">{title}</h2>}
@@ -22,8 +23,8 @@ export default function Card({
           )}
         </div>
       )}
-      <div className="space-y-4 text-sm text-foreground/90">{children}</div>
-      {footer && <div className="mt-6 border-t border-border pt-4 text-sm text-muted-foreground">{footer}</div>}
+      <div className="space-y-5 text-sm text-foreground/90">{children}</div>
+      {footer && <div className="mt-8 border-t border-border pt-5 text-sm text-muted-foreground">{footer}</div>}
     </section>
   )
 }

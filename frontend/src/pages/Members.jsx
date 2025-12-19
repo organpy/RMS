@@ -760,10 +760,10 @@ export default function Members() {
   )
 
   return (
-    <div className="space-y-6">
-      <section className="flex flex-wrap items-center justify-between gap-4">
+    <div className="space-y-10">
+      <section className="flex flex-wrap items-center justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Members</h1>
+          <h1 className="text-2xl font-semibold text-foreground" data-testid="members-title">Members</h1>
           <p className="mt-1 text-sm text-muted-foreground">Track member status, billing, and plan information.</p>
         </div>
         <MemberCreateDialog
