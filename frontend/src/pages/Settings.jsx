@@ -24,16 +24,30 @@ const cadenceOptions = [
 ]
 
 export default function Settings() {
-  const { business, backupConfig, backupStatus, loadBackupConfig, status, refresh, updateBackupSchedule } = useBusiness()
+  const { business, backupConfig, backupStatus, loadBackupConfig, status, refresh, updateBackupSchedule, updateBusiness } = useBusiness()
   const { theme, setTheme, resetTheme } = useTheme()
   const { toast } = useToast()
   const [isBackupLoading, setBackupLoading] = useState(false)
   const [isSavingSchedule, setSavingSchedule] = useState(false)
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [profileForm, setProfileForm] = useState(() => ({
+    name: business?.name ?? '',
+    support_email: business?.support_email ?? '',
+    language: business?.language ?? 'EN',
+  }))
   const [backupForm, setBackupForm] = useState(() => ({
     enabled: business?.backup_scheduler_enabled ?? false,
     cadence: business?.backup_cadence ?? 'daily',
     retention: business?.backup_retention_count ?? 5,
   }))
+
+  useEffect(() => {
+    setProfileForm({
+      name: business?.name ?? '',
+      support_email: business?.support_email ?? '',
+      language: business?.language ?? 'EN',
+    })
+  }, [business?.name, business?.support_email, business?.language])
 
   useEffect(() => {
     setBackupForm({
@@ -48,6 +62,36 @@ export default function Settings() {
     if (backupConfig || backupStatus.loading) return
     loadBackupConfig()
   }, [backupConfig, backupStatus.loading, business, loadBackupConfig])
+
+  const handleProfileChange = useCallback((field, value) => {
+    setProfileForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
+  }, [])
+
+  const handleSaveProfile = useCallback(async () => {
+    try {
+      setIsSavingProfile(true)
+      await updateBusiness({
+        name: profileForm.name,
+        support_email: profileForm.support_email,
+        language: profileForm.language,
+      })
+      toast({
+        title: 'Settings saved',
+        description: 'Your business profile has been updated.',
+      })
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Unable to save settings',
+        description: error?.detail ?? 'Please try again in a moment.',
+      })
+    } finally {
+      setIsSavingProfile(false)
+    }
+  }, [profileForm, toast, updateBusiness])
 
   const handleManualBackup = useCallback(async () => {
     try {
@@ -173,7 +217,9 @@ export default function Settings() {
           <Button variant="secondary" onClick={refresh}>
             Refresh
           </Button>
-          <Button>Save changes</Button>
+          <Button onClick={handleSaveProfile} disabled={isSavingProfile}>
+            {isSavingProfile ? 'Saving...' : 'Save changes'}
+          </Button>
         </div>
       </section>
 
@@ -190,13 +236,27 @@ export default function Settings() {
         <Card title="Business profile" subtitle="These details appear across the dashboard and outgoing emails.">
           <div className="space-y-4">
             <Field label="Business name">
-              <Input defaultValue={business?.name ?? ''} placeholder="Studio name" />
+              <Input 
+                value={profileForm.name}
+                onChange={(e) => handleProfileChange('name', e.target.value)}
+                placeholder="Studio name"
+                disabled={isSavingProfile}
+              />
             </Field>
             <Field label="Support email">
-              <Input defaultValue={business?.support_email ?? ''} placeholder="support@example.com" />
+              <Input 
+                value={profileForm.support_email}
+                onChange={(e) => handleProfileChange('support_email', e.target.value)}
+                placeholder="support@example.com"
+                disabled={isSavingProfile}
+              />
             </Field>
             <Field label="Language">
-              <Select defaultValue={business?.language ?? 'EN'}>
+              <Select 
+                value={profileForm.language}
+                onChange={(e) => handleProfileChange('language', e.target.value)}
+                disabled={isSavingProfile}
+              >
                 {languages.map((language) => (
                   <option key={language.value} value={language.value}>
                     {language.label}

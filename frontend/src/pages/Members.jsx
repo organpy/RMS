@@ -773,6 +773,7 @@ export default function Members() {
           onSubmit={handleCreateMember}
           onCancel={() => setCreateOpen(false)}
           isSubmitting={createMemberMutation.isPending}
+          businessId={business?.id}
         />
       </section>
 
@@ -817,6 +818,7 @@ export default function Members() {
         onSubmit={handleEditMember}
         onCancel={handleCloseEdit}
         isSubmitting={updateMemberMutation.isPending}
+        businessId={business?.id}
       />
 
       <MemberDetailsOverlay

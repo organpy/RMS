@@ -9,7 +9,7 @@ import {
 } from '../ui/dialog'
 import { MemberForm } from './MemberForm'
 
-export function MemberCreateDialog({ open, onOpenChange, form, onSubmit, onCancel, isSubmitting }) {
+export function MemberCreateDialog({ open, onOpenChange, form, onSubmit, onCancel, isSubmitting, businessId }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
@@ -28,6 +28,7 @@ export function MemberCreateDialog({ open, onOpenChange, form, onSubmit, onCance
           onCancel={onCancel}
           isSubmitting={isSubmitting}
           submitLabel="Create member"
+          businessId={businessId}
         />
       </DialogContent>
     </Dialog>

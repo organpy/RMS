@@ -23,6 +23,7 @@ export function MemberEditOverlay({
   onSubmit,
   onCancel,
   isSubmitting,
+  businessId,
 }) {
   if (isDesktop) {
     return (
@@ -41,6 +42,7 @@ export function MemberEditOverlay({
             isSubmitting={isSubmitting}
             submitLabel="Save changes"
             cancelLabel="Close"
+            businessId={businessId}
           />
         </DialogContent>
       </Dialog>
@@ -64,6 +66,7 @@ export function MemberEditOverlay({
             isSubmitting={isSubmitting}
             submitLabel="Save changes"
             cancelLabel="Close"
+            businessId={businessId}
           />
         </div>
       </SheetContent>

@@ -1,13 +1,18 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Button from '../components/ui/Button'
 import ClassHierarchy from '../components/classes/ClassHierarchy'
+import ClassCreateDialog from '../components/classes/ClassCreateDialog'
+import GroupCreateDialog from '../components/classes/GroupCreateDialog'
 import { useBusiness } from '../context/BusinessContext'
 import { useClasses } from '../hooks/useClasses'
 
 export default function Classes() {
   const { business, status } = useBusiness()
   const navigate = useNavigate()
+  const [createClassDialogOpen, setCreateClassDialogOpen] = useState(false)
+  const [createGroupDialogOpen, setCreateGroupDialogOpen] = useState(false)
+  const [selectedClassForGroup, setSelectedClassForGroup] = useState(null)
 
   const {
     classes = [],
@@ -48,6 +53,12 @@ export default function Classes() {
     [navigate],
   )
 
+  const handleCreateGroup = useCallback((classItem) => {
+    if (!classItem) return
+    setSelectedClassForGroup(classItem)
+    setCreateGroupDialogOpen(true)
+  }, [])
+
   return (
     <div className="space-y-6">
       <section className="flex flex-wrap items-center justify-between gap-4">
@@ -57,8 +68,26 @@ export default function Classes() {
             Manage your program hierarchy. Each class pulls live data from the scheduling API, including attached groups.
           </p>
         </div>
-        <Button disabled>Create Class</Button>
+        <Button 
+          onClick={() => setCreateClassDialogOpen(true)}
+          disabled={!business?.id}
+        >
+          Create Class
+        </Button>
       </section>
+
+      <ClassCreateDialog 
+        open={createClassDialogOpen}
+        onOpenChange={setCreateClassDialogOpen}
+        businessId={business?.id}
+      />
+
+      <GroupCreateDialog 
+        open={createGroupDialogOpen}
+        onOpenChange={setCreateGroupDialogOpen}
+        classId={selectedClassForGroup?.id}
+        className={selectedClassForGroup?.name}
+      />
 
       <ClassHierarchy
         classes={classes}
@@ -68,6 +97,7 @@ export default function Classes() {
         onRetry={refresh}
         onOpenClassMembers={handleOpenClassMembers}
         onOpenGroupMembers={handleOpenGroupMembers}
+        onCreateGroup={handleCreateGroup}
       />
     </div>
   )

@@ -1,6 +1,7 @@
 import Input from '../ui/Input'
 import Select from '../ui/Select'
 import Button from '../ui/Button'
+import MembershipSelect from './MembershipSelect'
 import { memberStatusOptions } from './memberFormSchema'
 
 export function MemberForm({
@@ -11,11 +12,16 @@ export function MemberForm({
   submitLabel = 'Save member',
   cancelLabel = 'Cancel',
   secondaryActions,
+  businessId,
 }) {
   const {
     register,
     formState: { errors },
+    watch,
+    setValue,
   } = form
+
+  const membershipPlan = watch('membership_plan')
 
   return (
     <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} noValidate>
@@ -68,11 +74,12 @@ export function MemberForm({
           <label className="font-medium text-slate-700" htmlFor="member-plan">
             Membership plan
           </label>
-          <Input
+          <MembershipSelect
             id="member-plan"
-            placeholder="Premium"
+            value={membershipPlan || ''}
+            onChange={(plan) => setValue('membership_plan', plan)}
             disabled={isSubmitting}
-            {...register('membership_plan')}
+            businessId={businessId}
           />
         </div>
         <div className="space-y-1 text-sm">

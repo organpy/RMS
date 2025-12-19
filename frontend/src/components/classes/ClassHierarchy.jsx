@@ -25,6 +25,7 @@ export function ClassHierarchy({
   onOpenClassMembers,
   onOpenGroupMembers,
   onCreateClass,
+  onCreateGroup,
 }) {
   const [expandedIds, setExpandedIds] = useState(new Set())
   const [hasAutoExpanded, setHasAutoExpanded] = useState(false)
@@ -156,6 +157,14 @@ export function ClassHierarchy({
                 ) : (
                   <p className="text-sm text-slate-500">No groups yet. Add one to organize members within this class.</p>
                 )}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => onCreateGroup?.(classItem)}
+                  disabled={!onCreateGroup}
+                >
+                  + Add group
+                </Button>
               </div>
             ) : null}
 
