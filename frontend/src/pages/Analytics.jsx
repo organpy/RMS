@@ -1,10 +1,27 @@
 import { useCallback, useMemo, useState } from 'react'
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ComposedChart,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import Card from '../components/ui/Card'
 import Spinner from '../components/ui/Spinner'
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
-import Table from '../components/ui/Table'
 import Select from '../components/ui/Select'
 import { Skeleton } from '../components/ui/skeleton'
 import { useAnalytics } from '../hooks/useAnalytics'
@@ -72,6 +89,65 @@ export default function Analytics() {
   )
 
   const overview = useMemo(() => computeOverview(data), [data])
+
+  const chartColors = useMemo(
+    () => [
+      'hsl(var(--chart-1))',
+      'hsl(var(--chart-2))',
+      'hsl(var(--chart-3))',
+      'hsl(var(--chart-4))',
+      'hsl(var(--chart-5))',
+    ],
+    [],
+  )
+
+  const monthlyRevenueSeries = useMemo(
+    () =>
+      (data?.monthlyRevenue?.data ?? []).map((point) => ({
+        period: point.period,
+        total: Number(point.total ?? 0),
+      })),
+    [data],
+  )
+
+  const memberGrowthSeries = useMemo(
+    () =>
+      (data?.memberGrowth?.data ?? []).map((point) => ({
+        period: point.period,
+        total: Number(point.total ?? point.value ?? 0),
+      })),
+    [data],
+  )
+
+  const paymentTrendSeries = useMemo(() => {
+    const rows = withPaymentMeta(data?.paymentTrends?.data ?? [])
+    return rows.map((row) => ({
+      ...row,
+      paid: Number(row.paid ?? 0),
+      unpaid: Number(row.unpaid ?? 0),
+      overdue: Number(row.overdue ?? 0),
+      refunded: Number(row.refunded ?? 0),
+      overdueRatio: calculateRatio(Number(row.overdue ?? 0), Number(row.totalVolume ?? 0)),
+    }))
+  }, [data])
+
+  const classPopularitySeries = useMemo(
+    () =>
+      (data?.classPopularity?.data ?? []).map((row) => ({
+        name: row.class_name,
+        value: Number(row.member_count ?? 0),
+      })),
+    [data],
+  )
+
+  const yearlyRevenueSeries = useMemo(
+    () =>
+      (data?.yearlyRevenue?.data ?? []).map((point) => ({
+        period: point.period,
+        total: Number(point.total ?? 0),
+      })),
+    [data],
+  )
 
   const isRefreshing = isFetching && Boolean(data)
 
@@ -152,77 +228,194 @@ export default function Analytics() {
 
       <section className="grid gap-6 lg:grid-cols-2">
         <Card title="Monthly revenue trend" subtitle={`Last ${months} months`}>
-          <TrendList
-            data={data?.monthlyRevenue?.data ?? []}
-            formatter={(value) => currencyFormatter.format(Number(value ?? 0))}
-          />
+          <ChartFrame>
+            {monthlyRevenueSeries.length ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={monthlyRevenueSeries} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="period" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                  <YAxis
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    tickFormatter={(value) => currencyFormatter.format(Number(value ?? 0))}
+                    width={84}
+                  />
+                  <Tooltip
+                    formatter={(value) => [currencyFormatter.format(Number(value ?? 0)), 'Revenue']}
+                    contentStyle={tooltipStyle}
+                    labelStyle={tooltipLabelStyle}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="total"
+                    stroke={chartColors[0]}
+                    fill={chartColors[0]}
+                    fillOpacity={0.18}
+                    strokeWidth={2}
+                    activeDot={{ r: 5 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <ChartEmptyState description="No revenue in this range yet." />
+            )}
+          </ChartFrame>
         </Card>
         <Card title="Member growth" subtitle="New members added per month">
-          <TrendList data={data?.memberGrowth?.data ?? []} formatter={(value) => formatNumber(value)} />
+          <ChartFrame>
+            {memberGrowthSeries.length ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={memberGrowthSeries} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="period" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                  <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} width={56} />
+                  <Tooltip
+                    formatter={(value) => [formatNumber(value), 'New members']}
+                    contentStyle={tooltipStyle}
+                    labelStyle={tooltipLabelStyle}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="total"
+                    stroke={chartColors[1]}
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <ChartEmptyState description="No member growth in this range yet." />
+            )}
+          </ChartFrame>
         </Card>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
         <Card title="Payment trends" subtitle="Breakdown of payment statuses by month">
-          <Table
-            columns={[
-              { key: 'period', header: 'Period' },
-              { key: 'paid', header: 'Paid', render: (row) => formatNumber(row.paid) },
-              { key: 'unpaid', header: 'Pending', render: (row) => formatNumber(row.unpaid) },
-              { key: 'overdue', header: 'Overdue', render: (row) => formatNumber(row.overdue) },
-              { key: 'refunded', header: 'Refunded', render: (row) => formatNumber(row.refunded) },
-              {
-                key: 'ratio',
-                header: 'Overdue %',
-                render: (row) => formatPercent(calculateRatio(row.overdue, row.totalVolume)),
-              },
-            ]}
-            data={withPaymentMeta(data?.paymentTrends?.data ?? [])}
-            emptyState={{
-              title: 'No payment trend data',
-              description: 'Record payments to populate monthly trends.',
-            }}
-          />
+          <ChartFrame>
+            {paymentTrendSeries.length ? (
+              <ResponsiveContainer width="100%" height={320}>
+                <ComposedChart data={paymentTrendSeries} margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="period" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                  <YAxis yAxisId="counts" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} width={56} />
+                  <YAxis
+                    yAxisId="ratio"
+                    orientation="right"
+                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    tickFormatter={(value) => formatPercent(value)}
+                    width={64}
+                  />
+                  <Tooltip
+                    formatter={(value, name) => {
+                      if (name === 'overdueRatio') return [formatPercent(value), 'Overdue %']
+                      return [formatNumber(value), String(name)]
+                    }}
+                    contentStyle={tooltipStyle}
+                    labelStyle={tooltipLabelStyle}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar yAxisId="counts" dataKey="paid" stackId="a" name="Paid" fill={chartColors[1]} radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="counts" dataKey="unpaid" stackId="a" name="Pending" fill={chartColors[3]} radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="counts" dataKey="overdue" stackId="a" name="Overdue" fill={chartColors[4]} radius={[4, 4, 0, 0]} />
+                  <Line
+                    yAxisId="ratio"
+                    type="monotone"
+                    dataKey="overdueRatio"
+                    name="Overdue %"
+                    stroke={chartColors[0]}
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            ) : (
+              <ChartEmptyState description="Record payments to populate monthly trends." />
+            )}
+          </ChartFrame>
         </Card>
         <Card title="Popular classes" subtitle="Most attended classes across the selected range">
-          <Table
-            columns={[
-              { key: 'position', header: '#', render: (row) => row.position },
-              { key: 'class_name', header: 'Class', render: (row) => row.class_name },
-              {
-                key: 'member_count',
-                header: 'Members',
-                render: (row) => (
-                  <Badge variant="info" className="text-xs">
-                    {formatNumber(row.member_count)}
-                  </Badge>
-                ),
-              },
-            ]}
-            data={(data?.classPopularity?.data ?? []).map((row, index) => ({
-              ...row,
-              position: index + 1,
-            }))}
-            emptyState={{
-              title: 'No class data yet',
-              description: 'Classes will appear once members are registered.',
-            }}
-          />
+          <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+            <ChartFrame className="lg:order-1">
+              {classPopularitySeries.length ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Tooltip
+                      formatter={(value) => [formatNumber(value), 'Members']}
+                      contentStyle={tooltipStyle}
+                      labelStyle={tooltipLabelStyle}
+                    />
+                    <Pie
+                      data={classPopularitySeries}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={62}
+                      outerRadius={100}
+                      paddingAngle={2}
+                      stroke="hsl(var(--background))"
+                    >
+                      {classPopularitySeries.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <ChartEmptyState description="Classes will appear once members are registered." />
+              )}
+            </ChartFrame>
+
+            <div className="space-y-2">
+              {classPopularitySeries.length ? (
+                <ul className="space-y-2">
+                  {classPopularitySeries.map((entry, index) => (
+                    <li
+                      key={entry.name}
+                      className="flex items-center justify-between rounded-xl border border-border bg-muted/30 px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: chartColors[index % chartColors.length] }}
+                        />
+                        <span className="text-sm font-medium text-foreground">{entry.name}</span>
+                      </div>
+                      <Badge variant="info" className="text-xs">
+                        {formatNumber(entry.value)}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </div>
         </Card>
       </section>
 
       <Card title="Yearly revenue" subtitle="Cumulative totals for the last five years">
-        <Table
-          columns={[
-            { key: 'period', header: 'Year' },
-            { key: 'total', header: 'Revenue', render: (row) => currencyFormatter.format(Number(row.total ?? 0)) },
-          ]}
-          data={data?.yearlyRevenue?.data ?? []}
-          emptyState={{
-            title: 'No yearly revenue data',
-            description: 'Export analytics after recording payments to view annual summaries.',
-          }}
-        />
+        <ChartFrame>
+          {yearlyRevenueSeries.length ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={yearlyRevenueSeries} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="period" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                <YAxis
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  tickFormatter={(value) => currencyFormatter.format(Number(value ?? 0))}
+                  width={84}
+                />
+                <Tooltip
+                  formatter={(value) => [currencyFormatter.format(Number(value ?? 0)), 'Revenue']}
+                  contentStyle={tooltipStyle}
+                  labelStyle={tooltipLabelStyle}
+                />
+                <Bar dataKey="total" fill={chartColors[2]} radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <ChartEmptyState description="Export analytics after recording payments to view annual summaries." />
+          )}
+        </ChartFrame>
       </Card>
     </div>
   )
@@ -254,24 +447,31 @@ function computeOverview(data) {
   }
 }
 
-function TrendList({ data, formatter }) {
-  if (!data.length) {
-    return <p className="text-sm text-slate-500">No data in this range yet.</p>
-  }
-
+function ChartFrame({ children, className }) {
   return (
-    <ul className="space-y-2">
-      {data.map((item) => (
-        <li
-          key={item.period}
-          className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-sm"
-        >
-          <span className="font-medium text-slate-700">{item.period}</span>
-          <span className="text-slate-900">{formatter(item.total ?? item.value ?? 0)}</span>
-        </li>
-      ))}
-    </ul>
+    <div
+      className={['rounded-xl border border-border bg-muted/10 p-3', className]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {children}
+    </div>
   )
+}
+
+function ChartEmptyState({ description }) {
+  return <p className="py-12 text-center text-sm text-muted-foreground">{description}</p>
+}
+
+const tooltipStyle = {
+  borderRadius: 12,
+  border: '1px solid hsl(var(--border))',
+  background: 'hsl(var(--popover))',
+  color: 'hsl(var(--foreground))',
+}
+
+const tooltipLabelStyle = {
+  color: 'hsl(var(--muted-foreground))',
 }
 
 function withPaymentMeta(data) {
@@ -302,10 +502,10 @@ function formatNumber(value) {
 function StatCard({ label, value, hint, variant = 'info' }) {
   return (
     <Card>
-      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
       {hint ? (
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-muted-foreground">
           <Badge variant={variant} className="mr-1 align-middle">
             {hint}
           </Badge>

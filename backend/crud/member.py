@@ -57,11 +57,14 @@ class MemberCRUD:
         if group_id is not None:
             stmt = stmt.where(Member.group_id == group_id)
             count_stmt = count_stmt.where(Member.group_id == group_id)
-        if search:
-            search_term = f"%{search.lower()}%"
+        if search and search.strip():
+            normalized = search.strip().lower()
+            search_term = f"%{normalized}%"
             search_filter = or_(
                 func.lower(Member.first_name).like(search_term),
                 func.lower(Member.last_name).like(search_term),
+                func.lower(Member.email).like(search_term),
+                func.lower(Member.membership_plan).like(search_term),
             )
             stmt = stmt.where(search_filter)
             count_stmt = count_stmt.where(search_filter)

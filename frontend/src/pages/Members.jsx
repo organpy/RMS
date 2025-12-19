@@ -18,6 +18,7 @@ import { memberFormDefaults, memberFormSchema } from '../components/members/memb
 import { useMemberPaymentHistory } from '../hooks/useMemberPaymentHistory'
 import { normalizeMemberStatus } from '@/utils/members'
 import { exportAllMembersCsv } from '@/utils/exporters/members'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 
 const statusOptions = [
   { value: 'ALL', label: 'All statuses' },
@@ -29,6 +30,7 @@ const statusOptions = [
 export default function Members() {
   const [status, setStatus] = useState('ALL')
   const [searchTerm, setSearchTerm] = useState('')
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 350)
   const location = useLocation()
   const [classFilter, setClassFilter] = useState('ALL')
   const [groupFilter, setGroupFilter] = useState('ALL')
@@ -176,7 +178,7 @@ export default function Members() {
       setExportingAll(true)
       const result = await exportAllMembersCsv({
         status,
-        search: searchTerm,
+        search: debouncedSearchTerm,
         classId: normalizedClassId,
         groupId: normalizedGroupId,
       })
@@ -196,7 +198,7 @@ export default function Members() {
     } finally {
       setExportingAll(false)
     }
-  }, [normalizedClassId, normalizedGroupId, searchTerm, status, toast])
+  }, [debouncedSearchTerm, normalizedClassId, normalizedGroupId, status, toast])
 
   const handleStatusFilterChange = useCallback(
     (nextStatus) => {
@@ -239,7 +241,7 @@ export default function Members() {
 
   const { members = [], meta, loading, error, refresh, isFetching, queryKey } = useMembers({
     status,
-    search: searchTerm.trim(),
+    search: debouncedSearchTerm.trim(),
     page,
     pageSize,
     classId: normalizedClassId,
