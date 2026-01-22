@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from backend.models.class_course import ClassCourse
+from backend.models.class_membership_plan import ClassMembershipPlan
 from backend.models.member import Member
 from backend.models.group import Group
 
@@ -21,7 +22,14 @@ class ClassCourseCRUD:
     def get(self, class_id: int) -> Optional[ClassCourse]:
         """Fetch a class by identifier."""
 
-        stmt = select(ClassCourse).options(selectinload(ClassCourse.groups)).where(ClassCourse.id == class_id)
+        stmt = (
+            select(ClassCourse)
+            .options(
+                selectinload(ClassCourse.groups),
+                selectinload(ClassCourse.membership_plans),
+            )
+            .where(ClassCourse.id == class_id)
+        )
         class_course = self.session.execute(stmt).scalars().first()
         if class_course:
             self._attach_member_counts([class_course])
@@ -36,7 +44,14 @@ class ClassCourseCRUD:
     ) -> Tuple[list[ClassCourse], int]:
         """Return classes, optionally filtered by business."""
 
-        stmt = select(ClassCourse).options(selectinload(ClassCourse.groups)).order_by(ClassCourse.id)
+        stmt = (
+            select(ClassCourse)
+            .options(
+                selectinload(ClassCourse.groups),
+                selectinload(ClassCourse.membership_plans),
+            )
+            .order_by(ClassCourse.id)
+        )
         count_stmt = select(func.count()).select_from(ClassCourse)
         if business_id is not None:
             stmt = stmt.where(ClassCourse.business_id == business_id)
@@ -49,8 +64,12 @@ class ClassCourseCRUD:
 
     def create(self, payload: dict) -> ClassCourse:
         """Insert a new class/course."""
-
+        membership_plans = payload.pop("membership_plans", None)
         class_course = ClassCourse(**payload)
+        if membership_plans:
+            class_course.membership_plans = [
+                ClassMembershipPlan(**plan) for plan in membership_plans
+            ]
         self.session.add(class_course)
         self.session.commit()
         self.session.refresh(class_course)
@@ -58,9 +77,13 @@ class ClassCourseCRUD:
 
     def update(self, class_course: ClassCourse, payload: dict) -> ClassCourse:
         """Update an existing class/course."""
-
+        membership_plans = payload.pop("membership_plans", None)
         for field, value in payload.items():
             setattr(class_course, field, value)
+        if membership_plans is not None:
+            class_course.membership_plans = [
+                ClassMembershipPlan(**plan) for plan in membership_plans
+            ]
         self.session.add(class_course)
         self.session.commit()
         self.session.refresh(class_course)

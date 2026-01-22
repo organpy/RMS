@@ -11,6 +11,16 @@ from .common import GroupSummary, PaginationMeta, TimestampedSchema
 
 NameStr = Annotated[str, StringConstraints(min_length=1, max_length=200)]
 GroupingStr = Annotated[str, StringConstraints(min_length=1, max_length=100)]
+PlanNameStr = Annotated[str, StringConstraints(min_length=1, max_length=120)]
+
+
+class MembershipPlanBase(BaseModel):
+    """Predefined membership plan for a class."""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    name: PlanNameStr
+    interval_days: int = Field(gt=0, le=3650)
 
 
 class ClassBase(BaseModel):
@@ -23,6 +33,7 @@ class ClassBase(BaseModel):
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     grouping_type: Optional[GroupingStr] = None
+    membership_plans: list[MembershipPlanBase] = Field(default_factory=list)
 
 
 class ClassCreate(ClassBase):
@@ -43,6 +54,7 @@ class ClassUpdate(BaseModel):
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     grouping_type: Optional[GroupingStr] = None
+    membership_plans: Optional[list[MembershipPlanBase]] = None
 
 
 class ClassResponse(TimestampedSchema, ClassBase):

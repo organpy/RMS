@@ -12,6 +12,7 @@ from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:  # pragma: no cover - import for type checkers only
     from .business import Business
+    from .class_membership_plan import ClassMembershipPlan
     from .group import Group
     from .member import Member
 
@@ -33,3 +34,8 @@ class ClassCourse(TimestampMixin, Base):
     business: Mapped["Business"] = relationship(back_populates="classes")
     groups: Mapped[List["Group"]] = relationship(back_populates="class_course", cascade="all, delete-orphan")
     members: Mapped[List["Member"]] = relationship(back_populates="class_course")
+    membership_plans: Mapped[List["ClassMembershipPlan"]] = relationship(
+        back_populates="class_course",
+        cascade="all, delete-orphan",
+        order_by="ClassMembershipPlan.id",
+    )

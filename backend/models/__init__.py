@@ -3,6 +3,7 @@
 from .business import Business
 from .backup import Backup
 from .class_course import ClassCourse
+from .class_membership_plan import ClassMembershipPlan
 from .group import Group
 from .member import Member, MemberStatus
 from .payment import Payment, PaymentMethod, PaymentStatus
@@ -19,6 +20,7 @@ __all__ = [
     "Business",
     "Backup",
     "ClassCourse",
+    "ClassMembershipPlan",
     "Group",
     "Member",
     "MemberStatus",
