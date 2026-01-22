@@ -83,6 +83,25 @@ export function MemberForm({
           />
         </div>
         <div className="space-y-1 text-sm">
+          <label className="font-medium text-slate-700" htmlFor="member-interval">
+            Billing interval (days)
+          </label>
+          <Input
+            id="member-interval"
+            type="number"
+            min="1"
+            step="1"
+            placeholder="30"
+            disabled={isSubmitting}
+            aria-invalid={Boolean(errors.payment_interval_days)}
+            {...register('payment_interval_days')}
+          />
+          <p className="text-xs text-slate-500">Use 30 for monthly, 60 for bi-monthly, etc.</p>
+          {errors.payment_interval_days ? (
+            <p className="text-xs text-destructive">{errors.payment_interval_days.message}</p>
+          ) : null}
+        </div>
+        <div className="space-y-1 text-sm">
           <label className="font-medium text-slate-700" htmlFor="member-status">
             Status
           </label>

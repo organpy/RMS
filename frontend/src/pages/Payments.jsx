@@ -82,6 +82,15 @@ const optionalDateInput = z.preprocess(
     .optional(),
 )
 
+const optionalPositiveInt = z.preprocess(
+  (value) => {
+    if (value === '' || value === null || value === undefined) return undefined
+    const numberValue = Number(value)
+    return Number.isNaN(numberValue) ? value : numberValue
+  },
+  z.number().int().positive().max(3650).optional(),
+)
+
 const amountSchema = z
   .string()
   .trim()
@@ -105,6 +114,7 @@ const paymentFormSchema = z.object({
   amount: amountSchema,
   status: z.enum(['paid', 'unpaid', 'overdue', 'refunded']),
   payment_date: optionalDateInput,
+  interval_days: optionalPositiveInt,
 })
 
 const paymentFormDefaults = {
@@ -114,6 +124,7 @@ const paymentFormDefaults = {
   amount: '',
   status: 'paid',
   payment_date: '',
+  interval_days: '',
 }
 
 export default function Payments() {
@@ -203,6 +214,7 @@ export default function Payments() {
   })
 
   const memberIdValue = watch('member_id')
+  const intervalDaysValue = watch('interval_days')
 
   const {
     data: memberResults = [],
@@ -235,6 +247,7 @@ export default function Payments() {
         value: String(member.id),
         label,
         plan: member.membership_plan ?? '',
+        intervalDays: member.payment_interval_days ?? null,
       }
     })
 
@@ -265,7 +278,10 @@ export default function Payments() {
     if (selectedMember.plan) {
       setValue('membership_plan', selectedMember.plan, { shouldDirty: false, shouldValidate: false })
     }
-  }, [selectedMember, setValue])
+    if (selectedMember.intervalDays && !intervalDaysValue) {
+      setValue('interval_days', selectedMember.intervalDays, { shouldDirty: false, shouldValidate: false })
+    }
+  }, [intervalDaysValue, selectedMember, setValue])
 
   const createPaymentMutation = useMutation({
     mutationFn: ({ apiPayload }) => createPayment(apiPayload),
@@ -544,6 +560,8 @@ export default function Payments() {
 
   const handleCreateSubmit = handleSubmit((values) => {
     const paymentDate = values.payment_date || new Date().toISOString().slice(0, 10)
+    const membershipPlan = values.membership_plan?.trim() || undefined
+    const intervalDays = values.interval_days ? Number(values.interval_days) : undefined
 
     createPaymentMutation.mutate({
       apiPayload: {
@@ -551,10 +569,12 @@ export default function Payments() {
         amount: values.amount,
         status: values.status,
         payment_date: paymentDate,
+        membership_plan: membershipPlan,
+        interval_days: intervalDays,
       },
       optimistic: {
         member_name: values.member_name,
-        membership_plan: values.membership_plan ?? undefined,
+        membership_plan: membershipPlan,
       },
     })
   })
@@ -925,6 +945,40 @@ export default function Payments() {
                     <p className="text-xs text-destructive">{errors.payment_date.message}</p>
                   ) : null}
                 </div>
+              </div>
+              <div className="space-y-1 text-sm">
+                <label className="font-medium text-slate-700" htmlFor="payment-interval">
+                  Billing interval (days)
+                </label>
+                <Input
+                  id="payment-interval"
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="30"
+                  disabled={createPaymentMutation.isPending}
+                  aria-invalid={Boolean(errors.interval_days)}
+                  {...register('interval_days')}
+                />
+                <div className="flex flex-wrap gap-2">
+                  {[30, 60, 90].map((days) => (
+                    <Button
+                      key={days}
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setValue('interval_days', days, { shouldDirty: true })}
+                      disabled={createPaymentMutation.isPending}
+                    >
+                      {days} days
+                    </Button>
+                  ))}
+                </div>
+                {errors.interval_days ? (
+                  <p className="text-xs text-destructive">{errors.interval_days.message}</p>
+                ) : (
+                  <p className="text-xs text-slate-500">Leave blank to use the default billing interval.</p>
+                )}
               </div>
               <DialogFooter>
                 <Button

@@ -513,6 +513,7 @@ export default function Members() {
         last_name: values.last_name,
         email: values.email,
         membership_plan: values.membership_plan,
+        payment_interval_days: values.payment_interval_days,
         status: values.status,
       }
 
@@ -579,6 +580,7 @@ export default function Members() {
         last_name: member.last_name ?? '',
         email: member.email ?? '',
         membership_plan: member.membership_plan ?? '',
+        payment_interval_days: member.payment_interval_days ?? '',
         status: normalizeMemberStatus(member.status),
       })
       setEditOpen(true)
@@ -597,6 +599,7 @@ export default function Members() {
         last_name: values.last_name,
         email: values.email,
         membership_plan: values.membership_plan,
+        payment_interval_days: values.payment_interval_days,
         status: values.status,
       }
 
