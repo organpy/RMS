@@ -503,13 +503,16 @@ export default function Payments() {
     [business?.currency],
   )
 
-  const filteredPayments = data?.payments?.filter((payment) => {
-    if (!query) return true
+  const filteredPayments = useMemo(() => {
+    const payments = data?.payments ?? []
+    if (!query) return payments
     const normalizedQuery = query.toLowerCase()
-    return [payment.member_name, payment.membership_plan, payment.receipt_number]
-      .filter(Boolean)
-      .some((value) => value.toLowerCase().includes(normalizedQuery))
-  })
+    return payments.filter((payment) =>
+      [payment.member_name, payment.membership_plan, payment.receipt_number]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(normalizedQuery)),
+    )
+  }, [data?.payments, query])
 
   const handleExportAll = useCallback(async () => {
     try {
