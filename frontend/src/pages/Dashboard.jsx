@@ -63,8 +63,19 @@ export default function Dashboard() {
   }, [data?.alerts])
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    const hasSeenAlerts = window.sessionStorage.getItem('dashboardAlertsSeen') === 'true'
+    if (hasSeenAlerts) {
+      alertsShownRef.current = true
+    }
+  }, [])
+
+  useEffect(() => {
     if (!alertsShownRef.current && totalAlerts > 0) {
       alertsShownRef.current = true
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem('dashboardAlertsSeen', 'true')
+      }
       setAlertsOpen(true)
     }
   }, [totalAlerts])
