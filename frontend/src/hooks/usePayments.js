@@ -22,6 +22,8 @@ export function usePayments(filters = {}) {
     queryKey,
     queryFn: async () => get(`${PAYMENTS_ENDPOINT}${queryString ? `?${queryString}` : ''}`),
     keepPreviousData: true,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: false,
   })
 
   return {
