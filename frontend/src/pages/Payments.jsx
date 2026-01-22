@@ -7,6 +7,7 @@ import Badge from '../components/ui/Badge'
 import Spinner from '../components/ui/Spinner'
 import Select from '../components/ui/Select'
 import Input from '../components/ui/Input'
+import MembershipSelect from '../components/members/MembershipSelect'
 import {
   Dialog,
   DialogContent,
@@ -215,6 +216,7 @@ export default function Payments() {
 
   const memberIdValue = watch('member_id')
   const intervalDaysValue = watch('interval_days')
+  const membershipPlanValue = watch('membership_plan')
 
   const {
     data: memberResults = [],
@@ -845,6 +847,7 @@ export default function Payments() {
             ) : (
             <form className="space-y-4" onSubmit={handleCreateSubmit} noValidate>
               <input type="hidden" {...register('member_name')} />
+              <input type="hidden" {...register('membership_plan')} />
               <div className="space-y-1 text-sm">
                 <label className="font-medium text-slate-700" htmlFor="payment-member">
                   Member
@@ -923,11 +926,12 @@ export default function Payments() {
                   <label className="font-medium text-slate-700" htmlFor="payment-plan">
                     Membership plan
                   </label>
-                  <Input
+                  <MembershipSelect
                     id="payment-plan"
-                    placeholder="Premium"
+                    value={membershipPlanValue || ''}
+                    onChange={(plan) => setValue('membership_plan', plan, { shouldDirty: true })}
                     disabled={createPaymentMutation.isPending}
-                    {...register('membership_plan')}
+                    businessId={business?.id}
                   />
                 </div>
                 <div className="space-y-1 text-sm">
