@@ -25,6 +25,7 @@ class MemberCRUD:
     def list(
         self,
         *,
+        business_id: Optional[int] = None,
         status: Optional[MemberStatus] = None,
         class_id: Optional[int] = None,
         group_id: Optional[int] = None,
@@ -48,6 +49,9 @@ class MemberCRUD:
         if not include_archived:
             stmt = stmt.where(Member.archived_at.is_(None))
             count_stmt = count_stmt.where(Member.archived_at.is_(None))
+        if business_id is not None:
+            stmt = stmt.where(Member.business_id == business_id)
+            count_stmt = count_stmt.where(Member.business_id == business_id)
         if status is not None:
             stmt = stmt.where(Member.status == status)
             count_stmt = count_stmt.where(Member.status == status)
