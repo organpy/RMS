@@ -25,6 +25,7 @@ class MemberBase(BaseModel):
     first_name: NameStr
     last_name: NameStr
     membership_plan: Optional[PlanStr] = None
+    payment_interval_days: Optional[int] = Field(default=None, gt=0, le=3650)
     phone_number: Optional[PhoneStr] = Field(default=None, description="E.164 or local format phone number")
     email: Optional[EmailStr] = None
     status: MemberStatus = Field(default=MemberStatus.ACTIVE)
@@ -49,6 +50,7 @@ class MemberUpdate(BaseModel):
     first_name: Optional[NameStr] = None
     last_name: Optional[NameStr] = None
     membership_plan: Optional[PlanStr] = None
+    payment_interval_days: Optional[int] = Field(default=None, gt=0, le=3650)
     phone_number: Optional[PhoneStr] = Field(default=None)
     email: Optional[EmailStr] = Field(default=None)
     status: Optional[MemberStatus] = None

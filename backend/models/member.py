@@ -6,7 +6,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import CheckConstraint, Date, DateTime, Enum as SQLEnum, ForeignKey, Index, String
+from sqlalchemy import CheckConstraint, Date, DateTime, Enum as SQLEnum, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
@@ -58,6 +58,7 @@ class Member(TimestampMixin, Base):
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
     membership_plan: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    payment_interval_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     phone_number: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     status: Mapped[MemberStatus] = mapped_column(

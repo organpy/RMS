@@ -90,13 +90,23 @@ class PaymentService:
         if member is None:
             raise NotFoundError("Member not found for payment creation")
 
+        interval_days = payload.pop("interval_days", None)
+        membership_plan = payload.pop("membership_plan", None)
+        if membership_plan is not None and membership_plan.strip():
+            member.membership_plan = membership_plan.strip()
+            self.session.add(member)
+        if interval_days is not None:
+            member.payment_interval_days = interval_days
+            self.session.add(member)
+
         amount = Decimal(str(payload.get("amount")))
         self.validate_amount(amount)
 
         payment_date: date = payload.get("payment_date")
         next_due_date: Optional[date] = payload.get("next_due_date")
         if next_due_date is None:
-            next_due_date = self.calculate_next_due_date(payment_date)
+            interval_to_use = interval_days or member.payment_interval_days
+            next_due_date = self.calculate_next_due_date(payment_date, interval_days=interval_to_use)
             payload["next_due_date"] = next_due_date
 
         class_course = member.class_course

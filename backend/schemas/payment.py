@@ -33,6 +33,8 @@ class PaymentCreate(PaymentBase):
     """Payload for creating a payment."""
 
     receipt_number: Optional[str] = Field(default=None, max_length=200)
+    membership_plan: Optional[str] = Field(default=None, max_length=100)
+    interval_days: Optional[int] = Field(default=None, gt=0, le=3650)
 
 
 class PaymentUpdate(BaseModel):
