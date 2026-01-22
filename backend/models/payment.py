@@ -6,7 +6,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import CheckConstraint, Date, DateTime, Enum as SQLEnum, ForeignKey, Numeric, String
+from sqlalchemy import CheckConstraint, Date, DateTime, Enum as SQLEnum, ForeignKey, Index, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
@@ -44,6 +44,11 @@ class Payment(TimestampMixin, Base):
             "status IN ('paid','unpaid','overdue','refunded')",
             name="ck_payments_status_valid",
         ),
+        Index("ix_payments_member_id", "member_id"),
+        Index("ix_payments_status", "status"),
+        Index("ix_payments_method", "method"),
+        Index("ix_payments_payment_date", "payment_date"),
+        Index("ix_payments_next_due_date", "next_due_date"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
