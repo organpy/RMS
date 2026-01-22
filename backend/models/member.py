@@ -6,7 +6,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import CheckConstraint, Date, DateTime, Enum as SQLEnum, ForeignKey, String
+from sqlalchemy import CheckConstraint, Date, DateTime, Enum as SQLEnum, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
@@ -43,6 +43,11 @@ class Member(TimestampMixin, Base):
     __tablename__ = "members"
     __table_args__ = (
         CheckConstraint("status IN ('active','inactive','suspended')", name="ck_members_status_valid"),
+        Index("ix_members_business_id", "business_id"),
+        Index("ix_members_status", "status"),
+        Index("ix_members_class_id", "class_id"),
+        Index("ix_members_group_id", "group_id"),
+        Index("ix_members_archived_at", "archived_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
