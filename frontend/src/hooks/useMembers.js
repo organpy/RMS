@@ -74,6 +74,8 @@ export function useMembers({
       return { members, meta }
     },
     keepPreviousData: true,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: false,
   })
 
   return {
