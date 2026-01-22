@@ -4,6 +4,7 @@ import Button from '../components/ui/Button'
 import ClassHierarchy from '../components/classes/ClassHierarchy'
 import ClassCreateDialog from '../components/classes/ClassCreateDialog'
 import GroupCreateDialog from '../components/classes/GroupCreateDialog'
+import ClassMembershipPlansDialog from '../components/classes/ClassMembershipPlansDialog'
 import { useBusiness } from '../context/BusinessContext'
 import { useClasses } from '../hooks/useClasses'
 
@@ -13,6 +14,8 @@ export default function Classes() {
   const [createClassDialogOpen, setCreateClassDialogOpen] = useState(false)
   const [createGroupDialogOpen, setCreateGroupDialogOpen] = useState(false)
   const [selectedClassForGroup, setSelectedClassForGroup] = useState(null)
+  const [plansDialogOpen, setPlansDialogOpen] = useState(false)
+  const [selectedClassForPlans, setSelectedClassForPlans] = useState(null)
 
   const {
     classes = [],
@@ -59,6 +62,12 @@ export default function Classes() {
     setCreateGroupDialogOpen(true)
   }, [])
 
+  const handleManagePlans = useCallback((classItem) => {
+    if (!classItem) return
+    setSelectedClassForPlans(classItem)
+    setPlansDialogOpen(true)
+  }, [])
+
   return (
     <div className="space-y-10">
       <section className="flex flex-wrap items-center justify-between gap-6">
@@ -89,6 +98,12 @@ export default function Classes() {
         className={selectedClassForGroup?.name}
       />
 
+      <ClassMembershipPlansDialog
+        open={plansDialogOpen}
+        onOpenChange={setPlansDialogOpen}
+        classItem={selectedClassForPlans}
+      />
+
       <ClassHierarchy
         classes={classes}
         loading={loading}
@@ -98,6 +113,7 @@ export default function Classes() {
         onOpenClassMembers={handleOpenClassMembers}
         onOpenGroupMembers={handleOpenGroupMembers}
         onCreateGroup={handleCreateGroup}
+        onManagePlans={handleManagePlans}
       />
     </div>
   )

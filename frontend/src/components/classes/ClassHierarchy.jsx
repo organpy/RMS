@@ -26,6 +26,7 @@ export function ClassHierarchy({
   onOpenGroupMembers,
   onCreateClass,
   onCreateGroup,
+  onManagePlans,
 }) {
   const [expandedIds, setExpandedIds] = useState(new Set())
   const [hasAutoExpanded, setHasAutoExpanded] = useState(false)
@@ -94,6 +95,8 @@ export function ClassHierarchy({
         const isExpanded = expandedIds.has(classItem.id)
         const groupPlural = groupCount === 1 ? 'group' : 'groups'
         const memberPlural = memberCount === 1 ? 'member' : 'members'
+        const plansCount = classItem.membership_plans?.length ?? 0
+        const planPlural = plansCount === 1 ? 'plan' : 'plans'
 
         return (
           <Card
@@ -111,11 +114,22 @@ export function ClassHierarchy({
                     <span>
                       {memberCount} {memberPlural}
                     </span>
+                    <span>
+                      {plansCount} {planPlural}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button size="sm" variant="ghost" onClick={() => toggleExpanded(classItem.id)}>
                     {isExpanded ? 'Collapse' : 'Expand'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onManagePlans?.(classItem)}
+                    disabled={!onManagePlans}
+                  >
+                    Manage plans
                   </Button>
                   <Button
                     size="sm"
@@ -132,6 +146,20 @@ export function ClassHierarchy({
             {isExpanded ? (
               <div className="space-y-3">
                 {classItem.description ? <p className="text-sm text-slate-600">{classItem.description}</p> : null}
+                {plansCount > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-slate-700">Membership plans</p>
+                    <div className="flex flex-wrap gap-2">
+                      {classItem.membership_plans.map((plan) => (
+                        <Badge key={`${plan.name}-${plan.interval_days}`} variant="secondary">
+                          {plan.name} · {plan.interval_days} days
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">No membership plans defined for this class yet.</p>
+                )}
                 {groupCount > 0 ? (
                   <ul className="space-y-2">
                     {classItem.groups.map((group) => (
