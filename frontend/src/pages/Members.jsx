@@ -514,6 +514,8 @@ export default function Members() {
         email: values.email,
         membership_plan: values.membership_plan,
         payment_interval_days: values.payment_interval_days,
+        class_id: values.class_id,
+        group_id: values.group_id,
         status: values.status,
       }
 
@@ -581,6 +583,8 @@ export default function Members() {
         email: member.email ?? '',
         membership_plan: member.membership_plan ?? '',
         payment_interval_days: member.payment_interval_days ?? '',
+        class_id: member.class_id ?? '',
+        group_id: member.group_id ?? '',
         status: normalizeMemberStatus(member.status),
       })
       setEditOpen(true)
@@ -600,6 +604,8 @@ export default function Members() {
         email: values.email,
         membership_plan: values.membership_plan,
         payment_interval_days: values.payment_interval_days,
+        class_id: values.class_id,
+        group_id: values.group_id,
         status: values.status,
       }
 

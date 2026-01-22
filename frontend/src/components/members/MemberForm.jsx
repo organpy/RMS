@@ -1,8 +1,10 @@
+import { useEffect, useMemo } from 'react'
 import Input from '../ui/Input'
 import Select from '../ui/Select'
 import Button from '../ui/Button'
 import MembershipSelect from './MembershipSelect'
 import { memberStatusOptions } from './memberFormSchema'
+import { useMemberFilters } from '../../hooks/useMemberFilters'
 
 export function MemberForm({
   form,
@@ -22,6 +24,33 @@ export function MemberForm({
   } = form
 
   const membershipPlan = watch('membership_plan')
+  const classIdValue = watch('class_id')
+  const groupIdValue = watch('group_id')
+
+  const { classes, classOptions, groupOptions } = useMemberFilters({ enabled: true })
+
+  const normalizedClassId = classIdValue ? Number(classIdValue) : null
+
+  const classPlans = useMemo(() => {
+    if (!normalizedClassId) return []
+    const match = classes.find((item) => item.id === normalizedClassId)
+    return Array.isArray(match?.membership_plans) ? match.membership_plans : []
+  }, [classes, normalizedClassId])
+
+  const groupSelectOptions = useMemo(() => {
+    if (!groupOptions?.length) return []
+    if (!normalizedClassId) return groupOptions
+    return groupOptions.filter((option) => option.classId === normalizedClassId)
+  }, [groupOptions, normalizedClassId])
+
+  useEffect(() => {
+    if (!groupIdValue) return
+    if (!normalizedClassId) return
+    const stillValid = groupSelectOptions.some((option) => option.value === String(groupIdValue))
+    if (!stillValid) {
+      setValue('group_id', '')
+    }
+  }, [groupIdValue, groupSelectOptions, normalizedClassId, setValue])
 
   return (
     <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} noValidate>
@@ -57,7 +86,7 @@ export function MemberForm({
       </div>
       <div className="space-y-1 text-sm">
         <label className="font-medium text-slate-700" htmlFor="member-email">
-          Email
+          Email (optional)
         </label>
         <Input
           id="member-email"
@@ -74,6 +103,25 @@ export function MemberForm({
           <label className="font-medium text-slate-700" htmlFor="member-plan">
             Membership plan
           </label>
+          {classPlans.length > 0 ? (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {classPlans.map((plan) => (
+                <Button
+                  key={`${plan.name}-${plan.interval_days}`}
+                  type="button"
+                  size="sm"
+                  variant={membershipPlan === plan.name ? 'secondary' : 'ghost'}
+                  onClick={() => {
+                    setValue('membership_plan', plan.name, { shouldDirty: true })
+                    setValue('payment_interval_days', plan.interval_days, { shouldDirty: true })
+                  }}
+                  disabled={isSubmitting}
+                >
+                  {plan.name} · {plan.interval_days} days
+                </Button>
+              ))}
+            </div>
+          ) : null}
           <MembershipSelect
             id="member-plan"
             value={membershipPlan || ''}
@@ -118,6 +166,46 @@ export function MemberForm({
             ))}
           </Select>
           {errors.status ? <p className="text-xs text-destructive">{errors.status.message}</p> : null}
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1 text-sm">
+          <label className="font-medium text-slate-700" htmlFor="member-class">
+            Class
+          </label>
+          <Select
+            id="member-class"
+            disabled={isSubmitting}
+            aria-invalid={Boolean(errors.class_id)}
+            {...register('class_id')}
+          >
+            <option value="">No class</option>
+            {classOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+          {errors.class_id ? <p className="text-xs text-destructive">{errors.class_id.message}</p> : null}
+        </div>
+        <div className="space-y-1 text-sm">
+          <label className="font-medium text-slate-700" htmlFor="member-group">
+            Group
+          </label>
+          <Select
+            id="member-group"
+            disabled={isSubmitting || groupSelectOptions.length === 0}
+            aria-invalid={Boolean(errors.group_id)}
+            {...register('group_id')}
+          >
+            <option value="">No group</option>
+            {groupSelectOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+          {errors.group_id ? <p className="text-xs text-destructive">{errors.group_id.message}</p> : null}
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2">

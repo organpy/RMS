@@ -28,6 +28,9 @@ import {
   queuePaymentReminder,
   fetchPaymentReminder,
 } from '../hooks/usePayments'
+import { createMember } from '../hooks/useMembers'
+import { MemberForm } from '../components/members/MemberForm'
+import { memberFormDefaults, memberFormSchema } from '../components/members/memberFormSchema'
 import { get } from '../services/api'
 import { useBusiness } from '../context/BusinessContext'
 import { useToast } from '@/hooks/use-toast'
@@ -142,6 +145,7 @@ export default function Payments() {
   const [pendingReminderId, setPendingReminderId] = useState(null)
   const [reminderDrawerPaymentId, setReminderDrawerPaymentId] = useState(null)
   const [isReminderDrawerOpen, setReminderDrawerOpen] = useState(false)
+  const [isCreateMemberOpen, setCreateMemberOpen] = useState(false)
 
   const { business } = useBusiness()
   const { toast } = useToast()
@@ -200,6 +204,11 @@ export default function Payments() {
   } = useForm({
     resolver: zodResolver(paymentFormSchema),
     defaultValues: paymentFormDefaults,
+  })
+
+  const memberForm = useForm({
+    resolver: zodResolver(memberFormSchema),
+    defaultValues: memberFormDefaults,
   })
 
   const {
@@ -354,6 +363,35 @@ export default function Payments() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey })
+    },
+  })
+
+  const createMemberMutation = useMutation({
+    mutationFn: createMember,
+    onSuccess: (newMember) => {
+      const displayName = `${newMember?.first_name ?? ''} ${newMember?.last_name ?? ''}`.trim()
+      const label = displayName || newMember?.email || `Member #${newMember?.id}`
+
+      setValue('member_id', String(newMember.id), { shouldDirty: true })
+      setValue('member_name', label, { shouldDirty: true })
+      setValue('membership_plan', newMember?.membership_plan ?? '', { shouldDirty: true })
+      setValue('interval_days', newMember?.payment_interval_days ?? '', { shouldDirty: true })
+
+      toast({
+        title: 'Member created',
+        description: `${label} is ready for payment recording.`,
+      })
+      setCreateMemberOpen(false)
+      memberForm.reset({ ...memberFormDefaults })
+      queryClient.invalidateQueries({ queryKey: ['payment-member-options'] })
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+    },
+    onError: (mutationError) => {
+      toast({
+        variant: 'destructive',
+        title: 'Unable to create member',
+        description: mutationError?.detail ?? 'Please try again later.',
+      })
     },
   })
 
@@ -580,6 +618,34 @@ export default function Payments() {
       },
     })
   })
+
+  const handleCreateMember = useCallback(
+    (values) => {
+      if (!business?.id) {
+        toast({
+          variant: 'destructive',
+          title: 'Business settings not loaded',
+          description: 'Please wait a moment and try again.',
+        })
+        return
+      }
+
+      const payload = {
+        business_id: business.id,
+        first_name: values.first_name,
+        last_name: values.last_name,
+        email: values.email,
+        membership_plan: values.membership_plan,
+        payment_interval_days: values.payment_interval_days,
+        class_id: values.class_id,
+        group_id: values.group_id,
+        status: values.status,
+      }
+
+      createMemberMutation.mutate(payload)
+    },
+    [business?.id, createMemberMutation, toast],
+  )
 
   const handleMarkAsPaid = useCallback(
     (payment) => {
@@ -879,6 +945,16 @@ export default function Payments() {
                 {errors.member_id ? (
                   <p className="text-xs text-destructive">{errors.member_id.message}</p>
                 ) : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="px-0"
+                  onClick={() => setCreateMemberOpen(true)}
+                  disabled={createPaymentMutation.isPending}
+                >
+                  + Add new member
+                </Button>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1 text-sm">
@@ -1087,6 +1163,23 @@ export default function Payments() {
         error={reminderError}
         onRefresh={reminderDrawerPaymentId ? refetchReminder : undefined}
       />
+
+      <Dialog open={isCreateMemberOpen} onOpenChange={setCreateMemberOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add a member</DialogTitle>
+            <DialogDescription>Create a new member without leaving payments.</DialogDescription>
+          </DialogHeader>
+          <MemberForm
+            form={memberForm}
+            onSubmit={handleCreateMember}
+            onCancel={() => setCreateMemberOpen(false)}
+            isSubmitting={createMemberMutation.isPending}
+            submitLabel="Create member"
+            businessId={business?.id}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
