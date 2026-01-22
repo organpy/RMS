@@ -75,6 +75,8 @@ export function useDashboard({
     },
     keepPreviousData: true,
     refetchInterval: autoRefresh ? Math.max(refreshIntervalMs, 5 * 60 * 1000) : false,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: false,
   })
 
   return {
