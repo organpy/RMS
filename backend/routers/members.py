@@ -45,7 +45,11 @@ def list_members(
     """Return members filtered and paginated according to the supplied query parameters."""
 
     crud = MemberCRUD(db)
+    parsed_business_id = None
+    if business_id and business_id.isdigit():
+        parsed_business_id = int(business_id)
     members, total = crud.list(
+        business_id=parsed_business_id,
         status=status_filter,
         class_id=class_id,
         group_id=group_id,
