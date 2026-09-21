@@ -1,76 +1,37 @@
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-*.so
 *.egg-info/
-.eggs/
-.python-version
 .venv/
 venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
-# Environment files
+# Environment
 .env
 .env.*
+!.env.example
 
-# SQLite databases and backups
+# Runtime data (SQLite db, backups, logos, secret key)
+/data/
 *.db
-*.sqlite3
 *.db-wal
 *.db-shm
-/backups/
-data/
 
 # Node / frontend
 node_modules/
-frontend/node_modules/
 dist/
-frontend/dist/
-frontend/.env
-frontend/.env.*
-frontend/.vite/
-npm-debug.log*
 *.log
 *.tsbuildinfo
 
-# Build artifacts
-__build__/
-build/
-*.egg
-htmlcov/
-
-# Python tooling caches
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-coverage.xml
-
-# Type checker / language server
-.pyright
-.pyre/
+# Playwright
+test-results/
+playwright-report/
 
 # IDE / OS
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
-
-# PDFs and generated assets
-receipts/
-*.pdf
-
-# Playwright / E2E artifacts
-e2e/test-results/
-e2e/playwright-report/
-test-results/
-playwright-report/
-
-# Local ad-hoc artifacts
-backup.zip
-
-# Local ad-hoc scripts/files
-receipt_test.py
-docs/
-.github/
