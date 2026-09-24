@@ -21,7 +21,6 @@ class Settings(BaseSettings):
     secret_key: str = ""
     secure_cookies: bool = False
     session_hours: int = Field(default=12, ge=1)
-    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     max_upload_mb: int = Field(default=100, ge=1)
 
     @property
