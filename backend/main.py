@@ -5,6 +5,7 @@ from fastapi import APIRouter, FastAPI
 from .core import errors
 from .core.config import get_settings
 from .modules.auth.router import router as auth_router
+from .modules.staff.router import router as staff_router
 
 
 def create_app() -> FastAPI:
@@ -18,7 +19,7 @@ def create_app() -> FastAPI:
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    for router in (auth_router,):
+    for router in (auth_router, staff_router):
         api.include_router(router)
     app.include_router(api)
     return app
