@@ -1,0 +1,43 @@
+from tests.conftest import SETUP
+
+
+def test_status_reports_setup_required(client):
+    assert client.get("/api/auth/status").json() == {"setup_required": True}
+
+
+def test_setup_creates_admin_and_signs_in(admin):
+    me = admin.get("/api/auth/me").json()
+    assert me["username"] == "admin" and me["role"] == "admin"
+    assert admin.get("/api/auth/status").json() == {"setup_required": False}
+
+
+def test_setup_only_once(admin):
+    assert admin.post("/api/auth/setup", json=SETUP).status_code == 409
+
+
+def test_login_logout_cycle(admin):
+    admin.post("/api/auth/logout")
+    assert admin.get("/api/auth/me").status_code == 401
+    bad = admin.post("/api/auth/login", json={"username": "admin", "password": "nope"})
+    assert bad.status_code == 401
+    ok = admin.post("/api/auth/login", json={"username": "ADMIN", "password": SETUP["password"]})
+    assert ok.status_code == 200
+    assert admin.get("/api/auth/me").status_code == 200
+
+
+def test_login_is_throttled(admin):
+    admin.post("/api/auth/logout")
+    for _ in range(5):
+        admin.post("/api/auth/login", json={"username": "admin", "password": "wrong"})
+    r = admin.post("/api/auth/login", json={"username": "admin", "password": SETUP["password"]})
+    assert r.status_code == 429
+
+
+def test_password_is_not_stored_in_plain_text(admin):
+    from backend.core import db
+    from backend.modules.staff.models import Staff
+
+    with db.SessionLocal() as s:
+        staff = s.query(Staff).one()
+        assert SETUP["password"] not in staff.password_hash
+        assert staff.password_hash.startswith("scrypt$")

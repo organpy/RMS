@@ -4,6 +4,7 @@ from fastapi import APIRouter, FastAPI
 
 from .core import errors
 from .core.config import get_settings
+from .modules.auth.router import router as auth_router
 
 
 def create_app() -> FastAPI:
@@ -17,6 +18,8 @@ def create_app() -> FastAPI:
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    for router in (auth_router,):
+        api.include_router(router)
     app.include_router(api)
     return app
 
