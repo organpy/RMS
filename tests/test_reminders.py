@@ -9,8 +9,8 @@ def test_pending_reminders_and_logging(admin, monkeypatch):
     plan = admin.post("/api/plans", json={"name": "Gold", "price": "50", "interval_days": 30}).json()
     late = admin.post("/api/members", json={"first_name": "Late", "last_name": "L", "plan_id": plan["id"]}).json()
     paid = admin.post("/api/members", json={"first_name": "Paid", "last_name": "P", "plan_id": plan["id"]}).json()
-    admin.post("/api/payments", json={"member_id": late["id"], "paid_on": "2026-03-01"})
-    admin.post("/api/payments", json={"member_id": paid["id"], "paid_on": "2026-05-20"})
+    admin.post("/api/payments", json={"member_id": late["id"], "plan_id": plan["id"], "paid_on": "2026-03-01"})
+    admin.post("/api/payments", json={"member_id": paid["id"], "plan_id": plan["id"], "paid_on": "2026-05-20"})
 
     page = admin.get("/api/reminders").json()
     assert [i["full_name"] for i in page["items"]] == ["Late L"]

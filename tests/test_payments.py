@@ -2,16 +2,19 @@ from datetime import date
 
 import pytest
 
+PLAN = [None]
+
 
 @pytest.fixture
 def member(admin):
     plan = admin.post("/api/plans", json={"name": "Monthly", "price": "45.00", "interval_days": 30}).json()
     m = admin.post("/api/members", json={"first_name": "Omar", "last_name": "Benali", "plan_id": plan["id"]}).json()
+    PLAN[0] = plan["id"]
     return m, plan
 
 
 def _pay(client, member_id, **kw):
-    r = client.post("/api/payments", json={"member_id": member_id, **kw})
+    r = client.post("/api/payments", json={"member_id": member_id, "plan_id": PLAN[0], **kw})
     assert r.status_code == 201, r.text
     return r.json()
 
@@ -44,7 +47,7 @@ def test_invoice_numbers_are_sequential_per_year(admin, member):
 def test_one_off_payment_requires_amount(admin):
     m = admin.post("/api/members", json={"first_name": "A", "last_name": "B"}).json()
     assert admin.post("/api/payments", json={"member_id": m["id"]}).status_code == 400
-    p = _pay(admin, m["id"], amount="15", description="Uniform")
+    p = _pay(admin, m["id"], plan_id=None, amount="15", description="Uniform")
     assert p["period_end"] is None
 
 

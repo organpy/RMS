@@ -32,9 +32,8 @@ def refresh_paid_until(db: Session, member: Member) -> None:
 
 def record(db: Session, body: PaymentIn) -> Payment:
     member = get_member(db, body.member_id)
-    plan_id = body.plan_id or member.plan_id
-    plan = db.get(Plan, plan_id) if plan_id else None
-    if plan_id and plan is None:
+    plan = db.get(Plan, body.plan_id) if body.plan_id else None
+    if body.plan_id and plan is None:
         raise NotFound("Plan not found")
 
     paid_on = body.paid_on or clock.today()
