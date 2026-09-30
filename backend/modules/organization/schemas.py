@@ -2,7 +2,7 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-Hex = Field(pattern=r"^#[0-9a-fA-F]{6}$")
+HEX = r"^#[0-9a-fA-F]{6}$"
 
 
 class OrganizationOut(BaseModel):
@@ -28,7 +28,7 @@ class OrganizationUpdate(BaseModel):
     phone: Optional[str] = Field(default=None, max_length=40)
     address: Optional[str] = Field(default=None, max_length=500)
     tax_id: Optional[str] = Field(default=None, max_length=60)
-    primary_color: Optional[str] = Hex
+    primary_color: Optional[str] = Field(default=None, pattern=HEX)
     currency: Optional[str] = Field(default=None, pattern=r"^[A-Z]{3}$")
     locale: Optional[str] = Field(default=None, pattern=r"^[a-z]{2}(-[A-Z]{2})?$")
     grace_days: Optional[int] = Field(default=None, ge=0, le=90)

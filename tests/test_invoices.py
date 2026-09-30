@@ -1,5 +1,5 @@
 def test_invoice_pdf(admin):
-    admin.patch("/api/organization", json={"address": "1 Main St\nSpringfield", "locale": "fr-FR"})
+    assert admin.patch("/api/organization", json={"address": "1 Main St\nSpringfield", "locale": "fr-FR"}).status_code == 200
     m = admin.post("/api/members", json={"first_name": "Zoé", "last_name": "<Dupont & Fils>"}).json()
     p = admin.post("/api/payments", json={"member_id": m["id"], "amount": "1234.5", "description": "Term fee"}).json()
     r = admin.get(f"/api/payments/{p['id']}/invoice.pdf")
