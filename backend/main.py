@@ -1,11 +1,15 @@
 """FastAPI application factory."""
 
+from contextlib import asynccontextmanager
+
 from fastapi import APIRouter, FastAPI
 
-from .core import errors
+from .core import db, errors, migrate
 from .core.config import get_settings
 from .modules.analytics.router import router as analytics_router
 from .modules.auth.router import router as auth_router
+from .modules.backups.router import router as backups_router
+from .modules.backups.scheduler import scheduler
 from .modules.courses.router import router as courses_router
 from .modules.dashboard.router import router as dashboard_router
 from .modules.invoices.router import router as invoices_router
@@ -17,9 +21,35 @@ from .modules.reminders.router import router as reminders_router
 from .modules.staff.router import router as staff_router
 
 
+ROUTERS = (
+    auth_router,
+    staff_router,
+    organization_router,
+    courses_router,
+    plans_router,
+    members_router,
+    payments_router,
+    invoices_router,
+    reminders_router,
+    dashboard_router,
+    analytics_router,
+    backups_router,
+)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    migrate.upgrade(db.engine)
+    scheduler.start()
+    yield
+    scheduler.stop()
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title=settings.app_name, docs_url="/api/docs", openapi_url="/api/openapi.json")
+    app = FastAPI(
+        title=settings.app_name, lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json"
+    )
     errors.register(app)
 
     api = APIRouter(prefix="/api")
@@ -28,7 +58,7 @@ def create_app() -> FastAPI:
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    for router in (auth_router, staff_router, organization_router, courses_router, plans_router, members_router, payments_router, invoices_router, reminders_router, dashboard_router, analytics_router):
+    for router in ROUTERS:
         api.include_router(router)
     app.include_router(api)
     return app
