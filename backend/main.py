@@ -4,6 +4,7 @@ from fastapi import APIRouter, FastAPI
 
 from .core import errors
 from .core.config import get_settings
+from .modules.analytics.router import router as analytics_router
 from .modules.auth.router import router as auth_router
 from .modules.courses.router import router as courses_router
 from .modules.dashboard.router import router as dashboard_router
@@ -27,7 +28,7 @@ def create_app() -> FastAPI:
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    for router in (auth_router, staff_router, organization_router, courses_router, plans_router, members_router, payments_router, invoices_router, reminders_router, dashboard_router):
+    for router in (auth_router, staff_router, organization_router, courses_router, plans_router, members_router, payments_router, invoices_router, reminders_router, dashboard_router, analytics_router):
         api.include_router(router)
     app.include_router(api)
     return app
