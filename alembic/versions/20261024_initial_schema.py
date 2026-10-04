@@ -43,8 +43,6 @@ def upgrade() -> None:
     sa.Column('grace_days', sa.Integer(), nullable=False),
     sa.Column('reminder_template', sa.Text(), nullable=False),
     sa.Column('invoice_prefix', sa.String(length=10), nullable=False),
-    sa.Column('invoice_year', sa.Integer(), nullable=False),
-    sa.Column('invoice_seq', sa.Integer(), nullable=False),
     sa.Column('backup_enabled', sa.Boolean(), nullable=False),
     sa.Column('backup_cadence', sa.String(length=10), nullable=False),
     sa.Column('backup_keep', sa.Integer(), nullable=False),

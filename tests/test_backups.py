@@ -2,7 +2,6 @@ import io
 import zipfile
 from datetime import datetime, timedelta, timezone
 
-from tests.conftest import SETUP
 
 
 def test_backup_and_restore_round_trip(admin):
@@ -58,4 +57,3 @@ def test_backups_admin_only(admin):
     admin.post("/api/auth/logout")
     admin.post("/api/auth/login", json={"username": "sam", "password": "password1"})
     assert admin.get("/api/backups").status_code == 403
-    assert SETUP

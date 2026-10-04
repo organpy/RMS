@@ -16,12 +16,13 @@ from .schemas import PaymentIn, PaymentOut
 
 def next_invoice_number(db: Session, year: int) -> str:
     """Allocate ``PREFIX-YYYY-0001`` style numbers; the sequence restarts every year."""
-    org = get_org(db)
-    if org.invoice_year != year:
-        org.invoice_year, org.invoice_seq = year, 0
-    org.invoice_seq += 1
-    db.flush()
-    return f"{org.invoice_prefix}-{year}-{org.invoice_seq:04d}"
+    base = f"{get_org(db).invoice_prefix}-{year}-"
+    number = Payment.invoice_number
+    last = db.scalar(
+        select(number).where(number.like(f"{base}%")).order_by(func.length(number).desc(), number.desc()).limit(1)
+    )
+    seq = int(last.rsplit("-", 1)[1]) + 1 if last else 1
+    return f"{base}{seq:04d}"
 
 
 def refresh_paid_until(db: Session, member: Member) -> None:

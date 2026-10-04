@@ -60,3 +60,9 @@ def test_list_totals_cover_all_pages(admin, member):
     assert page["amount_total"] == "1350.00"
     assert admin.get("/api/payments?q=benali&size=5").json()["total"] == 30
     assert admin.get("/api/payments?from=2026-02-01").json()["total"] == 0
+
+
+def test_invoice_numbers_survive_backdated_years(admin, member):
+    m, _ = member
+    numbers = [_pay(admin, m["id"], paid_on=d)["invoice_number"] for d in ("2027-01-02", "2026-05-01", "2027-02-01")]
+    assert numbers == ["INV-2027-0001", "INV-2026-0001", "INV-2027-0002"]
