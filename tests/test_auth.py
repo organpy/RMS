@@ -41,3 +41,25 @@ def test_password_is_not_stored_in_plain_text(admin):
         staff = s.query(Staff).one()
         assert SETUP["password"] not in staff.password_hash
         assert staff.password_hash.startswith("scrypt$")
+
+
+def test_every_api_route_requires_auth(client):
+    from backend.main import create_app
+
+    public = {"/api/health", "/api/auth/status", "/api/auth/setup", "/api/auth/login", "/api/auth/logout", "/api/organization/logo"}
+    for route in create_app().routes:
+        path = getattr(route, "path", "")
+        if not path.startswith("/api/") or path in public or "docs" in path or "openapi" in path:
+            continue
+        for method in route.methods - {"HEAD", "OPTIONS"}:
+            url = path.replace("{", "").replace("}", "")
+            url = url.replace("member_id", "1").replace("payment_id", "1").replace("course_id", "1")
+            url = url.replace("group_id", "1").replace("plan_id", "1").replace("staff_id", "1").replace("filename", "x")
+            r = client.request(method, url)
+            assert r.status_code == 401, f"{method} {path} -> {r.status_code}"
+
+
+def test_security_headers(client):
+    r = client.get("/api/health")
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert "default-src 'self'" in r.headers["content-security-policy"]
