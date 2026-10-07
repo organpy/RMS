@@ -94,6 +94,8 @@ def serve_frontend(app: FastAPI) -> None:
 
     @app.get("/{path:path}", include_in_schema=False)
     def spa(path: str) -> FileResponse:
+        if path == "api" or path.startswith("api/"):
+            raise errors.NotFound("Not found")
         file = (DIST / path).resolve()
         if path and file.is_file() and file.is_relative_to(DIST):
             return FileResponse(file)

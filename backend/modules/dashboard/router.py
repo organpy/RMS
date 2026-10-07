@@ -48,7 +48,9 @@ def dashboard(db: Session = Depends(get_db)) -> Dashboard:
         ).one()
 
     rev_month, count_month = revenue(month, today + timedelta(days=1))
-    rev_prev, _ = revenue(prev, month)
+    # Compare month-to-date with the same span of the previous month.
+    prev_end = min(prev + (today - month) + timedelta(days=1), month)
+    rev_prev, _ = revenue(prev, prev_end)
     status_col = status_expr(db)
 
     def members(where, order, limit=6):

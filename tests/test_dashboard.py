@@ -14,7 +14,7 @@ def test_dashboard_summary(admin, monkeypatch):
 
     d = admin.get("/api/dashboard").json()
     assert d["counts"]["active"] == 1 and d["counts"]["overdue"] == 1
-    assert d["revenue_month"] == "5.00" and d["revenue_prev_month"] == "30.00"
+    assert d["revenue_month"] == "5.00" and d["revenue_prev_month"] == "0.00"  # May 20 is after May 15
     assert [m["first_name"] for m in d["expiring"]] == ["A"]
     assert [m["first_name"] for m in d["overdue"]] == ["B"]
     assert len(d["recent_payments"]) == 3

@@ -7,6 +7,8 @@ export function configureFormat({ locale, currency }) {
   moneyFormat = new Intl.NumberFormat(locale, { style: 'currency', currency })
 }
 
+export const num = (value) => Number(value ?? 0).toLocaleString(settings.locale)
+
 export const money = (value) => (value === null || value === undefined ? '—' : moneyFormat.format(Number(value)))
 
 export function date(value, opts = { day: 'numeric', month: 'short', year: 'numeric' }) {
