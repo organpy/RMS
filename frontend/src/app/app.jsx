@@ -6,8 +6,14 @@ import { Toaster } from 'sonner'
 import { RequireAuth } from '@/features/auth/require-auth'
 import { queryClient } from '@/lib/query'
 
+import { Layout } from './layout'
+
 const LoginPage = lazy(() => import('@/features/auth/login-page'))
 const SetupPage = lazy(() => import('@/features/auth/setup-page'))
+
+function NotFound() {
+  return <p className="text-muted-foreground">Page not found.</p>
+}
 
 export function App() {
   return (
@@ -18,13 +24,14 @@ export function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/setup" element={<SetupPage />} />
             <Route
-              path="*"
               element={
                 <RequireAuth>
-                  <p className="p-8">Signed in.</p>
+                  <Layout />
                 </RequireAuth>
               }
-            />
+            >
+              <Route path="*" element={<NotFound />} />
+            </Route>
           </Routes>
         </Suspense>
       </BrowserRouter>
