@@ -12,6 +12,7 @@ const LoginPage = lazy(() => import('@/features/auth/login-page'))
 const SetupPage = lazy(() => import('@/features/auth/setup-page'))
 const DashboardPage = lazy(() => import('@/features/dashboard/dashboard-page'))
 const MembersPage = lazy(() => import('@/features/members/members-page'))
+const CoursesPage = lazy(() => import('@/features/courses/courses-page'))
 
 function NotFound() {
   return <p className="text-muted-foreground">Page not found.</p>
@@ -34,6 +35,7 @@ export function App() {
             >
               <Route index element={<DashboardPage />} />
               <Route path="members" element={<MembersPage />} />
+              <Route path="courses" element={<CoursesPage />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
