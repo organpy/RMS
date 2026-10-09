@@ -22,12 +22,14 @@ export function Select({ className, children, ...props }) {
 const CHEVRON =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")"
 
-export function Field({ label, error, hint, className, children }) {
+/** Labelled form row. Use ``group`` when the children are several controls (buttons, lists). */
+export function Field({ label, error, hint, group, className, children }) {
+  const Tag = group ? 'div' : 'label'
   return (
-    <label className={cn('grid gap-1.5', className)}>
+    <Tag className={cn('grid gap-1.5', className)} {...(group && { role: 'group', 'aria-label': label })}>
       <span className="text-[13px] font-medium">{label}</span>
       {children}
       {error ? <span className="text-xs text-danger">{error}</span> : hint && <span className="text-xs text-muted-foreground">{hint}</span>}
-    </label>
+    </Tag>
   )
 }
