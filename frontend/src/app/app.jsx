@@ -16,6 +16,7 @@ const CoursesPage = lazy(() => import('@/features/courses/courses-page'))
 const PlansPage = lazy(() => import('@/features/plans/plans-page'))
 const PaymentsPage = lazy(() => import('@/features/payments/payments-page'))
 const RemindersPage = lazy(() => import('@/features/reminders/reminders-page'))
+const AnalyticsPage = lazy(() => import('@/features/analytics/analytics-page'))
 
 function NotFound() {
   return <p className="text-muted-foreground">Page not found.</p>
@@ -42,6 +43,7 @@ export function App() {
               <Route path="plans" element={<PlansPage />} />
               <Route path="payments" element={<PaymentsPage />} />
               <Route path="reminders" element={<RemindersPage />} />
+              <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
