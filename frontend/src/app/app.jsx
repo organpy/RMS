@@ -17,6 +17,7 @@ const PlansPage = lazy(() => import('@/features/plans/plans-page'))
 const PaymentsPage = lazy(() => import('@/features/payments/payments-page'))
 const RemindersPage = lazy(() => import('@/features/reminders/reminders-page'))
 const AnalyticsPage = lazy(() => import('@/features/analytics/analytics-page'))
+const SettingsPage = lazy(() => import('@/features/settings/settings-page'))
 
 function NotFound() {
   return <p className="text-muted-foreground">Page not found.</p>
@@ -44,6 +45,7 @@ export function App() {
               <Route path="payments" element={<PaymentsPage />} />
               <Route path="reminders" element={<RemindersPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="settings" element={<SettingsPage />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>

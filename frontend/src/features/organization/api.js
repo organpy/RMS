@@ -30,3 +30,6 @@ export function useLogo() {
     remove: useMutation({ mutationFn: () => api.del('/organization/logo'), onSuccess }),
   }
 }
+
+/** Bumped after logo changes so <img> tags bypass the browser cache. */
+export const useLogoVersion = () => useQuery({ queryKey: ['logo-version'], queryFn: () => 0, staleTime: Infinity }).data ?? 0

@@ -63,3 +63,11 @@ def test_security_headers(client):
     r = client.get("/api/health")
     assert r.headers["x-content-type-options"] == "nosniff"
     assert "default-src 'self'" in r.headers["content-security-policy"]
+
+
+def test_change_own_password(admin):
+    bad = admin.post("/api/auth/password", json={"current": "nope", "new": "new-password"})
+    assert bad.status_code == 401
+    assert admin.post("/api/auth/password", json={"current": SETUP["password"], "new": "new-password"}).status_code == 204
+    admin.post("/api/auth/logout")
+    assert admin.post("/api/auth/login", json={"username": "admin", "password": "new-password"}).status_code == 200

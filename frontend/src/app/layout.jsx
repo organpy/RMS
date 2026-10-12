@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query'
 import { ChevronsUpDown, LogOut, Menu as MenuIcon, Monitor, Moon, Search, Sun } from 'lucide-react'
 import { Suspense, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
@@ -7,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Sheet } from '@/components/ui/dialog'
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from '@/components/ui/dropdown'
 import { useLogout, useMe } from '@/features/auth/api'
-import { useOrg } from '@/features/organization/api'
+import { useLogoVersion, useOrg } from '@/features/organization/api'
 import { cn } from '@/lib/cn'
 import { configureFormat, initials } from '@/lib/format'
 import { applyBrand, applyMode, getMode } from '@/lib/theme'
@@ -16,8 +15,8 @@ import { CommandPalette } from './command-palette'
 import { NAV } from './nav'
 
 function OrgMark({ org }) {
-  const { data: version } = useQuery({ queryKey: ['logo-version'], queryFn: () => 0, staleTime: Infinity })
-  if (org?.has_logo) return <img src={`/api/organization/logo?v=${version ?? 0}`} alt="" className="size-7 rounded-md object-contain" />
+  const version = useLogoVersion()
+  if (org?.has_logo) return <img src={`/api/organization/logo?v=${version}`} alt="" className="size-7 rounded-md object-contain" />
   return (
     <div className="grid size-7 place-items-center rounded-md bg-accent text-xs font-semibold text-accent-foreground">
       {initials(org?.name ?? 'R')}

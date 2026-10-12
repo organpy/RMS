@@ -23,6 +23,11 @@ class SetupIn(BaseModel):
     password: str = Password
 
 
+class PasswordIn(BaseModel):
+    current: str = Field(max_length=128)
+    new: str = Password
+
+
 class LoginIn(BaseModel):
     username: str = Field(max_length=60)
     password: str = Field(max_length=128)
@@ -73,3 +78,11 @@ def logout(response: Response) -> None:
 @router.get("/me", response_model=StaffOut)
 def me(staff: Staff = Depends(current_staff)) -> Staff:
     return staff
+
+
+@router.post("/password", status_code=204)
+def change_password(body: PasswordIn, db: Session = Depends(get_db), staff: Staff = Depends(current_staff)) -> None:
+    if not verify_password(body.current, staff.password_hash):
+        raise Unauthorized("Current password is incorrect")
+    staff.password_hash = hash_password(body.new)
+    db.commit()
