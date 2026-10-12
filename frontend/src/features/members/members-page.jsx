@@ -109,7 +109,7 @@ export default function MembersPage() {
                   </TH>
                   <TH className="hidden md:table-cell">Course</TH>
                   <TH className="hidden sm:table-cell">Plan</TH>
-                  <TH>
+                  <TH className="hidden sm:table-cell">
                     <button onClick={() => sortBy('paid_until')}>Paid until</button>
                   </TH>
                   <TH className="text-right">Status</TH>
@@ -124,7 +124,7 @@ export default function MembersPage() {
                     </TD>
                     <TD className="hidden text-muted-foreground md:table-cell">{[m.course_name, m.group_name].filter(Boolean).join(' · ') || '—'}</TD>
                     <TD className="hidden text-muted-foreground sm:table-cell">{m.plan_name ?? '—'}</TD>
-                    <TD className="tabular">{date(m.paid_until)}</TD>
+                    <TD className="hidden whitespace-nowrap tabular sm:table-cell">{date(m.paid_until)}</TD>
                     <TD className="text-right">
                       <StatusBadge status={m.status} />
                     </TD>
