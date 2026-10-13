@@ -1,15 +1,11 @@
 {
   "name": "rms-e2e",
-  "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "test": "node ./setup/run_e2e.js",
-    "seed": "node ./setup/seed.js",
-    "test:headed": "node ./setup/run_e2e.js --headed",
-    "install-browsers": "playwright install --with-deps"
+    "test": "playwright test"
   },
   "devDependencies": {
-    "@playwright/test": "^1.40.0",
-    "node-fetch": "^2.6.7"
+    "@playwright/test": "^1.56.0"
   }
 }

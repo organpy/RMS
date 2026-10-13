@@ -1,3 +1,5 @@
+import { cloneElement, useId } from 'react'
+
 import { cn } from '@/lib/cn'
 
 const base =
@@ -24,12 +26,24 @@ const CHEVRON =
 
 /** Labelled form row. Use ``group`` when the children are several controls (buttons, lists). */
 export function Field({ label, error, hint, group, className, children }) {
-  const Tag = group ? 'div' : 'label'
+  const id = useId()
+  const note = `${id}-note`
+  const control = group ? children : cloneElement(children, { id, 'aria-describedby': error || hint ? note : undefined, 'aria-invalid': error ? true : undefined })
   return (
-    <Tag className={cn('grid gap-1.5', className)} {...(group && { role: 'group', 'aria-label': label })}>
-      <span className="text-[13px] font-medium">{label}</span>
-      {children}
-      {error ? <span className="text-xs text-danger">{error}</span> : hint && <span className="text-xs text-muted-foreground">{hint}</span>}
-    </Tag>
+    <div className={cn('grid gap-1.5', className)} {...(group && { role: 'group', 'aria-label': label })}>
+      {group ? <span className="text-[13px] font-medium">{label}</span> : <label htmlFor={id} className="text-[13px] font-medium">{label}</label>}
+      {control}
+      {error ? (
+        <span id={note} className="text-xs text-danger">
+          {error}
+        </span>
+      ) : (
+        hint && (
+          <span id={note} className="text-xs text-muted-foreground">
+            {hint}
+          </span>
+        )
+      )}
+    </div>
   )
 }
