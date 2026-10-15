@@ -18,5 +18,5 @@ def test_pending_reminders_and_logging(admin, monkeypatch):
     assert item["status"] == "overdue"
     assert item["message"] == "Hi Late, Gold due 30 Mar 2026 {unknown}"
 
-    assert admin.post("/api/reminders", json={"member_ids": [late["id"], 999], "channel": "email"}).json() == {"logged": 1}
+    assert admin.post("/api/messages/manual", json={"member_ids": [late["id"], 999], "channel": "email"}).json() == {"logged": 1}
     assert admin.get("/api/reminders").json()["items"][0]["last_reminded_at"] is not None
