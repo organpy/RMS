@@ -5,6 +5,7 @@ from __future__ import annotations
 import secrets
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,6 +23,18 @@ class Settings(BaseSettings):
     secure_cookies: bool = False
     session_hours: int = Field(default=12, ge=1)
     max_upload_mb: int = Field(default=100, ge=1)
+
+    # Messaging providers (all optional; a channel is enabled once its settings are present).
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
+    twilio_sid: str = ""
+    twilio_token: str = ""
+    twilio_sms_from: str = ""
+    twilio_whatsapp_from: str = ""
 
     @property
     def db_url(self) -> str:

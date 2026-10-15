@@ -56,3 +56,6 @@ SETUP = {
 def admin(client):
     assert client.post("/api/auth/setup", json=SETUP).status_code == 201
     return client
+
+
+from tests.fakes import smtp, twilio  # noqa: E402,F401
