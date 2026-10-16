@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Archive, ArchiveRestore, FileText, MoreHorizontal, Pencil, Receipt, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, FileText, MessageSquare, MoreHorizontal, Pencil, Receipt, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -9,6 +9,8 @@ import { Sheet } from '@/components/ui/dialog'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/components/ui/dropdown'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useMe } from '@/features/auth/api'
+import { MessageHistory } from '@/features/messaging/message-history'
+import { SendMessageDialog } from '@/features/messaging/send-dialog'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { date, money, relativeDays } from '@/lib/format'
@@ -30,6 +32,8 @@ export function MemberSheet({ memberId, onClose }) {
   const { data: me } = useMe()
   const { data: m } = useMember(memberId)
   const [editing, setEditing] = useState(false)
+  const [messaging, setMessaging] = useState(false)
+  const [tab, setTab] = useState('payments')
   const save = useSaveMember()
   const remove = useDeleteMember()
   const payments = useQuery({
@@ -63,6 +67,10 @@ export function MemberSheet({ memberId, onClose }) {
                   </Button>
                 </MenuTrigger>
                 <MenuContent>
+                  <MenuItem onSelect={() => setMessaging(true)}>
+                    <MessageSquare /> Send message
+                  </MenuItem>
+                  <MenuSeparator />
                   <MenuItem onSelect={() => save.mutate({ id: m.id, archived: m.status !== 'archived' })}>
                     {m.status === 'archived' ? <ArchiveRestore /> : <Archive />}
                     {m.status === 'archived' ? 'Restore' : 'Archive'}
@@ -95,29 +103,48 @@ export function MemberSheet({ memberId, onClose }) {
             {m.notes && <p className="rounded-lg bg-muted p-3 text-[13px] whitespace-pre-wrap">{m.notes}</p>}
 
             <section>
-              <h3 className="mb-2 text-[13px] font-medium">Payments</h3>
-              {payments.data?.items.length === 0 && <p className="text-[13px] text-muted-foreground">No payments yet.</p>}
-              <ul className="divide-y rounded-lg border">
-                {payments.data?.items.map((p) => (
-                  <li key={p.id} className="flex items-center gap-3 px-3 py-2.5 text-[13px]">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{p.description}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {date(p.paid_on)} · {p.invoice_number}
-                      </p>
-                    </div>
-                    <span className={cn('tabular', p.refunded_at && 'text-muted-foreground line-through')}>{money(p.amount)}</span>
-                    <a href={`/api/payments/${p.id}/invoice.pdf`} target="_blank" rel="noreferrer" className="rounded p-1 text-muted-foreground hover:bg-muted" aria-label="Open invoice">
-                      <FileText className="size-4" />
-                    </a>
-                  </li>
+              <div role="tablist" aria-label="History" className="mb-2 flex gap-4 border-b text-[13px]">
+                {['Payments', 'Messages'].map((label) => (
+                  <button
+                    key={label}
+                    role="tab"
+                    aria-selected={tab === label.toLowerCase()}
+                    onClick={() => setTab(label.toLowerCase())}
+                    className={cn('-mb-px border-b-2 border-transparent pb-2 text-muted-foreground', tab === label.toLowerCase() && 'border-foreground font-medium text-foreground')}
+                  >
+                    {label}
+                  </button>
                 ))}
-              </ul>
+              </div>
+              {tab === 'messages' ? (
+                <MessageHistory memberId={m.id} />
+              ) : (
+                <>
+                  {payments.data?.items.length === 0 && <p className="text-[13px] text-muted-foreground">No payments yet.</p>}
+                  <ul className="divide-y rounded-lg border">
+                    {payments.data?.items.map((p) => (
+                      <li key={p.id} className="flex items-center gap-3 px-3 py-2.5 text-[13px]">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{p.description}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {date(p.paid_on)} · {p.invoice_number}
+                          </p>
+                        </div>
+                        <span className={cn('tabular', p.refunded_at && 'text-muted-foreground line-through')}>{money(p.amount)}</span>
+                        <a href={`/api/payments/${p.id}/invoice.pdf`} target="_blank" rel="noreferrer" className="rounded p-1 text-muted-foreground hover:bg-muted" aria-label="Open invoice">
+                          <FileText className="size-4" />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </section>
           </div>
         )}
       </Sheet>
       <MemberFormDialog open={editing} onOpenChange={setEditing} member={m} />
+      <SendMessageDialog open={messaging} onOpenChange={setMessaging} target={{ member_ids: [memberId] }} title={`Message ${m?.first_name ?? ''}`} />
     </>
   )
 }
