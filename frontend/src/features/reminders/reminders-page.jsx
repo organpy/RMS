@@ -1,4 +1,4 @@
-import { BellRing, Check, Mail, MessageCircle, MessageSquare } from 'lucide-react'
+import { BellRing, Check, Mail, MessageCircle, MessageSquare, Send } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TD, TH, THead, TR } from '@/components/ui/table'
+import { useMessagingStatus, useSendMessages } from '@/features/messaging/api'
 import { useOrg } from '@/features/organization/api'
 import { useParamsState } from '@/hooks/use-params-state'
 import { cn } from '@/lib/cn'
@@ -35,10 +36,14 @@ export default function RemindersPage() {
   const { data, isPending } = useReminders({ status: params.status, page, size: SIZE })
   const { data: org } = useOrg()
   const log = useLogReminders()
+  const { data: status = {} } = useMessagingStatus()
+  const deliver = useSendMessages()
+  const connected = CHANNELS.filter(([c]) => status[c])
   const [selected, setSelected] = useState(() => new Set())
   const subject = `Payment reminder · ${org?.name ?? ''}`
 
   const send = (channel, item) => {
+    if (status[channel]) return deliver.mutate({ channel, member_ids: [item.member_id] })
     window.open(reminderLink(channel, item, subject), channel === 'whatsapp' ? '_blank' : '_self', 'noopener')
     log.mutate({ member_ids: [item.member_id], channel })
   }
@@ -55,10 +60,18 @@ export default function RemindersPage() {
     log.mutate({ member_ids: chosen.filter((i) => i.email).map((i) => i.member_id), channel: 'email' })
     setSelected(new Set())
   }
+  const sendAll = (channel) => deliver.mutate({ channel, member_ids: chosen.map((i) => i.member_id) }, { onSuccess: () => setSelected(new Set()) })
 
   return (
     <>
-      <PageHeader title="Reminders" description="Members whose coverage has ended. Messages open on this device and are logged here.">
+      <PageHeader
+        title="Reminders"
+        description={
+          connected.length
+            ? `Members whose coverage has ended. ${connected.map(([, l]) => l).join(', ')} ${connected.length === 1 ? 'is' : 'are'} sent by the server; other channels open on this device.`
+            : 'Members whose coverage has ended. Messages open on this device and are logged here.'
+        }
+      >
         <Link to="/settings#reminders" className="text-[13px] text-muted-foreground hover:text-foreground">
           Edit message template
         </Link>
@@ -79,9 +92,16 @@ export default function RemindersPage() {
         {chosen.length > 0 && (
           <div className="flex items-center gap-2">
             <span className="text-[13px] text-muted-foreground">{chosen.length} selected</span>
-            <Button size="sm" variant="outline" onClick={emailAll} disabled={!chosen.some((i) => i.email)}>
-              <Mail /> Email (BCC)
-            </Button>
+            {connected.map(([channel, label]) => (
+              <Button key={channel} size="sm" onClick={() => sendAll(channel)} disabled={deliver.isPending}>
+                <Send /> Send {label}
+              </Button>
+            ))}
+            {!status.email && (
+              <Button size="sm" variant="outline" onClick={emailAll} disabled={!chosen.some((i) => i.email)}>
+                <Mail /> Email (BCC)
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={() => (log.mutate({ member_ids: chosen.map((i) => i.member_id), channel: 'sms' }), setSelected(new Set()))}>
               <Check /> Mark reminded
             </Button>
@@ -147,7 +167,7 @@ export default function RemindersPage() {
                     <TD className="hidden text-muted-foreground sm:table-cell">{i.last_reminded_at ? date(i.last_reminded_at) : 'Never'}</TD>
                     <TD className="text-right whitespace-nowrap">
                       {CHANNELS.map(([channel, label, Icon]) => (
-                        <Button key={channel} variant="ghost" size="icon" className="text-muted-foreground" title={label} aria-label={`${label} ${i.full_name}`} disabled={!canUse(channel, i)} onClick={() => send(channel, i)}>
+                        <Button key={channel} variant="ghost" size="icon" className="text-muted-foreground" title={status[channel] ? `Send ${label} now` : `Open ${label} on this device`} aria-label={`${label} ${i.full_name}`} disabled={!canUse(channel, i) || deliver.isPending} onClick={() => send(channel, i)}>
                           <Icon />
                         </Button>
                       ))}
