@@ -9,6 +9,7 @@ import { AccountSection } from './account-section'
 import { BackupsSection } from './backups-section'
 import { BrandingSection } from './branding-section'
 import { BillingSection, OrganizationSection } from './organization-section'
+import { MessagingSection } from './messaging-section'
 import { RemindersSection } from './reminders-section'
 import { StaffSection } from './staff-section'
 
@@ -24,7 +25,7 @@ export default function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" description={admin ? 'Organization, billing, staff and backups.' : 'Only admins can change organization settings.'} />
+      <PageHeader title="Settings" description={admin ? 'Organization, billing, messaging, staff and backups.' : 'Only admins can change organization settings.'} />
       {org && (
         <div className="max-w-4xl">
           {admin && (
@@ -32,6 +33,7 @@ export default function SettingsPage() {
               <OrganizationSection org={org} />
               <BrandingSection org={org} />
               <BillingSection org={org} />
+              <MessagingSection />
               <RemindersSection org={org} />
               <StaffSection />
               <BackupsSection />
