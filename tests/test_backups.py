@@ -43,7 +43,7 @@ def test_download_rejects_traversal(admin):
 
 
 def test_scheduled_backups_respect_cadence_and_retention(admin):
-    from backend.modules.backups import scheduler
+    from backend.modules.backups import schedule as scheduler
 
     admin.put("/api/backups/schedule", json={"backup_enabled": True, "backup_cadence": "daily", "backup_keep": 1})
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)

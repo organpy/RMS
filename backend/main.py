@@ -8,20 +8,22 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .core import db, errors, migrate
+from .core.jobs import Jobs
 from .core.config import get_settings
 from .modules.analytics.router import router as analytics_router
 from .modules.auth.router import router as auth_router
+from .modules.backups import schedule as backup_schedule
 from .modules.backups.router import router as backups_router
-from .modules.backups.scheduler import scheduler
 from .modules.courses.router import router as courses_router
 from .modules.dashboard.router import router as dashboard_router
 from .modules.invoices.router import router as invoices_router
 from .modules.members.router import router as members_router
+from .modules.messaging import auto as auto_reminders
+from .modules.messaging.router import router as messaging_router
 from .modules.organization.router import router as organization_router
 from .modules.payments.router import router as payments_router
 from .modules.plans.router import router as plans_router
 from .modules.reminders.router import router as reminders_router
-from .modules.messaging.router import router as messaging_router
 from .modules.staff.router import router as staff_router
 
 
@@ -35,6 +37,8 @@ SECURITY_HEADERS = {
         "frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'"
     ),
 }
+
+jobs = Jobs(backup_schedule.run_due_backup, auto_reminders.run)
 
 ROUTERS = (
     auth_router,
@@ -56,9 +60,9 @@ ROUTERS = (
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     migrate.upgrade(db.engine)
-    scheduler.start()
+    jobs.start()
     yield
-    scheduler.stop()
+    jobs.stop()
 
 
 def create_app() -> FastAPI:

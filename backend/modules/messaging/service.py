@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 
@@ -23,6 +23,7 @@ def send(
     staff_id: int | None = None,
     payment_id: int | None = None,
     period_ref: date | None = None,
+    sent_at: datetime | None = None,
 ) -> Message:
     """Deliver one message and record the outcome. Never raises for delivery problems."""
     recipient = contact(member, channel)
@@ -37,6 +38,8 @@ def send(
         body=body,
         period_ref=period_ref,
     )
+    if sent_at is not None:
+        message.sent_at = sent_at
     deliver(message, attachment)
     db.add(message)
     db.flush()
