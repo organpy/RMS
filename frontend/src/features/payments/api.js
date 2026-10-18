@@ -11,4 +11,6 @@ export const useRecordPayment = () => useMutate((body) => api.post('/payments', 
 
 export const useRefund = () => useMutate((id) => api.post(`/payments/${id}/refund`), { invalidate: ROOTS, success: 'Payment refunded' })
 
+export const useEmailInvoice = () => useMutate((id) => api.post(`/payments/${id}/email`), { invalidate: ['messages'], success: (m) => `Invoice emailed to ${m.recipient}` })
+
 export const invoiceUrl = (id, download = false) => `/api/payments/${id}/invoice.pdf${download ? '?download=true' : ''}`

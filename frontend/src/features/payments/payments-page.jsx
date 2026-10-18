@@ -1,4 +1,4 @@
-import { Download, FileText, MoreHorizontal, Plus, Receipt, Search, Undo2 } from 'lucide-react'
+import { Download, FileText, Mail, MoreHorizontal, Plus, Receipt, Search, Undo2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -11,13 +11,14 @@ import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/compo
 import { Input, Select } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TD, TH, THead, TR } from '@/components/ui/table'
+import { useMessagingStatus } from '@/features/messaging/api'
 import { useDebounced } from '@/hooks/use-debounced'
 import { useParamsState } from '@/hooks/use-params-state'
 import { cn } from '@/lib/cn'
 import { download } from '@/lib/download'
 import { date, money } from '@/lib/format'
 
-import { invoiceUrl, usePayments, useRefund } from './api'
+import { invoiceUrl, useEmailInvoice, usePayments, useRefund } from './api'
 import { PaymentDialog } from './payment-dialog'
 
 const SIZE = 25
@@ -31,6 +32,8 @@ export default function PaymentsPage() {
   const filters = { q, method: params.method, from: params.from, to: params.to }
   const { data, isPending } = usePayments({ ...filters, page, size: SIZE })
   const refund = useRefund()
+  const email = useEmailInvoice()
+  const { data: messaging } = useMessagingStatus()
 
   useEffect(() => {
     if (q !== (params.q ?? '')) patch({ q, page: null })
@@ -125,6 +128,11 @@ export default function PaymentsPage() {
                           <MenuItem onSelect={() => download(`/payments/${p.id}/invoice.pdf`, { download: true }, `${p.invoice_number}.pdf`)}>
                             <Download /> Download invoice
                           </MenuItem>
+                          {messaging?.email && (
+                            <MenuItem onSelect={() => email.mutate(p.id)}>
+                              <Mail /> Email invoice
+                            </MenuItem>
+                          )}
                           <MenuSeparator />
                           <MenuItem danger disabled={!!p.refunded_at} onSelect={() => confirm(`Refund ${money(p.amount)} to ${p.member_name}?`) && refund.mutate(p.id)}>
                             <Undo2 /> Refund

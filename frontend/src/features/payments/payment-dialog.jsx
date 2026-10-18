@@ -1,4 +1,4 @@
-import { Download } from 'lucide-react'
+import { Download, Mail } from 'lucide-react'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 
@@ -6,11 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog'
 import { Field, Input, Select, Textarea } from '@/components/ui/input'
 import { useMember } from '@/features/members/api'
+import { useMessagingStatus } from '@/features/messaging/api'
 import { usePlans } from '@/features/plans/api'
 import { cn } from '@/lib/cn'
 import { date, money, today } from '@/lib/format'
 
-import { invoiceUrl, useRecordPayment } from './api'
+import { invoiceUrl, useEmailInvoice, useRecordPayment } from './api'
 import { MemberPicker } from './member-picker'
 
 const METHODS = [
@@ -36,8 +37,10 @@ function coverage(member, plan, paidOn) {
 function PaymentForm({ member, onMember, onRecorded }) {
   const record = useRecordPayment()
   const { data: plans = [] } = usePlans(member.course_id ? { course_id: member.course_id } : {})
+  const { data: messaging } = useMessagingStatus()
+  const canEmail = !!(messaging?.email && member.email)
   const { register, handleSubmit, control, setValue } = useForm({
-    defaultValues: { plan_id: member.plan_id ? String(member.plan_id) : 'one-off', amount: member.plan_price ?? '', method: 'cash', paid_on: today(), description: '', notes: '' },
+    defaultValues: { plan_id: member.plan_id ? String(member.plan_id) : 'one-off', amount: member.plan_price ?? '', method: 'cash', paid_on: today(), description: '', notes: '', email_invoice: true },
   })
   const [planId, method, paidOn] = useWatch({ control, name: ['plan_id', 'method', 'paid_on'] })
   const plan = plans.find((p) => String(p.id) === planId)
@@ -53,6 +56,7 @@ function PaymentForm({ member, onMember, onRecorded }) {
         paid_on: v.paid_on,
         description: plan ? null : v.description.trim(),
         notes: v.notes.trim() || null,
+        email_invoice: canEmail && v.email_invoice,
       },
       { onSuccess: onRecorded },
     )
@@ -112,6 +116,12 @@ function PaymentForm({ member, onMember, onRecorded }) {
         </p>
       )}
       <DialogFooter>
+        {canEmail && (
+          <label className="mr-auto flex items-center gap-2 text-[13px] text-muted-foreground">
+            <input type="checkbox" className="accent-accent" {...register('email_invoice')} />
+            Email invoice to {member.email}
+          </label>
+        )}
         <Button type="submit" disabled={record.isPending}>
           Record payment
         </Button>
@@ -121,10 +131,19 @@ function PaymentForm({ member, onMember, onRecorded }) {
 }
 
 function Receipt({ payment, onDone }) {
+  const { data: messaging } = useMessagingStatus()
+  const email = useEmailInvoice()
+  const sent = payment.invoice_email === 'sent' || email.isSuccess
   return (
     <div className="grid gap-4">
       <iframe title="Invoice preview" src={invoiceUrl(payment.id)} className="h-[55vh] w-full rounded-md border bg-white" />
+      {payment.invoice_email === 'failed' && !email.isSuccess && <p className="text-[13px] text-danger">The invoice email could not be sent. Check the member's message history.</p>}
       <DialogFooter>
+        {messaging?.email && (
+          <Button variant="ghost" className="mr-auto" disabled={sent || email.isPending} onClick={() => email.mutate(payment.id)}>
+            <Mail /> {sent ? 'Emailed' : 'Email invoice'}
+          </Button>
+        )}
         <Button variant="outline" onClick={() => window.open(invoiceUrl(payment.id, true), '_self')}>
           <Download /> Download
         </Button>
