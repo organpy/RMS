@@ -19,6 +19,7 @@ class PaymentIn(BaseModel):
     period_start: Optional[date] = None
     period_end: Optional[date] = None
     notes: Optional[str] = Field(default=None, max_length=500)
+    email_invoice: bool = False
 
     @model_validator(mode="after")
     def _period(self):
@@ -49,6 +50,7 @@ class PaymentOut(BaseModel):
     period_end: Optional[date]
     notes: Optional[str]
     refunded_at: Optional[datetime]
+    invoice_email: Optional[Literal["sent", "failed"]] = None  # set when email_invoice was requested
 
 
 class PaymentPage(Page[PaymentOut]):

@@ -16,6 +16,8 @@ from backend.core.security import current_staff
 from backend.modules.members.models import Member
 from backend.modules.members.service import search_filter
 
+from backend.modules.invoices import service as invoices
+
 from . import service
 from .models import Payment
 from .schemas import Method, PaymentIn, PaymentOut, PaymentPage, PaymentUpdate
@@ -80,8 +82,13 @@ def export_csv(filters: dict = Depends(_filters), db: Session = Depends(get_db))
 
 
 @router.post("", response_model=PaymentOut, status_code=201)
-def create_payment(body: PaymentIn, db: Session = Depends(get_db)) -> PaymentOut:
-    return service.to_out(service.record(db, body))
+def create_payment(body: PaymentIn, db: Session = Depends(get_db), staff=Depends(current_staff)) -> PaymentOut:
+    payment = service.record(db, body)
+    out = service.to_out(payment)
+    if body.email_invoice:
+        out.invoice_email = invoices.email_invoice(db, payment, staff.id).status
+        db.commit()
+    return out
 
 
 @router.get("/{payment_id}", response_model=PaymentOut)
