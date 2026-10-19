@@ -74,10 +74,10 @@ export function OrganizationSection({ org }) {
 }
 
 export function BillingSection({ org }) {
-  const form = useOrgForm(org, ['currency', 'locale', 'invoice_prefix', 'grace_days'])
+  const form = useOrgForm(org, ['currency', 'locale', 'invoice_prefix', 'grace_days', 'invoice_note'])
   const { register } = form
   return (
-    <Section id="billing" title="Billing" description="Currency, number formatting, invoice numbering and how long members stay ‘due’ before ‘overdue’.">
+    <Section id="billing" title="Billing" description="Currency, number formatting, invoices and how long members stay ‘due’ before ‘overdue’.">
       <form className="grid gap-4" onSubmit={form.onSubmit}>
         <div className="grid items-start gap-4 sm:grid-cols-2">
           <Field label="Currency">
@@ -103,6 +103,9 @@ export function BillingSection({ org }) {
             <Input type="number" min={0} max={90} {...register('grace_days', { valueAsNumber: true })} />
           </Field>
         </div>
+        <Field label="Invoice footer" hint="Printed at the bottom of both invoice copies, e.g. refund policy or bank details. Leave empty to show your contact details.">
+          <Textarea rows={2} maxLength={300} {...register('invoice_note')} />
+        </Field>
         <SaveBar form={form} />
       </form>
     </Section>
