@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
 from backend.core.db import get_db
@@ -13,11 +13,11 @@ router = APIRouter(prefix="/payments", tags=["invoices"], dependencies=[Depends(
 
 
 @router.get("/{payment_id}/invoice.pdf")
-def invoice_pdf(payment_id: int, download: bool = False, db: Session = Depends(get_db)) -> Response:
+def invoice_pdf(payment_id: int, download: bool = False, copies: int = Query(2, ge=1, le=2), db: Session = Depends(get_db)) -> Response:
     payment = get_payment(db, payment_id)
     disposition = "attachment" if download else "inline"
     return Response(
-        service.invoice_pdf(db, payment),
+        service.invoice_pdf(db, payment, copies),
         media_type="application/pdf",
         headers={"Content-Disposition": f'{disposition}; filename="{payment.invoice_number}.pdf"'},
     )

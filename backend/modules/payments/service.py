@@ -31,7 +31,7 @@ def refresh_paid_until(db: Session, member: Member) -> None:
     )
 
 
-def record(db: Session, body: PaymentIn) -> Payment:
+def record(db: Session, body: PaymentIn, staff_id: int | None = None) -> Payment:
     member = get_member(db, body.member_id)
     plan = db.get(Plan, body.plan_id) if body.plan_id else None
     if body.plan_id and plan is None:
@@ -60,6 +60,7 @@ def record(db: Session, body: PaymentIn) -> Payment:
         period_start=start,
         period_end=end,
         notes=body.notes,
+        recorded_by=staff_id,
     )
     db.add(payment)
     db.flush()

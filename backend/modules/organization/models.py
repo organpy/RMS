@@ -30,6 +30,7 @@ class Organization(Timestamps, Base):
     grace_days: Mapped[int] = mapped_column(Integer, default=7)
     reminder_template: Mapped[str] = mapped_column(Text, default=DEFAULT_REMINDER)
     invoice_prefix: Mapped[str] = mapped_column(String(10), default="INV")
+    invoice_note: Mapped[Optional[str]] = mapped_column(String(300))
     auto_remind: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     remind_before_days: Mapped[int] = mapped_column(Integer, default=3, server_default="3")
     remind_after_days: Mapped[int] = mapped_column(Integer, default=3, server_default="3")

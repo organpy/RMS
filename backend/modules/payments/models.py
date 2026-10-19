@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.core.db import Base, Timestamps
 from backend.modules.members.models import Member
+from backend.modules.staff.models import Staff
 
 METHODS = ("cash", "card", "transfer", "other")
 
@@ -25,5 +26,7 @@ class Payment(Timestamps, Base):
     period_end: Mapped[Optional[date]] = mapped_column(Date)
     notes: Mapped[Optional[str]] = mapped_column(String(500))
     refunded_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    recorded_by: Mapped[Optional[int]] = mapped_column(ForeignKey("staff.id", ondelete="SET NULL"))
 
     member: Mapped[Member] = relationship(lazy="joined")
+    recorder: Mapped[Optional[Staff]] = relationship()

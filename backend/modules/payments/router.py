@@ -83,7 +83,7 @@ def export_csv(filters: dict = Depends(_filters), db: Session = Depends(get_db))
 
 @router.post("", response_model=PaymentOut, status_code=201)
 def create_payment(body: PaymentIn, db: Session = Depends(get_db), staff=Depends(current_staff)) -> PaymentOut:
-    payment = service.record(db, body)
+    payment = service.record(db, body, staff.id)
     out = service.to_out(payment)
     if body.email_invoice:
         out.invoice_email = invoices.email_invoice(db, payment, staff.id).status

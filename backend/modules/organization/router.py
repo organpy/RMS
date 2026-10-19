@@ -26,11 +26,14 @@ def read(db: Session = Depends(get_db)) -> OrganizationOut:
     return _out(get_org(db))
 
 
+CLEARABLE = {"email", "phone", "address", "tax_id", "invoice_note"}
+
+
 @router.patch("", response_model=OrganizationOut, dependencies=[Depends(require_admin)])
 def update(body: OrganizationUpdate, db: Session = Depends(get_db)) -> OrganizationOut:
     org = get_org(db)
     for key, value in body.model_dump(exclude_unset=True).items():
-        if value is not None:
+        if value is not None or key in CLEARABLE:
             setattr(org, key, value)
     db.commit()
     return _out(org)

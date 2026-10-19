@@ -20,6 +20,7 @@ class OrganizationOut(BaseModel):
     grace_days: int
     reminder_template: str
     invoice_prefix: str
+    invoice_note: Optional[str] = None
     auto_remind: bool
     remind_before_days: int
     remind_after_days: int
@@ -37,6 +38,7 @@ class OrganizationUpdate(BaseModel):
     grace_days: Optional[int] = Field(default=None, ge=0, le=90)
     reminder_template: Optional[str] = Field(default=None, min_length=1, max_length=1000)
     invoice_prefix: Optional[str] = Field(default=None, pattern=r"^[A-Z0-9]{1,10}$")
+    invoice_note: Optional[str] = Field(default=None, max_length=300)
     auto_remind: Optional[bool] = None
     remind_before_days: Optional[int] = Field(default=None, ge=0, le=30)
     remind_after_days: Optional[int] = Field(default=None, ge=0, le=60)
