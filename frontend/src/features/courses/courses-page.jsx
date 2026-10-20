@@ -74,12 +74,16 @@ function CourseCard({ course, onEdit, onGroup }) {
       <div className="flex items-start gap-3 p-5 pb-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h2 className="truncate font-medium">{course.name}</h2>
+            <h2 className="truncate font-medium">
+              <Link to={`/courses/${course.id}`} className="hover:underline">
+                {course.name}
+              </Link>
+            </h2>
             {course.archived && <Badge>Archived</Badge>}
           </div>
           {course.description && <p className="mt-1 line-clamp-2 text-[13px] text-muted-foreground">{course.description}</p>}
-          <Link to={`/members?course_id=${course.id}`} className="mt-2 inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground">
-            <Users className="size-3.5" /> {course.member_count} members
+          <Link to={`/courses/${course.id}`} className="mt-2 inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground">
+            <Users className="size-3.5" /> {course.member_count} members · View roster
           </Link>
         </div>
         <Menu>

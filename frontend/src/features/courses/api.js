@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useMutate } from '@/hooks/use-mutate'
 import { api } from '@/lib/api'
 
-const ROOTS = ['courses', 'members', 'plans']
+const ROOTS = ['courses', 'members', 'plans', 'roster']
 
 export const useCourses = (includeArchived = false) =>
   useQuery({ queryKey: ['courses', { includeArchived }], queryFn: () => api.get('/courses', { include_archived: includeArchived }) })
@@ -23,3 +23,8 @@ export const useSaveGroup = () =>
   })
 
 export const useDeleteGroup = () => useMutate((id) => api.del(`/groups/${id}`), { invalidate: ROOTS, success: 'Group deleted' })
+
+export const useRoster = (courseId) => useQuery({ queryKey: ['roster', courseId], queryFn: () => api.get(`/courses/${courseId}/roster`), placeholderData: undefined })
+
+export const useMoveMember = () =>
+  useMutate(({ id, group_id }) => api.patch(`/members/${id}`, { group_id }), { invalidate: ['roster', 'courses', 'members'], success: 'Member moved' })

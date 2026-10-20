@@ -121,7 +121,7 @@ export function Layout() {
 
   return (
     <div className="min-h-dvh">
-      <aside className="fixed inset-y-0 hidden w-60 flex-col gap-4 border-r bg-surface p-3 lg:flex">
+      <aside className="fixed inset-y-0 hidden w-60 print:hidden flex-col gap-4 border-r bg-surface p-3 lg:flex">
         <div className="flex items-center gap-2.5 px-1.5 pt-1">
           <OrgMark org={org} />
           <span className="truncate font-semibold">{org?.name}</span>
@@ -133,7 +133,7 @@ export function Layout() {
         </div>
       </aside>
 
-      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-40 flex h-14 print:hidden items-center gap-3 border-b bg-background/80 px-4 backdrop-blur lg:hidden">
         <Button variant="ghost" size="icon" onClick={() => setMobileNav(true)} aria-label="Open menu">
           <MenuIcon />
         </Button>
@@ -152,8 +152,8 @@ export function Layout() {
         </div>
       </Sheet>
 
-      <div className="lg:pl-60">
-        <main className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
+      <div className="lg:pl-60 print:pl-0">
+        <main className="mx-auto max-w-6xl px-4 py-8 sm:px-8 print:max-w-none print:p-0">
           <Suspense>
             <Outlet />
           </Suspense>
