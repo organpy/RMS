@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -35,3 +36,23 @@ class CourseOut(CourseIn):
     archived: bool = False
     member_count: int = 0
     groups: list[GroupOut] = []
+
+
+class RosterMember(BaseModel):
+    id: int
+    full_name: str
+    email: Optional[str]
+    phone: Optional[str]
+    plan_name: Optional[str]
+    paid_until: Optional[date]
+    status: str
+
+
+class RosterGroup(GroupOut):
+    members: list[RosterMember] = []
+
+
+class Roster(BaseModel):
+    course: CourseOut
+    groups: list[RosterGroup]
+    unassigned: list[RosterMember]

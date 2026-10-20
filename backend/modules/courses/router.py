@@ -8,9 +8,10 @@ from backend.core.db import get_db
 from backend.core.errors import Conflict, NotFound
 from backend.core.security import current_staff
 from backend.modules.members.models import Member
+from backend.modules.members.service import status_expr
 
 from .models import Course, Group
-from .schemas import CourseIn, CourseOut, CourseUpdate, GroupIn, GroupOut
+from .schemas import CourseIn, CourseOut, CourseUpdate, GroupIn, GroupOut, Roster, RosterGroup, RosterMember
 
 router = APIRouter(tags=["courses"], dependencies=[Depends(current_staff)])
 
@@ -52,6 +53,37 @@ def list_courses(include_archived: bool = False, db: Session = Depends(get_db)) 
         stmt = stmt.where(Course.archived_at.is_(None))
     course_counts, group_counts = _counts(db, Member.course_id), _counts(db, Member.group_id)
     return [_out(c, course_counts, group_counts) for c in db.scalars(stmt)]
+
+
+@router.get("/courses/{course_id}/roster", response_model=Roster)
+def roster(course_id: int, db: Session = Depends(get_db)) -> Roster:
+    """Current members of a course, grouped by their group, with an Unassigned bucket."""
+    course = _get(db, course_id)
+    status = status_expr(db)
+    rows = db.execute(
+        select(Member, status)
+        .where(Member.course_id == course_id, Member.archived_at.is_(None))
+        .order_by(Member.last_name, Member.first_name)
+    ).all()
+    by_group: dict[int | None, list[RosterMember]] = {}
+    for member, member_status in rows:
+        by_group.setdefault(member.group_id, []).append(
+            RosterMember(
+                id=member.id,
+                full_name=member.full_name,
+                email=member.email,
+                phone=member.phone,
+                plan_name=member.plan.name if member.plan else None,
+                paid_until=member.paid_until,
+                status=member_status,
+            )
+        )
+    groups = []
+    for g in sorted(course.groups, key=lambda g: g.name):
+        members = by_group.pop(g.id, [])
+        groups.append(RosterGroup.model_validate(g).model_copy(update={"members": members, "member_count": len(members)}))
+    unassigned = [m for members in by_group.values() for m in members]  # no group, or a group of another course
+    return Roster(course=_single(db, course), groups=groups, unassigned=sorted(unassigned, key=lambda m: m.full_name))
 
 
 @router.post("/courses", response_model=CourseOut, status_code=201)
