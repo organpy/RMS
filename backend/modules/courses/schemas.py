@@ -46,6 +46,7 @@ class RosterMember(BaseModel):
     plan_name: Optional[str]
     paid_until: Optional[date]
     status: str
+    attendance_rate: Optional[float] = None
 
 
 class RosterGroup(GroupOut):

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 from backend.core.db import get_db
 from backend.core.errors import Conflict, NotFound
 from backend.core.security import current_staff
+from backend.modules.attendance.service import rates as attendance_rates
 from backend.modules.members.models import Member
 from backend.modules.members.service import status_expr
 
@@ -65,6 +66,7 @@ def roster(course_id: int, db: Session = Depends(get_db)) -> Roster:
         .where(Member.course_id == course_id, Member.archived_at.is_(None))
         .order_by(Member.last_name, Member.first_name)
     ).all()
+    rates = attendance_rates(db, [m.id for m, _ in rows])
     by_group: dict[int | None, list[RosterMember]] = {}
     for member, member_status in rows:
         by_group.setdefault(member.group_id, []).append(
@@ -76,6 +78,7 @@ def roster(course_id: int, db: Session = Depends(get_db)) -> Roster:
                 plan_name=member.plan.name if member.plan else None,
                 paid_until=member.paid_until,
                 status=member_status,
+                attendance_rate=rates.get(member.id),
             )
         )
     groups = []

@@ -11,6 +11,7 @@ from .core import db, errors, migrate
 from .core.jobs import Jobs
 from .core.config import get_settings
 from .modules.analytics.router import router as analytics_router
+from .modules.attendance.router import router as attendance_router
 from .modules.auth.router import router as auth_router
 from .modules.backups import schedule as backup_schedule
 from .modules.backups.router import router as backups_router
@@ -45,6 +46,7 @@ ROUTERS = (
     staff_router,
     organization_router,
     courses_router,
+    attendance_router,
     plans_router,
     members_router,
     payments_router,

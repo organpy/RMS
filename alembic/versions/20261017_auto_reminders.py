@@ -16,6 +16,7 @@ down_revision: Union[str, Sequence[str], None] = '477ae41ed7bd'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+
 def upgrade() -> None:
     """Upgrade schema."""
     with op.batch_alter_table('organization', schema=None) as batch_op:
@@ -23,10 +24,10 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column('remind_before_days', sa.Integer(), server_default='3', nullable=False))
         batch_op.add_column(sa.Column('remind_after_days', sa.Integer(), server_default='3', nullable=False))
 
+
 def downgrade() -> None:
     """Downgrade schema."""
     with op.batch_alter_table('organization', schema=None) as batch_op:
         batch_op.drop_column('remind_after_days')
         batch_op.drop_column('remind_before_days')
         batch_op.drop_column('auto_remind')
-

@@ -16,6 +16,7 @@ down_revision: Union[str, Sequence[str], None] = '1392de0347f9'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+
 def upgrade() -> None:
     """Upgrade schema."""
     with op.batch_alter_table('organization', schema=None) as batch_op:
@@ -25,6 +26,7 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column('recorded_by', sa.Integer(), nullable=True))
         batch_op.create_foreign_key(batch_op.f('fk_payments_recorded_by_staff'), 'staff', ['recorded_by'], ['id'], ondelete='SET NULL')
 
+
 def downgrade() -> None:
     """Downgrade schema."""
     with op.batch_alter_table('payments', schema=None) as batch_op:
@@ -33,4 +35,3 @@ def downgrade() -> None:
 
     with op.batch_alter_table('organization', schema=None) as batch_op:
         batch_op.drop_column('invoice_note')
-
