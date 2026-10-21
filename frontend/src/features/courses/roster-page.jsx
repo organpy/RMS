@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRightLeft, MessageSquare, MoreHorizontal, Printer, Users } from 'lucide-react'
+import { ArrowLeft, ArrowRightLeft, ClipboardCheck, MessageSquare, MoreHorizontal, Printer, Users } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuTrigger } from '@/components/ui/dropdown'
 import { Skeleton } from '@/components/ui/skeleton'
+import { AttendanceDialog } from '@/features/attendance/attendance-dialog'
 import { SendMessageDialog } from '@/features/messaging/send-dialog'
 import { cn } from '@/lib/cn'
 import { date } from '@/lib/format'
@@ -35,6 +36,11 @@ function MemberRow({ member, groups, currentGroupId }) {
         </Link>
         <p className="truncate text-xs text-muted-foreground">{[member.plan_name, member.paid_until && `until ${date(member.paid_until)}`].filter(Boolean).join(' · ') || member.phone || member.email}</p>
       </div>
+      {member.attendance_rate != null && (
+        <span className={cn('tabular text-xs', member.attendance_rate < 0.75 ? 'text-warning' : 'text-muted-foreground')} title="Attendance, last 90 days">
+          {Math.round(member.attendance_rate * 100)}%
+        </span>
+      )}
       <StatusBadge status={member.status} />
       {targets.length > 0 && (
         <Menu>
@@ -57,7 +63,7 @@ function MemberRow({ member, groups, currentGroupId }) {
   )
 }
 
-function GroupCard({ group, groups, onMessage }) {
+function GroupCard({ group, groups, onMessage, onAttendance }) {
   const over = group.capacity && group.member_count > group.capacity
   return (
     <Card className="break-inside-avoid">
@@ -72,9 +78,14 @@ function GroupCard({ group, groups, onMessage }) {
             {group.capacity ? ` / ${group.capacity}` : ''}
           </span>
           {group.id && group.members.length > 0 && (
-            <Button variant="ghost" size="icon" className="-my-1 print:hidden" aria-label={`Message ${group.name}`} title="Message group" onClick={onMessage}>
-              <MessageSquare />
-            </Button>
+            <div className="-my-1 flex print:hidden">
+              <Button variant="ghost" size="icon" aria-label={`Take attendance for ${group.name}`} title="Take attendance" onClick={onAttendance}>
+                <ClipboardCheck />
+              </Button>
+              <Button variant="ghost" size="icon" aria-label={`Message ${group.name}`} title="Message group" onClick={onMessage}>
+                <MessageSquare />
+              </Button>
+            </div>
           )}
         </div>
         <CapacityBar count={group.member_count} capacity={group.capacity} />
@@ -96,6 +107,7 @@ export default function RosterPage() {
   const { courseId } = useParams()
   const { data, isPending, isError } = useRoster(courseId)
   const [target, setTarget] = useState(null)
+  const [attendance, setAttendance] = useState(null)
 
   if (isError) return <p className="text-muted-foreground">Course not found.</p>
   if (isPending)
@@ -133,11 +145,12 @@ export default function RosterPage() {
       ) : (
         <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3 print:block print:columns-2 print:[&>*]:mb-4">
           {columns.map((g) => (
-            <GroupCard key={g.id ?? 'none'} group={g} groups={groups} onMessage={() => setTarget({ group_id: g.id, name: `${course.name} · ${g.name}` })} />
+            <GroupCard key={g.id ?? 'none'} group={g} groups={groups} onMessage={() => setTarget({ group_id: g.id, name: `${course.name} · ${g.name}` })} onAttendance={() => setAttendance(g)} />
           ))}
         </div>
       )}
 
+      <AttendanceDialog group={attendance} onOpenChange={(o) => !o && setAttendance(null)} />
       <SendMessageDialog
         open={!!target}
         onOpenChange={(o) => !o && setTarget(null)}
