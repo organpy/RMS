@@ -33,6 +33,8 @@ def search_filter(q: str):
         (Member.last_name + " " + Member.first_name).ilike(like),
         Member.email.ilike(like),
         Member.phone.ilike(like),
+        Member.guardian_name.ilike(like),
+        Member.guardian_phone.ilike(like),
     )
 
 
@@ -45,6 +47,9 @@ def to_out(member: Member, status: str) -> MemberOut:
         email=member.email,
         phone=member.phone,
         notes=member.notes,
+        guardian_name=member.guardian_name,
+        guardian_phone=member.guardian_phone,
+        guardian_email=member.guardian_email,
         course_id=member.course_id,
         course_name=member.course.name if member.course else None,
         group_id=member.group_id,

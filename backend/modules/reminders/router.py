@@ -14,6 +14,7 @@ from backend.modules.members.models import Member
 from backend.modules.members.service import status_expr
 from backend.modules.organization.service import get_org
 from backend.modules.messaging import templates
+from backend.modules.messaging.service import contact
 from backend.modules.messaging.models import Message
 
 router = APIRouter(prefix="/reminders", tags=["reminders"])
@@ -60,8 +61,8 @@ def pending(
             ReminderItem(
                 member_id=member.id,
                 full_name=member.full_name,
-                email=member.email,
-                phone=member.phone,
+                email=contact(member, "email"),
+                phone=contact(member, "sms"),
                 plan_name=member.plan.name if member.plan else None,
                 amount=amount,
                 paid_until=member.paid_until,

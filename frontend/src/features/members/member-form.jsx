@@ -36,6 +36,9 @@ function MemberForm({ member, onDone, onCancel }) {
       plan_id: member?.plan_id ?? '',
       joined_on: member?.joined_on ?? today(),
       notes: member?.notes ?? '',
+      guardian_name: member?.guardian_name ?? '',
+      guardian_phone: member?.guardian_phone ?? '',
+      guardian_email: member?.guardian_email ?? '',
     },
   })
   const courseId = toId(useWatch({ control, name: 'course_id' }))
@@ -51,6 +54,9 @@ function MemberForm({ member, onDone, onCancel }) {
         email: blank(v.email),
         phone: blank(v.phone),
         notes: blank(v.notes),
+        guardian_name: blank(v.guardian_name),
+        guardian_phone: blank(v.guardian_phone),
+        guardian_email: blank(v.guardian_email),
         course_id: toId(v.course_id),
         group_id: toId(v.group_id),
         plan_id: toId(v.plan_id),
@@ -108,6 +114,21 @@ function MemberForm({ member, onDone, onCancel }) {
           <Input type="date" {...register('joined_on')} />
         </Field>
       </div>
+      <details className="group rounded-lg border px-3 py-2" open={!!(member?.guardian_name || member?.guardian_phone || member?.guardian_email)}>
+        <summary className="cursor-pointer text-[13px] font-medium">Parent or guardian</summary>
+        <p className="mt-1 text-xs text-muted-foreground">Messages and invoices go to the guardian first when a contact is set.</p>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <Field label="Name" className="col-span-2">
+            <Input {...register('guardian_name')} />
+          </Field>
+          <Field label="Email">
+            <Input type="email" {...register('guardian_email')} />
+          </Field>
+          <Field label="Phone">
+            <Input type="tel" {...register('guardian_phone')} />
+          </Field>
+        </div>
+      </details>
       <Field label="Notes">
         <Textarea rows={2} {...register('notes')} />
       </Field>

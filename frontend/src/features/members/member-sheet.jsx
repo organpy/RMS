@@ -98,6 +98,12 @@ export function MemberSheet({ memberId, onClose }) {
               <Row label="Plan">{m.plan_name && `${m.plan_name} · ${money(m.plan_price)}`}</Row>
               <Row label="Email">{m.email && <a href={`mailto:${m.email}`} className="hover:underline">{m.email}</a>}</Row>
               <Row label="Phone">{m.phone && <a href={`tel:${m.phone}`} className="hover:underline">{m.phone}</a>}</Row>
+              {m.guardian_name && (
+                <Row label="Guardian">
+                  <span className="block">{m.guardian_name}</span>
+                  <span className="block text-xs text-muted-foreground">{[m.guardian_phone, m.guardian_email].filter(Boolean).join(' · ')}</span>
+                </Row>
+              )}
               <Row label="Joined">{date(m.joined_on)}</Row>
             </dl>
             {m.notes && <p className="rounded-lg bg-muted p-3 text-[13px] whitespace-pre-wrap">{m.notes}</p>}

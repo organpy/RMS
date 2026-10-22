@@ -85,7 +85,10 @@ def _copy(c: Canvas, payment: Payment, org: Organization, logo, width: float, bo
     # Parties.
     y = top - 15 * mm
     member = payment.member
-    billed = [member.full_name, member.email, member.phone]
+    if member.guardian_name:
+        billed = [member.guardian_name, f"for {member.full_name}", member.guardian_email or member.email, member.guardian_phone or member.phone]
+    else:
+        billed = [member.full_name, member.email, member.phone]
     sender = [org.name, *(org.address or "").splitlines(), org.email, org.phone]
     if org.tax_id:
         sender.append(f"Tax ID {org.tax_id}")

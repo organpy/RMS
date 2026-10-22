@@ -13,6 +13,9 @@ class MemberIn(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = Field(default=None, max_length=40)
     notes: Optional[str] = Field(default=None, max_length=2000)
+    guardian_name: Optional[str] = Field(default=None, max_length=120)
+    guardian_phone: Optional[str] = Field(default=None, max_length=40)
+    guardian_email: Optional[EmailStr] = None
     course_id: Optional[int] = None
     group_id: Optional[int] = None
     plan_id: Optional[int] = None
@@ -25,6 +28,9 @@ class MemberUpdate(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = Field(default=None, max_length=40)
     notes: Optional[str] = Field(default=None, max_length=2000)
+    guardian_name: Optional[str] = Field(default=None, max_length=120)
+    guardian_phone: Optional[str] = Field(default=None, max_length=40)
+    guardian_email: Optional[EmailStr] = None
     course_id: Optional[int] = None
     group_id: Optional[int] = None
     plan_id: Optional[int] = None
@@ -40,6 +46,9 @@ class MemberOut(BaseModel):
     email: Optional[str]
     phone: Optional[str]
     notes: Optional[str]
+    guardian_name: Optional[str]
+    guardian_phone: Optional[str]
+    guardian_email: Optional[str]
     course_id: Optional[int]
     course_name: Optional[str]
     group_id: Optional[int]

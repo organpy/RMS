@@ -9,7 +9,10 @@ from .models import Message
 
 
 def contact(member: Member, channel: str) -> str | None:
-    return member.email if channel == "email" else member.phone
+    """Where to reach a member: their guardian's contact when set (e.g. for children), else their own."""
+    if channel == "email":
+        return member.guardian_email or member.email
+    return member.guardian_phone or member.phone
 
 
 def send(
