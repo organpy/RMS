@@ -95,7 +95,7 @@ export function MemberSheet({ memberId, onClose }) {
                 <StatusBadge status={m.status} />
               </Row>
               <Row label="Paid until">{m.paid_until && `${date(m.paid_until)} (${relativeDays(m.paid_until)})`}</Row>
-              <Row label="Plan">{m.plan_name && `${m.plan_name} · ${money(m.plan_price)}`}</Row>
+              <Row label="Plan">{m.plan_name && `${m.plan_name} · ${money(m.plan_price)}${m.discount_percent > 0 ? ` (−${Number(m.discount_percent)}%)` : ''}`}</Row>
               <Row label="Email">{m.email && <a href={`mailto:${m.email}`} className="hover:underline">{m.email}</a>}</Row>
               <Row label="Phone">{m.phone && <a href={`tel:${m.phone}`} className="hover:underline">{m.phone}</a>}</Row>
               {m.guardian_name && (

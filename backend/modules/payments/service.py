@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -31,6 +32,13 @@ def refresh_paid_until(db: Session, member: Member) -> None:
     )
 
 
+def discounted(price: Decimal, percent: Decimal | None) -> Decimal:
+    """Plan price after a member's percentage discount, rounded to cents."""
+    if not percent:
+        return price
+    return (price * (Decimal(100) - percent) / 100).quantize(Decimal("0.01"), ROUND_HALF_UP)
+
+
 def record(db: Session, body: PaymentIn, staff_id: int | None = None) -> Payment:
     member = get_member(db, body.member_id)
     plan = db.get(Plan, body.plan_id) if body.plan_id else None
@@ -38,7 +46,7 @@ def record(db: Session, body: PaymentIn, staff_id: int | None = None) -> Payment
         raise NotFound("Plan not found")
 
     paid_on = body.paid_on or clock.today()
-    amount = body.amount if body.amount is not None else (plan.price if plan else None)
+    amount = body.amount if body.amount is not None else (discounted(plan.price, member.discount_percent) if plan else None)
     if amount is None:
         raise AppError("Amount is required when no plan is selected")
 

@@ -66,3 +66,14 @@ def test_invoice_numbers_survive_backdated_years(admin, member):
     m, _ = member
     numbers = [_pay(admin, m["id"], paid_on=d)["invoice_number"] for d in ("2027-01-02", "2026-05-01", "2027-02-01")]
     assert numbers == ["INV-2027-0001", "INV-2026-0001", "INV-2027-0002"]
+
+
+def test_member_discount_applies_to_default_plan_amount(admin):
+    plan = admin.post("/api/plans", json={"name": "Gold", "price": "49.99", "interval_days": 30}).json()
+    m = admin.post("/api/members", json={"first_name": "Ana", "last_name": "A", "discount_percent": "15"}).json()
+    assert float(m["discount_percent"]) == 15
+    p = admin.post("/api/payments", json={"member_id": m["id"], "plan_id": plan["id"]}).json()
+    assert p["amount"] == "42.49"  # 49.99 * 0.85, rounded half up
+    explicit = admin.post("/api/payments", json={"member_id": m["id"], "plan_id": plan["id"], "amount": "49.99"}).json()
+    assert explicit["amount"] == "49.99"
+    assert admin.post("/api/members", json={"first_name": "B", "last_name": "B", "discount_percent": "120"}).status_code == 422

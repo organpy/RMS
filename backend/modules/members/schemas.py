@@ -13,6 +13,7 @@ class MemberIn(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = Field(default=None, max_length=40)
     notes: Optional[str] = Field(default=None, max_length=2000)
+    discount_percent: Optional[Decimal] = Field(default=None, ge=0, le=100, max_digits=5, decimal_places=2)
     guardian_name: Optional[str] = Field(default=None, max_length=120)
     guardian_phone: Optional[str] = Field(default=None, max_length=40)
     guardian_email: Optional[EmailStr] = None
@@ -28,6 +29,7 @@ class MemberUpdate(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = Field(default=None, max_length=40)
     notes: Optional[str] = Field(default=None, max_length=2000)
+    discount_percent: Optional[Decimal] = Field(default=None, ge=0, le=100, max_digits=5, decimal_places=2)
     guardian_name: Optional[str] = Field(default=None, max_length=120)
     guardian_phone: Optional[str] = Field(default=None, max_length=40)
     guardian_email: Optional[EmailStr] = None
@@ -46,6 +48,7 @@ class MemberOut(BaseModel):
     email: Optional[str]
     phone: Optional[str]
     notes: Optional[str]
+    discount_percent: Optional[Decimal]
     guardian_name: Optional[str]
     guardian_phone: Optional[str]
     guardian_email: Optional[str]

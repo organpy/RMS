@@ -9,6 +9,9 @@ export function configureFormat({ locale, currency }) {
 
 export const num = (value) => Number(value ?? 0).toLocaleString(settings.locale)
 
+/** Price after a percentage discount, as a two-decimal string (matches the server's rounding). */
+export const discounted = (price, percent) => (Math.round(Number(price) * (100 - Number(percent || 0))) / 100).toFixed(2)
+
 export const money = (value) => (value === null || value === undefined ? '—' : moneyFormat.format(Number(value)))
 
 export function date(value, opts = { day: 'numeric', month: 'short', year: 'numeric' }) {

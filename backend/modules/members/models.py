@@ -1,7 +1,8 @@
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import Date, DateTime, ForeignKey, String, Text
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.core.db import Base, Timestamps
@@ -18,6 +19,7 @@ class Member(Timestamps, Base):
     email: Mapped[Optional[str]] = mapped_column(String(255))
     phone: Mapped[Optional[str]] = mapped_column(String(40))
     notes: Mapped[Optional[str]] = mapped_column(Text)
+    discount_percent: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 2))
     guardian_name: Mapped[Optional[str]] = mapped_column(String(120))
     guardian_phone: Mapped[Optional[str]] = mapped_column(String(40))
     guardian_email: Mapped[Optional[str]] = mapped_column(String(255))

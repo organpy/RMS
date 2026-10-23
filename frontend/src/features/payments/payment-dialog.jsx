@@ -9,7 +9,7 @@ import { useMember } from '@/features/members/api'
 import { useMessagingStatus } from '@/features/messaging/api'
 import { usePlans } from '@/features/plans/api'
 import { cn } from '@/lib/cn'
-import { date, money, today } from '@/lib/format'
+import { date, discounted, money, today } from '@/lib/format'
 
 import { invoiceUrl, useEmailInvoice, useRecordPayment } from './api'
 import { MemberPicker } from './member-picker'
@@ -40,7 +40,7 @@ function PaymentForm({ member, onMember, onRecorded }) {
   const { data: messaging } = useMessagingStatus()
   const canEmail = !!(messaging?.email && member.email)
   const { register, handleSubmit, control, setValue } = useForm({
-    defaultValues: { plan_id: member.plan_id ? String(member.plan_id) : 'one-off', amount: member.plan_price ?? '', method: 'cash', paid_on: today(), description: '', notes: '', email_invoice: true },
+    defaultValues: { plan_id: member.plan_id ? String(member.plan_id) : 'one-off', amount: member.plan_price != null ? discounted(member.plan_price, member.discount_percent) : '', method: 'cash', paid_on: today(), description: '', notes: '', email_invoice: true },
   })
   const [planId, method, paidOn] = useWatch({ control, name: ['plan_id', 'method', 'paid_on'] })
   const plan = plans.find((p) => String(p.id) === planId)
@@ -70,7 +70,10 @@ function PaymentForm({ member, onMember, onRecorded }) {
         <Field label="For">
           <Select
             {...register('plan_id', {
-              onChange: (e) => setValue('amount', plans.find((p) => String(p.id) === e.target.value)?.price ?? ''),
+              onChange: (e) => {
+                const price = plans.find((p) => String(p.id) === e.target.value)?.price
+                setValue('amount', price != null ? discounted(price, member.discount_percent) : '')
+              },
             })}
           >
             {plans.map((p) => (
@@ -81,7 +84,7 @@ function PaymentForm({ member, onMember, onRecorded }) {
             <option value="one-off">One-off payment</option>
           </Select>
         </Field>
-        <Field label="Amount">
+        <Field label="Amount" hint={member.discount_percent > 0 ? `Includes ${Number(member.discount_percent)}% member discount` : undefined}>
           <Input type="number" step="0.01" min="0" required {...register('amount')} />
         </Field>
       </div>

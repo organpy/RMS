@@ -36,6 +36,7 @@ function MemberForm({ member, onDone, onCancel }) {
       plan_id: member?.plan_id ?? '',
       joined_on: member?.joined_on ?? today(),
       notes: member?.notes ?? '',
+      discount_percent: member?.discount_percent ?? '',
       guardian_name: member?.guardian_name ?? '',
       guardian_phone: member?.guardian_phone ?? '',
       guardian_email: member?.guardian_email ?? '',
@@ -54,6 +55,7 @@ function MemberForm({ member, onDone, onCancel }) {
         email: blank(v.email),
         phone: blank(v.phone),
         notes: blank(v.notes),
+        discount_percent: v.discount_percent === '' ? null : Number(v.discount_percent),
         guardian_name: blank(v.guardian_name),
         guardian_phone: blank(v.guardian_phone),
         guardian_email: blank(v.guardian_email),
@@ -109,6 +111,9 @@ function MemberForm({ member, onDone, onCancel }) {
               </option>
             ))}
           </Select>
+        </Field>
+        <Field label="Discount (%)" hint="Applied to plan prices when recording payments.">
+          <Input type="number" min={0} max={100} step="0.01" {...register('discount_percent')} />
         </Field>
         <Field label="Joined on">
           <Input type="date" {...register('joined_on')} />

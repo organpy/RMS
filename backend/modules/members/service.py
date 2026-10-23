@@ -47,6 +47,7 @@ def to_out(member: Member, status: str) -> MemberOut:
         email=member.email,
         phone=member.phone,
         notes=member.notes,
+        discount_percent=member.discount_percent,
         guardian_name=member.guardian_name,
         guardian_phone=member.guardian_phone,
         guardian_email=member.guardian_email,
