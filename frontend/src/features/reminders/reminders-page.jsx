@@ -153,7 +153,8 @@ export default function RemindersPage() {
                         <StatusBadge status={i.status} />
                       </div>
                     </TD>
-                    <TD className="hidden text-muted-foreground md:table-cell">{i.plan_name ? `${i.plan_name} · ${money(i.amount)}` : '—'}</TD>
+                    <TD className="hidden text-muted-foreground md:table-cell">{i.plan_name ? `${i.plan_name} · ${money(i.amount)}` : '—'}
+                      {i.balance > 0 && <span className="block text-xs text-danger">owes {money(i.balance)}</span>}</TD>
                     <TD className="whitespace-nowrap">
                       {i.paid_until ? (
                         <>

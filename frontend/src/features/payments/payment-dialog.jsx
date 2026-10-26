@@ -42,9 +42,14 @@ function PaymentForm({ member, onMember, onRecorded }) {
   const { register, handleSubmit, control, setValue } = useForm({
     defaultValues: { plan_id: member.plan_id ? String(member.plan_id) : 'one-off', amount: member.plan_price != null ? discounted(member.plan_price, member.discount_percent) : '', method: 'cash', paid_on: today(), description: '', notes: '', email_invoice: true },
   })
-  const [planId, method, paidOn] = useWatch({ control, name: ['plan_id', 'method', 'paid_on'] })
+  const [planId, method, paidOn, amount] = useWatch({ control, name: ['plan_id', 'method', 'paid_on', 'amount'] })
   const plan = plans.find((p) => String(p.id) === planId)
+  const settling = planId === 'balance'
   const period = coverage(member, plan, paidOn)
+  const owed = Number(member.balance)
+  // What this payment charges for: the (discounted) plan price, nothing when settling, otherwise whatever is paid.
+  const due = plan ? Number(discounted(plan.price, member.discount_percent)) : settling ? 0 : Number(amount) || 0
+  const balanceAfter = owed + due - (Number(amount) || 0)
 
   const submit = (v) =>
     record.mutate(
@@ -52,9 +57,10 @@ function PaymentForm({ member, onMember, onRecorded }) {
         member_id: member.id,
         plan_id: plan?.id ?? null,
         amount: Number(v.amount).toFixed(2),
+        amount_due: due.toFixed(2),
         method: v.method,
         paid_on: v.paid_on,
-        description: plan ? null : v.description.trim(),
+        description: plan ? null : settling ? 'Balance payment' : v.description.trim(),
         notes: v.notes.trim() || null,
         email_invoice: canEmail && v.email_invoice,
       },
@@ -72,7 +78,7 @@ function PaymentForm({ member, onMember, onRecorded }) {
             {...register('plan_id', {
               onChange: (e) => {
                 const price = plans.find((p) => String(p.id) === e.target.value)?.price
-                setValue('amount', price != null ? discounted(price, member.discount_percent) : '')
+                setValue('amount', e.target.value === 'balance' ? owed.toFixed(2) : price != null ? discounted(price, member.discount_percent) : '')
               },
             })}
           >
@@ -82,13 +88,14 @@ function PaymentForm({ member, onMember, onRecorded }) {
               </option>
             ))}
             <option value="one-off">One-off payment</option>
+            {owed > 0 && <option value="balance">Settle balance ({money(owed)})</option>}
           </Select>
         </Field>
         <Field label="Amount" hint={member.discount_percent > 0 ? `Includes ${Number(member.discount_percent)}% member discount` : undefined}>
           <Input type="number" step="0.01" min="0" required {...register('amount')} />
         </Field>
       </div>
-      {!plan && (
+      {!plan && !settling && (
         <Field label="Description">
           <Input required placeholder="e.g. Registration fee, Uniform" {...register('description')} />
         </Field>
@@ -113,6 +120,11 @@ function PaymentForm({ member, onMember, onRecorded }) {
       <Field label="Notes">
         <Textarea rows={2} {...register('notes')} />
       </Field>
+      {(plan || settling) && balanceAfter > 0.005 && (
+        <p className="rounded-md bg-warning/10 px-3 py-2 text-[13px] text-warning">
+          {plan && Number(amount) < due ? 'Partial payment. ' : ''}Balance after this payment: <span className="font-medium">{money(balanceAfter)}</span>
+        </p>
+      )}
       {period && (
         <p className="rounded-md bg-muted px-3 py-2 text-[13px] text-muted-foreground">
           Covers <span className="font-medium text-foreground">{date(period[0])}</span> to <span className="font-medium text-foreground">{date(period[1])}</span>

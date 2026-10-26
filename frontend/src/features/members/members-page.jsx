@@ -13,7 +13,7 @@ import { useCourses } from '@/features/courses/api'
 import { useDebounced } from '@/hooks/use-debounced'
 import { useParamsState } from '@/hooks/use-params-state'
 import { download } from '@/lib/download'
-import { date } from '@/lib/format'
+import { date, money } from '@/lib/format'
 
 import { useMembers } from './api'
 import { MemberFormDialog } from './member-form'
@@ -127,6 +127,7 @@ export default function MembersPage() {
                     <TD className="hidden whitespace-nowrap tabular sm:table-cell">{date(m.paid_until)}</TD>
                     <TD className="text-right">
                       <StatusBadge status={m.status} />
+                      {m.balance > 0 && <span className="mt-0.5 block text-xs text-danger">owes {money(m.balance)}</span>}
                     </TD>
                   </TR>
                 ))}
