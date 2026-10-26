@@ -11,6 +11,7 @@ from backend.core.errors import AppError, NotFound
 from backend.core.pagination import Page, Paging, paginate
 from backend.core.security import current_staff, require_admin
 from backend.modules.members.models import Member
+from backend.modules.members.service import balance_of
 from backend.modules.organization.service import get_org
 
 from . import providers, service, templates
@@ -101,7 +102,7 @@ def send(body: SendIn, db: Session = Depends(get_db), staff=Depends(current_staf
     subject = body.subject or (f"Payment reminder · {org.name}" if body.kind == "reminder" else org.name)
     counts = {"sent": 0, "failed": 0}
     for member in recipients(db, body):
-        text = templates.render(template, templates.member_values(member, org))
+        text = templates.render(template, templates.member_values(member, org, balance_of(db, member.id)))
         message = service.send(
             db, member, body.channel, body.kind, text, subject=subject, staff_id=staff.id, period_ref=member.paid_until
         )

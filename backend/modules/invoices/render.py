@@ -128,11 +128,19 @@ def _copy(c: Canvas, payment: Payment, org: Organization, logo, width: float, bo
     y -= 8 * mm
     c.setFont("Helvetica", 9.5)
     c.setFillColor(MUTED)
-    c.drawRightString(right - 40 * mm, y, "Total")
+    c.drawRightString(right - 40 * mm, y, "Paid")
     c.setFont("Helvetica-Bold", 13)
     c.setFillColor(INK)
     c.drawRightString(right, y, amount)
-    _stamp(c, left, y, payment, accent)
+    owed = Decimal(payment.amount_due) - Decimal(payment.amount)
+    _stamp(c, left, y, payment, accent, partial=owed > 0)
+    if owed > 0 and payment.refunded_at is None:
+        c.setFont("Helvetica", 9.5)
+        c.setFillColor(MUTED)
+        c.drawRightString(right - 40 * mm, y - 6 * mm, "Balance due")
+        c.setFont("Helvetica-Bold", 10)
+        c.setFillColor(RED)
+        c.drawRightString(right, y - 6 * mm, money(owed, org.currency, org.locale))
 
     if payment.notes:
         c.setFont("Helvetica", 8.5)
@@ -160,9 +168,9 @@ def _copy(c: Canvas, payment: Payment, org: Organization, logo, width: float, bo
         c.drawCentredString(width / 2, bottom + 11 * mm - i * 3.5 * mm, line)
 
 
-def _stamp(c: Canvas, x: float, y: float, payment: Payment, accent) -> None:
+def _stamp(c: Canvas, x: float, y: float, payment: Payment, accent, partial: bool = False) -> None:
     refunded = payment.refunded_at is not None
-    text = "REFUNDED" if refunded else "PAID"
+    text = "REFUNDED" if refunded else "PARTIAL" if partial else "PAID"
     color = RED if refunded else accent
     c.setStrokeColor(color)
     c.setFillColor(color)

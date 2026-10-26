@@ -62,3 +62,4 @@ class MemberOut(BaseModel):
     joined_on: date
     paid_until: Optional[date]
     status: Status
+    balance: Decimal = Decimal(0)  # still owed across non-refunded payments (negative = credit)

@@ -11,7 +11,7 @@ from backend.core.db import get_db
 from backend.core.security import current_staff
 from backend.modules.members.models import Member
 from backend.modules.members.schemas import MemberOut
-from backend.modules.members.service import count_by_status, status_expr, to_out
+from backend.modules.members.service import count_by_status, member_rows, status_expr, to_out
 from backend.modules.payments.models import Payment
 from backend.modules.payments.schemas import PaymentOut
 from backend.modules.payments.service import to_out as payment_out
@@ -54,7 +54,7 @@ def dashboard(db: Session = Depends(get_db)) -> Dashboard:
     status_col = status_expr(db)
 
     def members(where, order, limit=6):
-        rows = db.execute(select(Member, status_col).where(where).order_by(*order).limit(limit)).all()
+        rows = db.execute(member_rows(db).where(where).order_by(*order).limit(limit)).all()
         return [to_out(*row) for row in rows]
 
     return Dashboard(

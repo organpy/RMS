@@ -20,6 +20,8 @@ class Payment(Timestamps, Base):
     invoice_number: Mapped[str] = mapped_column(String(30), unique=True)
     description: Mapped[str] = mapped_column(String(200))
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    # What this payment was charging for; less than that paid leaves a balance, 0 settles an earlier balance.
+    amount_due: Mapped[Decimal] = mapped_column(Numeric(10, 2), server_default="0")
     method: Mapped[str] = mapped_column(String(10), default="cash")
     paid_on: Mapped[date] = mapped_column(Date, index=True)
     period_start: Mapped[Optional[date]] = mapped_column(Date)

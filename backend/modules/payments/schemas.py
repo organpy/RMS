@@ -13,6 +13,7 @@ class PaymentIn(BaseModel):
     member_id: int
     plan_id: Optional[int] = None
     amount: Optional[Decimal] = Field(default=None, ge=0, max_digits=10, decimal_places=2)
+    amount_due: Optional[Decimal] = Field(default=None, ge=0, max_digits=10, decimal_places=2)  # defaults to amount
     method: Method = "cash"
     paid_on: Optional[date] = None
     description: Optional[str] = Field(default=None, max_length=200)
@@ -44,6 +45,7 @@ class PaymentOut(BaseModel):
     invoice_number: str
     description: str
     amount: Decimal
+    amount_due: Decimal
     method: Method
     paid_on: date
     period_start: Optional[date]

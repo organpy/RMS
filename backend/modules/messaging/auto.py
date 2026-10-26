@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from backend.core import clock
 from backend.core.db import session_scope
 from backend.modules.members.models import Member
+from backend.modules.members.service import balance_of
 from backend.modules.organization.service import get_org
 
 from . import providers, service, templates
@@ -65,7 +66,7 @@ def run(today: date | None = None) -> int:
             channel = next((c for c in channels if service.contact(member, c)), None)
             if channel is None:
                 continue
-            text = templates.render(org.reminder_template, templates.member_values(member, org))
+            text = templates.render(org.reminder_template, templates.member_values(member, org, balance_of(db, member.id)))
             service.send(db, member, channel, "reminder", text, subject=f"Payment reminder · {org.name}", period_ref=member.paid_until, sent_at=sent_at)
             attempted += 1
     return attempted

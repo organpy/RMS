@@ -11,7 +11,7 @@ from backend.core.db import get_db
 from backend.core.pagination import Page, Paging, paginate
 from backend.core.security import current_staff
 from backend.modules.members.models import Member
-from backend.modules.members.service import status_expr
+from backend.modules.members.service import balance_expr, status_expr
 from backend.modules.organization.service import get_org
 from backend.modules.messaging import templates
 from backend.modules.messaging.service import contact
@@ -26,6 +26,7 @@ class ReminderItem(BaseModel):
     phone: Optional[str]
     plan_name: Optional[str]
     amount: Optional[Decimal]
+    balance: Decimal
     paid_until: Optional[date]
     status: Literal["due", "overdue"]
     last_reminded_at: Optional[datetime]
@@ -48,14 +49,14 @@ def pending(
         .subquery()
     )
     stmt = (
-        select(Member, status_col, last.c.last)
+        select(Member, status_col, last.c.last, balance_expr())
         .outerjoin(last, last.c.member_id == Member.id)
         .where(status_col.in_([status] if status else ["due", "overdue"]))
         .order_by(Member.paid_until.asc().nulls_last(), Member.last_name)
     )
     rows, total = paginate(db, stmt, paging)
     items = []
-    for member, member_status, last_at in rows:
+    for member, member_status, last_at, balance in rows:
         amount = member.plan.price if member.plan else None
         items.append(
             ReminderItem(
@@ -65,10 +66,11 @@ def pending(
                 phone=contact(member, "sms"),
                 plan_name=member.plan.name if member.plan else None,
                 amount=amount,
+                balance=balance,
                 paid_until=member.paid_until,
                 status=member_status,
                 last_reminded_at=last_at,
-                message=templates.render(org.reminder_template, templates.member_values(member, org)),
+                message=templates.render(org.reminder_template, templates.member_values(member, org, balance)),
             )
         )
     return Page(items=items, total=total, page=paging.page, size=paging.size)

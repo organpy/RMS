@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from sqlalchemy import case, func, literal, or_, select
 from sqlalchemy.orm import Session
@@ -7,6 +8,7 @@ from backend.core import clock
 from backend.core.errors import AppError, NotFound
 from backend.modules.courses.models import Course, Group
 from backend.modules.organization.service import get_org
+from backend.modules.payments.models import Payment
 from backend.modules.plans.models import Plan
 
 from .models import Member
@@ -38,7 +40,26 @@ def search_filter(q: str):
     )
 
 
-def to_out(member: Member, status: str) -> MemberOut:
+def balance_expr():
+    """Correlated subquery: charged minus paid over the member's non-refunded payments."""
+    return (
+        select(func.coalesce(func.sum(Payment.amount_due - Payment.amount), 0))
+        .where(Payment.member_id == Member.id, Payment.refunded_at.is_(None))
+        .scalar_subquery()
+        .label("balance")
+    )
+
+
+def balance_of(db: Session, member_id: int) -> Decimal:
+    return Decimal(db.scalar(select(balance_expr()).where(Member.id == member_id)) or 0)
+
+
+def member_rows(db: Session):
+    """``select`` of (Member, status, balance), the row shape ``to_out`` expects."""
+    return select(Member, status_expr(db), balance_expr())
+
+
+def to_out(member: Member, status: str, balance: Decimal | int = 0) -> MemberOut:
     return MemberOut(
         id=member.id,
         first_name=member.first_name,
@@ -61,6 +82,7 @@ def to_out(member: Member, status: str) -> MemberOut:
         joined_on=member.joined_on,
         paid_until=member.paid_until,
         status=status,
+        balance=Decimal(balance or 0),
     )
 
 
@@ -72,7 +94,7 @@ def get_member(db: Session, member_id: int) -> Member:
 
 
 def read(db: Session, member_id: int) -> MemberOut:
-    row = db.execute(select(Member, status_expr(db)).where(Member.id == member_id)).first()
+    row = db.execute(member_rows(db).where(Member.id == member_id)).first()
     if row is None:
         raise NotFound("Member not found")
     return to_out(*row)

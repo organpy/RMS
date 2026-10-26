@@ -32,7 +32,7 @@ def _query(
     sort: Sort,
 ):
     status_col = service.status_expr(db)
-    stmt = select(Member, status_col)
+    stmt = service.member_rows(db)
     if q:
         stmt = stmt.where(service.search_filter(q))
     if status:
@@ -80,8 +80,8 @@ def export_csv(
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(["First name", "Last name", "Email", "Phone", "Course", "Group", "Plan", "Joined", "Paid until", "Status"])
-    for member, status_value in rows:
-        m = service.to_out(member, status_value)
+    for row in rows:
+        m = service.to_out(*row)
         writer.writerow([m.first_name, m.last_name, m.email, m.phone, m.course_name, m.group_name, m.plan_name, m.joined_on, m.paid_until, m.status])
     headers = {"Content-Disposition": 'attachment; filename="members.csv"'}
     return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv", headers=headers)
