@@ -25,6 +25,7 @@ from .modules.organization.router import router as organization_router
 from .modules.payments.router import router as payments_router
 from .modules.plans.router import router as plans_router
 from .modules.reminders.router import router as reminders_router
+from .modules.reports.router import router as reports_router
 from .modules.staff.router import router as staff_router
 
 
@@ -52,6 +53,7 @@ ROUTERS = (
     payments_router,
     invoices_router,
     reminders_router,
+    reports_router,
     messaging_router,
     dashboard_router,
     analytics_router,
