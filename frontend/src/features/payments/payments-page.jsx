@@ -20,6 +20,7 @@ import { date, money } from '@/lib/format'
 
 import { invoiceUrl, useEmailInvoice, usePayments, useRefund } from './api'
 import { PaymentDialog } from './payment-dialog'
+import { PaymentsTabs } from './payments-tabs'
 
 const SIZE = 25
 const METHOD = { cash: 'Cash', card: 'Card', transfer: 'Transfer', other: 'Other' }
@@ -51,6 +52,8 @@ export default function PaymentsPage() {
           <Plus /> Record payment
         </Button>
       </PageHeader>
+
+      <PaymentsTabs />
 
       <div className="mb-4 flex flex-wrap gap-2">
         <div className="relative min-w-56 flex-1">
