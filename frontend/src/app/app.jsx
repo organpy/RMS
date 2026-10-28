@@ -17,6 +17,7 @@ const RosterPage = lazy(() => import('@/features/courses/roster-page'))
 const PlansPage = lazy(() => import('@/features/plans/plans-page'))
 const PaymentsPage = lazy(() => import('@/features/payments/payments-page'))
 const DailyReportPage = lazy(() => import('@/features/payments/daily-report-page'))
+const ExpensesPage = lazy(() => import('@/features/expenses/expenses-page'))
 const RemindersPage = lazy(() => import('@/features/reminders/reminders-page'))
 const AnalyticsPage = lazy(() => import('@/features/analytics/analytics-page'))
 const SettingsPage = lazy(() => import('@/features/settings/settings-page'))
@@ -47,6 +48,7 @@ export function App() {
               <Route path="plans" element={<PlansPage />} />
               <Route path="payments" element={<PaymentsPage />} />
               <Route path="payments/daily" element={<DailyReportPage />} />
+              <Route path="expenses" element={<ExpensesPage />} />
               <Route path="reminders" element={<RemindersPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="settings" element={<SettingsPage />} />

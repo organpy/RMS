@@ -99,6 +99,27 @@ export default function DailyReportPage() {
             <Lines lines={data.payments} empty="Nothing collected on this day." />
           </Card>
 
+          {data.expenses.length > 0 && (
+            <Card>
+              <h2 className="flex justify-between border-b px-4 py-3 text-[13px] font-medium">
+                <span>Expenses</span>
+                <span className="tabular text-danger">−{money(data.expenses_total)}</span>
+              </h2>
+              <ul className="divide-y">
+                {data.expenses.map((e) => (
+                  <li key={e.id} className="flex items-center gap-3 px-4 py-2.5 text-[13px]">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{e.description}</p>
+                      <p className="text-xs text-muted-foreground">{e.category}</p>
+                    </div>
+                    <span className="text-xs text-muted-foreground capitalize">{e.method}</span>
+                    <span className="tabular w-20 text-right">{money(e.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
           {data.refunds.length > 0 && (
             <Card>
               <h2 className="flex justify-between border-b px-4 py-3 text-[13px] font-medium">
