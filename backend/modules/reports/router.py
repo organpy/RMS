@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from backend.core import clock
 from backend.core.db import get_db
 from backend.core.security import current_staff
+from backend.modules.expenses.models import Expense
 from backend.modules.payments.models import Payment
 from backend.modules.staff.models import Staff
 
@@ -32,6 +33,14 @@ class StaffTotal(BaseModel):
     by_method: dict[str, Decimal]
 
 
+class ExpenseLine(BaseModel):
+    id: int
+    category: str
+    description: str
+    amount: Decimal
+    method: str
+
+
 class DailyReport(BaseModel):
     date: date
     total: Decimal
@@ -41,6 +50,8 @@ class DailyReport(BaseModel):
     payments: list[Line]
     refunds: list[Line]
     refunded_total: Decimal
+    expenses: list[ExpenseLine]
+    expenses_total: Decimal
 
 
 def _lines(db: Session, *where) -> list[Line]:
@@ -78,6 +89,10 @@ def daily(day: Optional[date] = None, db: Session = Depends(get_db)) -> DailyRep
         entry = staff_totals.setdefault(line.staff_name, StaffTotal(staff_name=line.staff_name, total=Decimal(0), by_method={}))
         entry.total += line.amount
         entry.by_method[line.method] = entry.by_method.get(line.method, Decimal(0)) + line.amount
+    expenses = [
+        ExpenseLine(id=e.id, category=e.category, description=e.description, amount=e.amount, method=e.method)
+        for e in db.scalars(select(Expense).where(Expense.spent_on == day).order_by(Expense.id))
+    ]
     return DailyReport(
         date=day,
         total=sum((p.amount for p in payments), Decimal(0)),
@@ -87,4 +102,6 @@ def daily(day: Optional[date] = None, db: Session = Depends(get_db)) -> DailyRep
         payments=payments,
         refunds=refunds,
         refunded_total=sum((r.amount for r in refunds), Decimal(0)),
+        expenses=expenses,
+        expenses_total=sum((e.amount for e in expenses), Decimal(0)),
     )

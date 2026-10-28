@@ -18,6 +18,7 @@ from .modules.backups.router import router as backups_router
 from .modules.courses.router import router as courses_router
 from .modules.dashboard.router import router as dashboard_router
 from .modules.invoices.router import router as invoices_router
+from .modules.expenses.router import router as expenses_router
 from .modules.members.router import router as members_router
 from .modules.messaging import auto as auto_reminders
 from .modules.messaging.router import router as messaging_router
@@ -51,6 +52,7 @@ ROUTERS = (
     plans_router,
     members_router,
     payments_router,
+    expenses_router,
     invoices_router,
     reminders_router,
     reports_router,
