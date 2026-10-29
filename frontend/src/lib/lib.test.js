@@ -4,6 +4,7 @@ import { reminderLink } from '@/features/reminders/links'
 
 import { api, url } from './api'
 import { configureFormat, initials, money } from './format'
+import { percentChange, presetRange } from './ranges'
 import { applyBrand } from './theme'
 
 describe('url', () => {
@@ -49,5 +50,20 @@ describe('reminderLink', () => {
   it('builds channel links', () => {
     expect(reminderLink('email', item, 'Due')).toBe('mailto:a@b.co?subject=Due&body=Hi%20%26%20bye')
     expect(reminderLink('whatsapp', item)).toBe('https://wa.me/3361234?text=Hi%20%26%20bye')
+  })
+})
+
+describe('report ranges', () => {
+  const now = new Date(2026, 2, 10) // 10 March 2026
+  it('builds month-based presets ending today or last month', () => {
+    expect(presetRange('this-month', now)).toEqual(['2026-03-01', '2026-03-10'])
+    expect(presetRange('last-month', now)).toEqual(['2026-02-01', '2026-02-28'])
+    expect(presetRange('3', now)).toEqual(['2026-01-01', '2026-03-10'])
+    expect(presetRange('12', now)).toEqual(['2025-04-01', '2026-03-10'])
+  })
+  it('computes relative change only when there is a baseline', () => {
+    expect(percentChange(150, 100)).toBe(0.5)
+    expect(percentChange(50, 100)).toBe(-0.5)
+    expect(percentChange(10, 0)).toBeNull()
   })
 })

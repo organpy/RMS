@@ -35,7 +35,7 @@ def test_kpis_series_and_breakdowns(admin, monkeypatch):
     assert float(k["arpu"]) == 26  # 52 over the two members who paid
     assert k["collection_rate"] == 0.912  # 52 collected of 57 charged
     assert k["active_members"] == 1  # only B is still covered on 10 March
-    assert k["churned"] == 1 and k["churn_rate"] is None  # A lapsed on 5 March; nobody was active before January
+    assert k["churned"] == 1 and k["churn_rate"] == 0.5  # A lapsed on 5 March while B is still covered
     assert k["attendance_rate"] == 0.5
 
     jan, feb, mar = d["months"]

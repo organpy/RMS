@@ -45,7 +45,7 @@ class Kpis(BaseModel):
     arpu: Decimal  # collected per member who paid in the range
     collection_rate: Optional[float]  # share of what was charged that was actually collected
     churned: int  # members whose coverage ended in the range and who have not renewed
-    churn_rate: Optional[float]
+    churn_rate: Optional[float]  # lapsed / (lapsed + still covered)
     attendance_rate: Optional[float]
 
 
@@ -152,6 +152,7 @@ def compute(db: Session, start: date, end: date) -> Analytics:
         select(func.coalesce(attended, 0), func.count()).select_from(Attendance).join(ClassSession).where(ClassSession.held_on >= start, ClassSession.held_on <= end)
     ).one()
 
+    active_end = active_on(min(end, today))
     kpis = Kpis(
         collected=collected,
         collected_prev=collected_prev,
@@ -162,11 +163,11 @@ def compute(db: Session, start: date, end: date) -> Analytics:
         payments=count,
         new_members=joined(start, end),
         new_members_prev=joined(prev_start, prev_end),
-        active_members=active_on(min(end, today)),
+        active_members=active_end,
         arpu=(collected / paying).quantize(Decimal("0.01")) if paying else ZERO,
         collection_rate=_ratio(collected, charged),
         churned=churned,
-        churn_rate=_ratio(churned, active_on(start - timedelta(days=1))),
+        churn_rate=_ratio(churned, churned + active_end),
         attendance_rate=_ratio(att_hit, att_total),
     )
 
