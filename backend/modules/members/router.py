@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from backend.core.db import get_db
 from backend.core.pagination import Page, Paging, paginate
 from backend.core.security import current_staff, require_admin
+from backend.modules.audit.service import audit
 
 from . import service
 from .models import Member
@@ -93,32 +94,41 @@ def read_member(member_id: int, db: Session = Depends(get_db)) -> MemberOut:
 
 
 @router.post("", response_model=MemberOut, status_code=201)
-def create_member(body: MemberIn, db: Session = Depends(get_db)) -> MemberOut:
+def create_member(body: MemberIn, db: Session = Depends(get_db), staff=Depends(current_staff)) -> MemberOut:
     data = body.model_dump(exclude_none=True)
     member = Member(**data)
     service.validate_links(db, member)
     db.add(member)
+    db.flush()
+    audit(db, staff, "created", "member", member.id, member.full_name)
     db.commit()
     return service.read(db, member.id)
 
 
 @router.patch("/{member_id}", response_model=MemberOut)
-def update_member(member_id: int, body: MemberUpdate, db: Session = Depends(get_db)) -> MemberOut:
+def update_member(member_id: int, body: MemberUpdate, db: Session = Depends(get_db), staff=Depends(current_staff)) -> MemberOut:
     member = service.get_member(db, member_id)
     data = body.model_dump(exclude_unset=True)
+    action = "updated"
     if "archived" in data:
-        member.archived_at = datetime.now(timezone.utc) if data.pop("archived") else None
+        archived = data.pop("archived")
+        member.archived_at = datetime.now(timezone.utc) if archived else None
+        action = "archived" if archived else "restored"
+    changed = ", ".join(sorted(data)) or "status"
     if "course_id" in data and "group_id" not in data and data["course_id"] != member.course_id:
         member.group_id = None
     for key, value in data.items():
         setattr(member, key, value)
     service.validate_links(db, member)
+    audit(db, staff, action, "member", member.id, f"{member.full_name} ({changed})" if action == "updated" else member.full_name)
     db.commit()
     return service.read(db, member.id)
 
 
-@router.delete("/{member_id}", status_code=204, dependencies=[Depends(require_admin)])
-def delete_member(member_id: int, db: Session = Depends(get_db)) -> None:
+@router.delete("/{member_id}", status_code=204)
+def delete_member(member_id: int, db: Session = Depends(get_db), staff=Depends(require_admin)) -> None:
     """Permanently delete a member and their payment history (admins only)."""
-    db.delete(service.get_member(db, member_id))
+    member = service.get_member(db, member_id)
+    audit(db, staff, "deleted", "member", member.id, member.full_name)
+    db.delete(member)
     db.commit()

@@ -13,6 +13,7 @@ from backend.core.db import get_db
 from backend.core.errors import Conflict
 from backend.core.pagination import Paging, paginate
 from backend.core.security import current_staff
+from backend.modules.audit.service import audit
 from backend.modules.members.models import Member
 from backend.modules.members.service import search_filter
 
@@ -84,10 +85,11 @@ def export_csv(filters: dict = Depends(_filters), db: Session = Depends(get_db))
 @router.post("", response_model=PaymentOut, status_code=201)
 def create_payment(body: PaymentIn, db: Session = Depends(get_db), staff=Depends(current_staff)) -> PaymentOut:
     payment = service.record(db, body, staff.id)
+    audit(db, staff, "created", "payment", payment.id, f"{payment.invoice_number} · {payment.member.full_name} · {payment.amount:.2f}")
     out = service.to_out(payment)
     if body.email_invoice:
         out.invoice_email = invoices.email_invoice(db, payment, staff.id).status
-        db.commit()
+    db.commit()
     return out
 
 
@@ -97,21 +99,23 @@ def read_payment(payment_id: int, db: Session = Depends(get_db)) -> PaymentOut:
 
 
 @router.patch("/{payment_id}", response_model=PaymentOut)
-def update_payment(payment_id: int, body: PaymentUpdate, db: Session = Depends(get_db)) -> PaymentOut:
+def update_payment(payment_id: int, body: PaymentUpdate, db: Session = Depends(get_db), staff=Depends(current_staff)) -> PaymentOut:
     payment = service.get_payment(db, payment_id)
     for key, value in body.model_dump(exclude_unset=True).items():
         setattr(payment, key, value)
+    audit(db, staff, "updated", "payment", payment.id, payment.invoice_number)
     db.commit()
     return service.to_out(payment)
 
 
 @router.post("/{payment_id}/refund", response_model=PaymentOut)
-def refund_payment(payment_id: int, db: Session = Depends(get_db)) -> PaymentOut:
+def refund_payment(payment_id: int, db: Session = Depends(get_db), staff=Depends(current_staff)) -> PaymentOut:
     payment = service.get_payment(db, payment_id)
     if payment.refunded_at:
         raise Conflict("Payment already refunded")
     payment.refunded_at = datetime.now(timezone.utc)
     db.flush()
     service.refresh_paid_until(db, db.get(Member, payment.member_id))
+    audit(db, staff, "refunded", "payment", payment.id, f"{payment.invoice_number} · {payment.member.full_name} · {payment.amount:.2f}")
     db.commit()
     return service.to_out(payment)

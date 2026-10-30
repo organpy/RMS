@@ -5,6 +5,7 @@ from backend.core.config import get_settings
 from backend.core.db import get_db
 from backend.core.errors import AppError, NotFound
 from backend.core.security import current_staff, require_admin
+from backend.modules.audit.service import audit
 
 from .schemas import OrganizationOut, OrganizationUpdate
 from .service import get_org
@@ -29,18 +30,21 @@ def read(db: Session = Depends(get_db)) -> OrganizationOut:
 CLEARABLE = {"email", "phone", "address", "tax_id", "invoice_note"}
 
 
-@router.patch("", response_model=OrganizationOut, dependencies=[Depends(require_admin)])
-def update(body: OrganizationUpdate, db: Session = Depends(get_db)) -> OrganizationOut:
+@router.patch("", response_model=OrganizationOut)
+def update(body: OrganizationUpdate, db: Session = Depends(get_db), staff=Depends(require_admin)) -> OrganizationOut:
     org = get_org(db)
+    changed = []
     for key, value in body.model_dump(exclude_unset=True).items():
         if value is not None or key in CLEARABLE:
             setattr(org, key, value)
+            changed.append(key)
+    audit(db, staff, "updated", "settings", None, ", ".join(changed))
     db.commit()
     return _out(org)
 
 
-@router.put("/logo", response_model=OrganizationOut, dependencies=[Depends(require_admin)])
-def upload_logo(file: UploadFile, db: Session = Depends(get_db)) -> OrganizationOut:
+@router.put("/logo", response_model=OrganizationOut)
+def upload_logo(file: UploadFile, db: Session = Depends(get_db), staff=Depends(require_admin)) -> OrganizationOut:
     data = file.file.read(MAX_LOGO_BYTES + 1)
     if len(data) > MAX_LOGO_BYTES:
         raise AppError("Logo must be 1 MB or smaller")
@@ -50,15 +54,17 @@ def upload_logo(file: UploadFile, db: Session = Depends(get_db)) -> Organization
     get_settings().logo_path.write_bytes(data)
     org = get_org(db)
     org.logo_mime = mime
+    audit(db, staff, "updated", "settings", None, "logo")
     db.commit()
     return _out(org)
 
 
-@router.delete("/logo", response_model=OrganizationOut, dependencies=[Depends(require_admin)])
-def delete_logo(db: Session = Depends(get_db)) -> OrganizationOut:
+@router.delete("/logo", response_model=OrganizationOut)
+def delete_logo(db: Session = Depends(get_db), staff=Depends(require_admin)) -> OrganizationOut:
     get_settings().logo_path.unlink(missing_ok=True)
     org = get_org(db)
     org.logo_mime = None
+    audit(db, staff, "deleted", "settings", None, "logo")
     db.commit()
     return _out(org)
 

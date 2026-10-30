@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from backend.core.db import get_db
 from backend.core.errors import NotFound
 from backend.core.security import current_staff
+from backend.modules.audit.service import audit
 from backend.modules.courses.models import Course
 
 from .models import Plan
@@ -40,27 +41,34 @@ def list_plans(
 
 
 @router.post("", response_model=PlanOut, status_code=201)
-def create_plan(body: PlanIn, db: Session = Depends(get_db)) -> PlanOut:
+def create_plan(body: PlanIn, db: Session = Depends(get_db), staff=Depends(current_staff)) -> PlanOut:
     _check_course(db, body.course_id)
     plan = Plan(**body.model_dump())
     db.add(plan)
+    db.flush()
+    audit(db, staff, "created", "plan", plan.id, plan.name)
     db.commit()
     db.refresh(plan)
     return _out(plan)
 
 
 @router.patch("/{plan_id}", response_model=PlanOut)
-def update_plan(plan_id: int, body: PlanUpdate, db: Session = Depends(get_db)) -> PlanOut:
+def update_plan(plan_id: int, body: PlanUpdate, db: Session = Depends(get_db), staff=Depends(current_staff)) -> PlanOut:
     plan = db.get(Plan, plan_id)
     if plan is None:
         raise NotFound("Plan not found")
     data = body.model_dump(exclude_unset=True)
+    action = "updated"
     if "archived" in data:
-        plan.archived_at = datetime.now(timezone.utc) if data.pop("archived") else None
+        archived = data.pop("archived")
+        plan.archived_at = datetime.now(timezone.utc) if archived else None
+        action = "archived" if archived else "restored"
+    changed = ", ".join(sorted(data))
     if "course_id" in data:
         _check_course(db, data["course_id"])
     for key, value in data.items():
         setattr(plan, key, value)
+    audit(db, staff, action, "plan", plan.id, f"{plan.name} ({changed})" if changed else plan.name)
     db.commit()
     db.refresh(plan)
     return _out(plan)

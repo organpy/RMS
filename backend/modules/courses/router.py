@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 from backend.core.db import get_db
 from backend.core.errors import Conflict, NotFound
 from backend.core.security import current_staff
+from backend.modules.audit.service import audit
 from backend.modules.attendance.service import rates as attendance_rates
 from backend.modules.members.models import Member
 from backend.modules.members.service import status_expr
@@ -90,59 +91,70 @@ def roster(course_id: int, db: Session = Depends(get_db)) -> Roster:
 
 
 @router.post("/courses", response_model=CourseOut, status_code=201)
-def create_course(body: CourseIn, db: Session = Depends(get_db)) -> CourseOut:
+def create_course(body: CourseIn, db: Session = Depends(get_db), staff=Depends(current_staff)) -> CourseOut:
     course = Course(**body.model_dump())
     db.add(course)
+    db.flush()
+    audit(db, staff, "created", "course", course.id, course.name)
     db.commit()
     return _single(db, course)
 
 
 @router.patch("/courses/{course_id}", response_model=CourseOut)
-def update_course(course_id: int, body: CourseUpdate, db: Session = Depends(get_db)) -> CourseOut:
+def update_course(course_id: int, body: CourseUpdate, db: Session = Depends(get_db), staff=Depends(current_staff)) -> CourseOut:
     course = _get(db, course_id)
     data = body.model_dump(exclude_unset=True)
+    action = "updated"
     if "archived" in data:
-        course.archived_at = datetime.now(timezone.utc) if data.pop("archived") else None
+        archived = data.pop("archived")
+        course.archived_at = datetime.now(timezone.utc) if archived else None
+        action = "archived" if archived else "restored"
     for key, value in data.items():
         setattr(course, key, value)
+    audit(db, staff, action, "course", course.id, course.name)
     db.commit()
     return _single(db, course)
 
 
 @router.delete("/courses/{course_id}", status_code=204)
-def delete_course(course_id: int, db: Session = Depends(get_db)) -> None:
+def delete_course(course_id: int, db: Session = Depends(get_db), staff=Depends(current_staff)) -> None:
     course = _get(db, course_id)
     if db.scalar(select(func.count()).where(Member.course_id == course_id)):
         raise Conflict("Course has members — archive it instead")
+    audit(db, staff, "deleted", "course", course.id, course.name)
     db.delete(course)
     db.commit()
 
 
 @router.post("/courses/{course_id}/groups", response_model=GroupOut, status_code=201)
-def create_group(course_id: int, body: GroupIn, db: Session = Depends(get_db)) -> Group:
-    _get(db, course_id)
+def create_group(course_id: int, body: GroupIn, db: Session = Depends(get_db), staff=Depends(current_staff)) -> Group:
+    course = _get(db, course_id)
     group = Group(course_id=course_id, **body.model_dump())
     db.add(group)
+    db.flush()
+    audit(db, staff, "created", "group", group.id, f"{course.name} · {group.name}")
     db.commit()
     return group
 
 
 @router.patch("/groups/{group_id}", response_model=GroupOut)
-def update_group(group_id: int, body: GroupIn, db: Session = Depends(get_db)) -> Group:
+def update_group(group_id: int, body: GroupIn, db: Session = Depends(get_db), staff=Depends(current_staff)) -> Group:
     group = db.get(Group, group_id)
     if group is None:
         raise NotFound("Group not found")
     for key, value in body.model_dump().items():
         setattr(group, key, value)
+    audit(db, staff, "updated", "group", group.id, f"{group.course.name} · {group.name}")
     db.commit()
     return group
 
 
 @router.delete("/groups/{group_id}", status_code=204)
-def delete_group(group_id: int, db: Session = Depends(get_db)) -> None:
+def delete_group(group_id: int, db: Session = Depends(get_db), staff=Depends(current_staff)) -> None:
     """Members of a deleted group stay enrolled in the course, just without a group."""
     group = db.get(Group, group_id)
     if group is None:
         raise NotFound("Group not found")
+    audit(db, staff, "deleted", "group", group.id, f"{group.course.name} · {group.name}")
     db.delete(group)
     db.commit()

@@ -14,6 +14,7 @@ from backend.core.db import get_db
 from backend.core.errors import NotFound
 from backend.core.pagination import Paging, paginate
 from backend.core.security import current_staff
+from backend.modules.audit.service import audit
 from backend.modules.staff.models import Staff
 
 from .models import Expense
@@ -88,20 +89,25 @@ def create_expense(body: ExpenseIn, db: Session = Depends(get_db), staff=Depends
     data["category"] = data["category"].strip()
     expense = Expense(**data, staff_id=staff.id)
     db.add(expense)
+    db.flush()
+    audit(db, staff, "created", "expense", expense.id, f"{expense.category} · {expense.description} · {expense.amount:.2f}")
     db.commit()
     return _out(expense, staff.name)
 
 
 @router.patch("/{expense_id}", response_model=ExpenseOut)
-def update_expense(expense_id: int, body: ExpenseUpdate, db: Session = Depends(get_db)) -> ExpenseOut:
+def update_expense(expense_id: int, body: ExpenseUpdate, db: Session = Depends(get_db), staff=Depends(current_staff)) -> ExpenseOut:
     expense = _get(db, expense_id)
     for key, value in body.model_dump(exclude_unset=True, exclude_none=True).items():
         setattr(expense, key, value)
+    audit(db, staff, "updated", "expense", expense.id, f"{expense.category} · {expense.description} · {expense.amount:.2f}")
     db.commit()
     return _out(expense, db.scalar(select(Staff.name).where(Staff.id == expense.staff_id)))
 
 
 @router.delete("/{expense_id}", status_code=204)
-def delete_expense(expense_id: int, db: Session = Depends(get_db)) -> None:
-    db.delete(_get(db, expense_id))
+def delete_expense(expense_id: int, db: Session = Depends(get_db), staff=Depends(current_staff)) -> None:
+    expense = _get(db, expense_id)
+    audit(db, staff, "deleted", "expense", expense.id, f"{expense.category} · {expense.description} · {expense.amount:.2f}")
+    db.delete(expense)
     db.commit()
