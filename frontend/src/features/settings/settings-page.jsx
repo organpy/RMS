@@ -6,6 +6,7 @@ import { useMe } from '@/features/auth/api'
 import { useOrg } from '@/features/organization/api'
 
 import { AccountSection } from './account-section'
+import { AuditSection } from './audit-section'
 import { BackupsSection } from './backups-section'
 import { BrandingSection } from './branding-section'
 import { BillingSection, OrganizationSection } from './organization-section'
@@ -37,6 +38,7 @@ export default function SettingsPage() {
               <RemindersSection org={org} />
               <StaffSection />
               <BackupsSection />
+              <AuditSection />
             </>
           )}
           <AccountSection />
