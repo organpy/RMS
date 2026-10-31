@@ -31,8 +31,9 @@ def test_dry_run_reports_rows_without_inserting(admin, setup):
     assert r["preview"] == ["Ana Silva · ana@example.com"]
     messages = {e["row"]: e["message"] for e in r["errors"]}
     assert set(messages) == {3, 4, 5, 6, 7, 8}
-    assert "email" in messages[3] and "Unknown course “Chess”" in messages[4]
+    assert messages[3] == "Email is not a valid email address" and "Unknown course “Chess”" in messages[4]
     assert "Unknown group “Advanced”" in messages[5] and "Unknown plan “Gold”" in messages[6]
+    assert messages[7] == "Joined date must look like 2026-09-01" and messages[8] == "First name is required"
     assert admin.get("/api/members").json()["total"] == 0
 
 

@@ -1,4 +1,4 @@
-import { Download, Plus, Search, Users } from 'lucide-react'
+import { Download, Plus, Search, Upload, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { EmptyState, PageHeader } from '@/components/page'
@@ -16,6 +16,7 @@ import { download } from '@/lib/download'
 import { date, money } from '@/lib/format'
 
 import { useMembers } from './api'
+import { ImportDialog } from './import-dialog'
 import { MemberFormDialog } from './member-form'
 import { MemberSheet } from './member-sheet'
 
@@ -31,6 +32,7 @@ const STATUSES = [
 export default function MembersPage() {
   const [params, patch] = useParamsState()
   const [search, setSearch] = useState(params.q ?? '')
+  const [importing, setImporting] = useState(false)
   const q = useDebounced(search.trim())
   const { data: courses = [] } = useCourses()
   const page = Number(params.page ?? 1)
@@ -48,6 +50,9 @@ export default function MembersPage() {
   return (
     <>
       <PageHeader title="Members" description={data ? `${data.total.toLocaleString()} ${filtered ? 'matching' : 'current'} members` : ' '}>
+        <Button variant="outline" onClick={() => setImporting(true)}>
+          <Upload /> Import
+        </Button>
         <Button variant="outline" onClick={() => download('/members/export.csv', filters, 'members.csv')}>
           <Download /> Export
         </Button>
@@ -139,6 +144,7 @@ export default function MembersPage() {
       </Card>
 
       <MemberFormDialog open={!!params.new} onOpenChange={(o) => !o && patch({ new: null })} onSaved={(m) => patch({ open: m.id })} />
+      <ImportDialog open={importing} onOpenChange={setImporting} />
       <MemberSheet memberId={params.open ? Number(params.open) : null} onClose={() => patch({ open: null })} />
     </>
   )

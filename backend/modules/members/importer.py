@@ -32,6 +32,7 @@ ALIASES = {
     "guardianphone": "guardian_phone", "guardianemail": "guardian_email",
     "notes": "notes",
 }  # fmt: skip
+LABELS = {"first_name": "First name", "last_name": "Last name", "email": "Email", "joined_on": "Joined date", "discount_percent": "Discount", "guardian_email": "Guardian email"}
 TEMPLATE_HEADER = ["First name", "Last name", "Email", "Phone", "Course", "Group", "Plan", "Joined", "Discount", "Guardian", "Guardian phone", "Guardian email", "Notes"]
 TEMPLATE_EXAMPLE = ["Ana", "Silva", "ana@example.com", "+1 555 0100", "Piano", "Beginners", "Monthly", "2026-09-01", "10", "", "", "", ""]
 
@@ -120,8 +121,7 @@ def run(db: Session, raw: bytes, dry_run: bool) -> ImportResult:
         except _Invalid as exc:
             errors.append(RowError(row=index, message=str(exc)))
         except ValidationError as exc:
-            first = exc.errors()[0]
-            errors.append(RowError(row=index, message=f"{first['loc'][0] if first['loc'] else 'row'}: {first['msg'].removeprefix('Value error, ')}"))
+            errors.append(RowError(row=index, message=_describe(exc.errors()[0])))
         except AppError as exc:
             errors.append(RowError(row=index, message=exc.detail))
         else:
@@ -132,6 +132,19 @@ def run(db: Session, raw: bytes, dry_run: bool) -> ImportResult:
     if not dry_run:
         db.add_all(members)
     return ImportResult(total=len(rows), valid=len(members), created=0 if dry_run else len(members), errors=errors[:200], preview=preview)
+
+
+def _describe(error: dict) -> str:
+    field = str(error["loc"][0]) if error["loc"] else "row"
+    label = LABELS.get(field, field.replace("_", " ").capitalize())
+    msg = error["msg"].removeprefix("Value error, ")
+    if error["type"] == "missing" or error["type"] == "string_too_short":
+        return f"{label} is required"
+    if "email" in field:
+        return f"{label} is not a valid email address"
+    if error["type"].startswith("date"):
+        return f"{label} must look like 2026-09-01"
+    return f"{label}: {msg}"
 
 
 class _Invalid(Exception):
