@@ -3,7 +3,7 @@ import io
 from datetime import datetime, timezone
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -13,7 +13,7 @@ from backend.core.pagination import Page, Paging, paginate
 from backend.core.security import current_staff, require_admin
 from backend.modules.audit.service import audit
 
-from . import service
+from . import importer, service
 from .models import Member
 from .schemas import MemberIn, MemberOut, MemberUpdate, Status
 
@@ -86,6 +86,26 @@ def export_csv(
         writer.writerow([m.first_name, m.last_name, m.email, m.phone, m.course_name, m.group_name, m.plan_name, m.joined_on, m.paid_until, m.status])
     headers = {"Content-Disposition": 'attachment; filename="members.csv"'}
     return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv", headers=headers)
+
+
+@router.get("/import/template.csv")
+def import_template() -> StreamingResponse:
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(importer.TEMPLATE_HEADER)
+    writer.writerow(importer.TEMPLATE_EXAMPLE)
+    headers = {"Content-Disposition": 'attachment; filename="members-template.csv"'}
+    return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv", headers=headers)
+
+
+@router.post("/import", response_model=importer.ImportResult)
+def import_members(file: UploadFile, dry_run: bool = True, db: Session = Depends(get_db), staff=Depends(current_staff)) -> importer.ImportResult:
+    """Validate a CSV of members; with ``dry_run=false`` the valid rows are inserted (invalid rows are skipped)."""
+    result = importer.run(db, file.file.read(importer.MAX_BYTES + 1), dry_run)
+    if not dry_run and result.created:
+        audit(db, staff, "imported", "member", None, f"{result.created} members from {file.filename or 'CSV'}")
+    db.commit()
+    return result
 
 
 @router.get("/{member_id}", response_model=MemberOut)
