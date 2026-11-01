@@ -21,6 +21,10 @@ def head_revision() -> str:
     return ScriptDirectory.from_config(_config()).get_current_head()
 
 
+def known_revisions() -> set[str]:
+    return {r.revision for r in ScriptDirectory.from_config(_config()).walk_revisions()}
+
+
 def upgrade(engine: Engine) -> None:
     cfg = _config()
     with engine.begin() as connection:

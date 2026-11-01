@@ -11,6 +11,7 @@ import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from backend.core import db, migrate  # noqa: E402
+from backend.core.config import get_settings  # noqa: E402
 from backend.core.security import throttle  # noqa: E402
 
 _TEMPLATE = _DATA / "template.db"
@@ -29,6 +30,7 @@ def _template_db():
 def fresh_db(tmp_path):
     path = tmp_path / "rms.db"
     shutil.copy(_TEMPLATE, path)
+    shutil.rmtree(get_settings().backups_dir, ignore_errors=True)  # backups must not leak between tests
     db.rebind(db.make_engine(f"sqlite:///{path}"))
     throttle._failures.clear()
     yield path

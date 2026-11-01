@@ -85,7 +85,8 @@ def prune(keep: int, kind: str = "scheduled") -> None:
         (_dir() / backup.filename).unlink(missing_ok=True)
 
 
-def _validate_db(path: Path) -> None:
+def _validate_db(path: Path) -> str:
+    """Check the file is an RMS database from this or an older version; returns its schema revision."""
     if path.read_bytes()[:16] != b"SQLite format 3\x00":
         raise AppError("Backup does not contain a valid database")
     with closing(sqlite3.connect(path)) as con:
@@ -94,10 +95,11 @@ def _validate_db(path: Path) -> None:
             staff = con.execute("SELECT count(*) FROM staff").fetchone()[0]
         except sqlite3.DatabaseError:
             raise AppError("Backup does not contain an RMS database") from None
-    if not revision or revision[0] != migrate.head_revision():
-        raise AppError("Backup was made with an incompatible version of RMS")
+    if not revision or revision[0] not in migrate.known_revisions():
+        raise AppError("Backup was made with a newer or unknown version of RMS")
     if not staff:
         raise AppError("Backup contains no staff accounts")
+    return revision[0]
 
 
 def restore(upload: BinaryIO) -> None:
@@ -124,7 +126,13 @@ def restore(upload: BinaryIO) -> None:
             new_db = Path(tmp) / "rms.db"
             new_db.write_bytes(zf.read("rms.db"))
             logo = zf.read("logo") if "logo" in names else None
-        _validate_db(new_db)
+        if _validate_db(new_db) != migrate.head_revision():
+            # Bring an older backup up to date on the temporary copy, so a failure never touches the live database.
+            engine = db.make_engine(f"sqlite:///{new_db}")
+            try:
+                migrate.upgrade(engine)
+            finally:
+                engine.dispose()
 
         create("pre-restore")
         db.engine.dispose()
