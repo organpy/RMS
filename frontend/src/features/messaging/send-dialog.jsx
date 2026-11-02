@@ -8,7 +8,7 @@ import { Field, Input, Select, Textarea } from '@/components/ui/input'
 
 import { CHANNEL_LABELS, useMessagingStatus, useSendMessages } from './api'
 
-const PLACEHOLDERS = '{first_name} {last_name} {plan} {amount} {due_date} {organization}'
+const PLACEHOLDERS = '{first_name} {last_name} {plan} {amount} {balance} {due_date} {organization}'
 
 function SendForm({ target, onDone }) {
   const { data: status = {} } = useMessagingStatus()

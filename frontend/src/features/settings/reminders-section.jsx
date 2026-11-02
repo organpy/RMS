@@ -4,7 +4,7 @@ import { useMessagingStatus } from '@/features/messaging/api'
 import { SaveBar, useOrgForm } from './organization-section'
 import { Section } from './section'
 
-const PLACEHOLDERS = ['first_name', 'last_name', 'plan', 'amount', 'due_date', 'organization']
+const PLACEHOLDERS = ['first_name', 'last_name', 'plan', 'amount', 'balance', 'due_date', 'organization']
 
 export function RemindersSection({ org }) {
   const form = useOrgForm(org, ['reminder_template', 'auto_remind', 'remind_before_days', 'remind_after_days'])
