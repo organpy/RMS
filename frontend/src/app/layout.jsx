@@ -1,4 +1,4 @@
-import { ChevronsUpDown, LogOut, Menu as MenuIcon, Monitor, Moon, Search, Sun } from 'lucide-react'
+import { ChevronsUpDown, LogOut, Menu as MenuIcon, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Search, Sun } from 'lucide-react'
 import { Suspense, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Sheet } from '@/components/ui/dialog'
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from '@/components/ui/dropdown'
 import { useLogout, useMe } from '@/features/auth/api'
+import { useStored } from '@/hooks/use-stored'
 import { useLogoVersion, useOrg } from '@/features/organization/api'
 import { cn } from '@/lib/cn'
 import { configureFormat, initials } from '@/lib/format'
@@ -24,7 +25,7 @@ function OrgMark({ org }) {
   )
 }
 
-function Nav({ onNavigate }) {
+function Nav({ onNavigate, collapsed }) {
   return (
     <nav className="grid gap-0.5">
       {NAV.map(({ to, label, icon: Icon }) => (
@@ -33,21 +34,24 @@ function Nav({ onNavigate }) {
           to={to}
           end={to === '/'}
           onClick={onNavigate}
+          title={collapsed ? label : undefined}
+          aria-label={collapsed ? label : undefined}
           className={({ isActive }) =>
             cn(
-              'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&_svg]:size-4',
+              'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&_svg]:size-4 [&_svg]:shrink-0',
+              collapsed && 'justify-center px-0',
               isActive && 'bg-muted font-medium text-foreground',
             )
           }
         >
-          <Icon /> {label}
+          <Icon /> {!collapsed && label}
         </NavLink>
       ))}
     </nav>
   )
 }
 
-function UserMenu() {
+function UserMenu({ collapsed }) {
   const { data: me } = useMe()
   const logout = useLogout()
   const [mode, setMode] = useState(getMode)
@@ -58,13 +62,20 @@ function UserMenu() {
   ]
   return (
     <Menu>
-      <MenuTrigger className="flex w-full items-center gap-2.5 rounded-md p-2 text-left hover:bg-muted">
-        <div className="grid size-7 place-items-center rounded-full bg-muted text-xs font-medium">{initials(me?.name)}</div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-medium">{me?.name}</p>
-          <p className="truncate text-xs text-muted-foreground capitalize">{me?.role}</p>
-        </div>
-        <ChevronsUpDown className="size-4 text-muted-foreground" />
+      <MenuTrigger
+        title={collapsed ? me?.name : undefined}
+        className={cn('flex w-full items-center gap-2.5 rounded-md p-2 text-left hover:bg-muted', collapsed && 'justify-center p-1.5')}
+      >
+        <div className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-xs font-medium">{initials(me?.name)}</div>
+        {!collapsed && (
+          <>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-medium">{me?.name}</p>
+              <p className="truncate text-xs text-muted-foreground capitalize">{me?.role}</p>
+            </div>
+            <ChevronsUpDown className="size-4 text-muted-foreground" />
+          </>
+        )}
       </MenuTrigger>
       <MenuContent align="start" className="w-52">
         <MenuLabel>Appearance</MenuLabel>
@@ -90,23 +101,30 @@ function UserMenu() {
   )
 }
 
-function SearchButton({ onClick, className }) {
+function SearchButton({ onClick, collapsed }) {
+  if (collapsed)
+    return (
+      <button onClick={onClick} title="Search (⌘K)" aria-label="Search" className="grid h-8 w-full place-items-center rounded-md border bg-background text-muted-foreground hover:bg-muted">
+        <Search className="size-4" />
+      </button>
+    )
   return (
-    <button
-      onClick={onClick}
-      className={cn('flex h-8 w-full items-center gap-2 rounded-md border bg-background px-2.5 text-[13px] text-muted-foreground hover:bg-muted', className)}
-    >
+    <button onClick={onClick} className="flex h-8 w-full items-center gap-2 rounded-md border bg-background px-2.5 text-[13px] text-muted-foreground hover:bg-muted">
       <Search className="size-4" /> Search…
       <kbd className="ml-auto font-sans text-xs">⌘K</kbd>
     </button>
   )
 }
 
+const typing = (el) => el?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el?.tagName)
+
 export function Layout() {
   const { data: org } = useOrg()
   const [palette, setPalette] = useState(false)
   const [mobileNav, setMobileNav] = useState(false)
+  const [collapsed, setCollapsed] = useStored('rms-sidebar-collapsed', false)
   const { pathname } = useLocation()
+  const toggle = () => setCollapsed((c) => !c)
 
   useEffect(() => {
     if (!org) return
@@ -119,17 +137,49 @@ export function Layout() {
     window.scrollTo(0, 0)
   }, [pathname])
 
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== '[' || e.metaKey || e.ctrlKey || e.altKey || typing(e.target)) return
+      e.preventDefault()
+      setCollapsed((c) => !c)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [setCollapsed])
+
   return (
     <div className="min-h-dvh">
-      <aside className="fixed inset-y-0 hidden w-60 print:hidden flex-col gap-4 border-r bg-surface p-3 lg:flex">
-        <div className="flex items-center gap-2.5 px-1.5 pt-1">
+      <aside
+        className={cn(
+          'fixed inset-y-0 z-30 hidden flex-col gap-4 overflow-x-hidden border-r bg-surface p-3 transition-[width] duration-200 print:hidden lg:flex',
+          collapsed ? 'w-14 px-2' : 'w-60',
+        )}
+      >
+        <div className={cn('flex items-center gap-2.5 pt-1', collapsed ? 'justify-center' : 'px-1.5')}>
           <OrgMark org={org} />
-          <span className="truncate font-semibold">{org?.name}</span>
+          {!collapsed && <span className="truncate font-semibold">{org?.name}</span>}
         </div>
-        <SearchButton onClick={() => setPalette(true)} />
-        <Nav />
-        <div className="mt-auto">
-          <UserMenu />
+        <SearchButton collapsed={collapsed} onClick={() => setPalette(true)} />
+        <Nav collapsed={collapsed} />
+        <div className="mt-auto grid gap-1">
+          <button
+            onClick={toggle}
+            title={collapsed ? 'Expand sidebar ([)' : 'Collapse sidebar ([)'}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className={cn(
+              'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground [&_svg]:size-4',
+              collapsed && 'justify-center px-0',
+            )}
+          >
+            {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+            {!collapsed && (
+              <>
+                Collapse
+                <kbd className="ml-auto font-sans text-xs">[</kbd>
+              </>
+            )}
+          </button>
+          <UserMenu collapsed={collapsed} />
         </div>
       </aside>
 
@@ -152,7 +202,7 @@ export function Layout() {
         </div>
       </Sheet>
 
-      <div className="lg:pl-60 print:pl-0">
+      <div className={cn('transition-[padding] duration-200 print:pl-0', collapsed ? 'lg:pl-14' : 'lg:pl-60')}>
         <main className="mx-auto max-w-6xl px-4 py-8 sm:px-8 print:max-w-none print:p-0">
           <Suspense>
             <Outlet />
