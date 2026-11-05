@@ -1,4 +1,4 @@
-import { ChevronsUpDown, LogOut, Menu as MenuIcon, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Search, Sun } from 'lucide-react'
+import { ChevronRight, ChevronsUpDown, LogOut, Menu as MenuIcon, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Search, Sun } from 'lucide-react'
 import { Suspense, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 
@@ -13,7 +13,7 @@ import { configureFormat, initials } from '@/lib/format'
 import { applyBrand, applyMode, getMode } from '@/lib/theme'
 
 import { CommandPalette } from './command-palette'
-import { NAV } from './nav'
+import { SECTIONS } from './nav'
 
 function OrgMark({ org }) {
   const version = useLogoVersion()
@@ -25,28 +25,55 @@ function OrgMark({ org }) {
   )
 }
 
-function Nav({ onNavigate, collapsed }) {
+function NavItem({ to, label, icon: Icon, collapsed, onNavigate }) {
   return (
-    <nav className="grid gap-0.5">
-      {NAV.map(({ to, label, icon: Icon }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={to === '/'}
-          onClick={onNavigate}
-          title={collapsed ? label : undefined}
-          aria-label={collapsed ? label : undefined}
-          className={({ isActive }) =>
-            cn(
-              'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&_svg]:size-4 [&_svg]:shrink-0',
-              collapsed && 'justify-center px-0',
-              isActive && 'bg-muted font-medium text-foreground',
-            )
-          }
-        >
-          <Icon /> {!collapsed && label}
-        </NavLink>
-      ))}
+    <NavLink
+      to={to}
+      end={to === '/'}
+      onClick={onNavigate}
+      title={collapsed ? label : undefined}
+      aria-label={collapsed ? label : undefined}
+      className={({ isActive }) =>
+        cn(
+          'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&_svg]:size-4 [&_svg]:shrink-0',
+          collapsed && 'justify-center px-0',
+          isActive && 'bg-muted font-medium text-foreground',
+        )
+      }
+    >
+      <Icon /> {!collapsed && label}
+    </NavLink>
+  )
+}
+
+function Nav({ onNavigate, collapsed }) {
+  const [closed, setClosed] = useStored('rms-nav-closed', [])
+  const { pathname } = useLocation()
+  const toggle = (id) => setClosed((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))
+  return (
+    <nav className="grid gap-3 overflow-y-auto">
+      {SECTIONS.map(({ id, label, items }) => {
+        const active = items.some((i) => (i.to === '/' ? pathname === '/' : pathname.startsWith(i.to)))
+        const open = collapsed || !label || !closed.includes(id) || active
+        return (
+          <div key={id} className="grid gap-0.5">
+            {label &&
+              (collapsed ? (
+                <div className="mx-2 mb-1 border-t" />
+              ) : (
+                <button
+                  onClick={() => toggle(id)}
+                  aria-expanded={open}
+                  className="group flex h-6 items-center gap-1 rounded px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  {label}
+                  <ChevronRight className={cn('size-3 transition', open ? 'rotate-90 opacity-0 group-hover:opacity-100' : 'opacity-100')} />
+                </button>
+              ))}
+            {open && items.map((item) => <NavItem key={item.to} {...item} collapsed={collapsed} onNavigate={onNavigate} />)}
+          </div>
+        )
+      })}
     </nav>
   )
 }
