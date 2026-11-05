@@ -1,5 +1,5 @@
-import { ChevronRight, ChevronsUpDown, LogOut, Menu as MenuIcon, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Search, Sun } from 'lucide-react'
-import { Suspense, useEffect, useState } from 'react'
+import { ChevronRight, ChevronsUpDown, Keyboard, LogOut, Menu as MenuIcon, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Search, Sun } from 'lucide-react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import { applyBrand, applyMode, getMode } from '@/lib/theme'
 
 import { CommandPalette } from './command-palette'
 import { SECTIONS } from './nav'
+import { ShortcutsDialog, useShortcuts } from './shortcuts'
 
 function OrgMark({ org }) {
   const version = useLogoVersion()
@@ -78,7 +79,7 @@ function Nav({ onNavigate, collapsed }) {
   )
 }
 
-function UserMenu({ collapsed }) {
+function UserMenu({ collapsed, onShortcuts }) {
   const { data: me } = useMe()
   const logout = useLogout()
   const [mode, setMode] = useState(getMode)
@@ -120,6 +121,10 @@ function UserMenu({ collapsed }) {
           </MenuItem>
         ))}
         <MenuSeparator />
+        <MenuItem onSelect={onShortcuts}>
+          <Keyboard /> Keyboard shortcuts
+          <kbd className="ml-auto font-sans text-xs text-muted-foreground">?</kbd>
+        </MenuItem>
         <MenuItem onSelect={() => logout.mutate()}>
           <LogOut /> Sign out
         </MenuItem>
@@ -152,6 +157,9 @@ export function Layout() {
   const [collapsed, setCollapsed] = useStored('rms-sidebar-collapsed', false)
   const { pathname } = useLocation()
   const toggle = () => setCollapsed((c) => !c)
+  const [help, setHelp] = useState(false)
+  const showHelp = useCallback(() => setHelp(true), [])
+  useShortcuts(showHelp)
 
   useEffect(() => {
     if (!org) return
@@ -206,7 +214,7 @@ export function Layout() {
               </>
             )}
           </button>
-          <UserMenu collapsed={collapsed} />
+          <UserMenu collapsed={collapsed} onShortcuts={showHelp} />
         </div>
       </aside>
 
@@ -224,7 +232,7 @@ export function Layout() {
         <div className="flex h-full flex-col gap-4">
           <Nav onNavigate={() => setMobileNav(false)} />
           <div className="mt-auto">
-            <UserMenu />
+            <UserMenu onShortcuts={showHelp} />
           </div>
         </div>
       </Sheet>
@@ -237,6 +245,7 @@ export function Layout() {
         </main>
       </div>
       <CommandPalette open={palette} onOpenChange={setPalette} />
+      <ShortcutsDialog open={help} onOpenChange={setHelp} />
     </div>
   )
 }
