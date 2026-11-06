@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronsUpDown, Keyboard, LogOut, Menu as MenuIcon, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Search, Sun } from 'lucide-react'
+import { ChevronRight, ChevronsUpDown, Keyboard, LogOut, Rocket, Menu as MenuIcon, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Search, Sun } from 'lucide-react'
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 
@@ -7,6 +7,7 @@ import { Sheet } from '@/components/ui/dialog'
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from '@/components/ui/dropdown'
 import { useLogout, useMe } from '@/features/auth/api'
 import { useStored } from '@/hooks/use-stored'
+import { useSetupPending } from '@/features/onboarding/api'
 import { useLogoVersion, useOrg } from '@/features/organization/api'
 import { cn } from '@/lib/cn'
 import { configureFormat, initials } from '@/lib/format'
@@ -76,6 +77,35 @@ function Nav({ onNavigate, collapsed }) {
         )
       })}
     </nav>
+  )
+}
+
+function SetupLink({ collapsed, onNavigate }) {
+  const setup = useSetupPending()
+  if (!setup) return null
+  return (
+    <NavLink
+      to="/getting-started"
+      onClick={onNavigate}
+      title={collapsed ? `Getting started (${setup.completed}/${setup.total})` : undefined}
+      className={({ isActive }) =>
+        cn(
+          'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground [&_svg]:size-4',
+          collapsed && 'justify-center px-0',
+          isActive && 'bg-muted font-medium text-foreground',
+        )
+      }
+    >
+      <Rocket className="text-accent" />
+      {!collapsed && (
+        <>
+          Getting started
+          <span className="ml-auto rounded-full bg-accent/10 px-1.5 text-xs font-medium text-accent tabular">
+            {setup.completed}/{setup.total}
+          </span>
+        </>
+      )}
+    </NavLink>
   )
 }
 
@@ -197,6 +227,7 @@ export function Layout() {
         <SearchButton collapsed={collapsed} onClick={() => setPalette(true)} />
         <Nav collapsed={collapsed} />
         <div className="mt-auto grid gap-1">
+          <SetupLink collapsed={collapsed} />
           <button
             onClick={toggle}
             title={collapsed ? 'Expand sidebar ([)' : 'Collapse sidebar ([)'}
@@ -231,7 +262,8 @@ export function Layout() {
       <Sheet open={mobileNav} onOpenChange={setMobileNav} title={org?.name ?? 'Menu'}>
         <div className="flex h-full flex-col gap-4">
           <Nav onNavigate={() => setMobileNav(false)} />
-          <div className="mt-auto">
+          <div className="mt-auto grid gap-1">
+            <SetupLink onNavigate={() => setMobileNav(false)} />
             <UserMenu onShortcuts={showHelp} />
           </div>
         </div>
