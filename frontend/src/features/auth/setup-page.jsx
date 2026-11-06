@@ -14,7 +14,8 @@ export default function SetupPage() {
   const setup = useSetup()
   const { register, handleSubmit, formState: { errors } } = useForm({ defaultValues: { currency: 'USD' } })
 
-  if (status && !status.setup_required) return <Navigate to="/" replace />
+  // A brand-new install lands on the setup guide; anyone else visiting /setup goes home.
+  if (status && !status.setup_required) return <Navigate to={setup.isSuccess ? '/getting-started?welcome=1' : '/'} replace />
 
   return (
     <AuthLayout title="Set up RMS" description="Name your organization and create the first admin account.">

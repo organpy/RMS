@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import { PageHeader } from '@/components/page'
 import { Badge } from '@/components/ui/badge'
@@ -56,6 +56,7 @@ function Step({ index, step, admin }) {
 
 export default function GuidePage() {
   const { data: me } = useMe()
+  const [params] = useSearchParams()
   const { data } = useOnboarding()
   const dismiss = useDismissOnboarding()
   const admin = me?.role === 'admin'
@@ -64,7 +65,14 @@ export default function GuidePage() {
 
   return (
     <>
-      <PageHeader title="Getting started" description="A short path from a fresh install to your first invoice. Steps tick themselves off as you go.">
+      <PageHeader
+        title={params.has('welcome') ? `Welcome, ${me?.name.split(' ')[0] ?? ''}` : 'Getting started'}
+        description={
+          params.has('welcome')
+            ? 'Your organization is ready. These steps take you from an empty install to your first invoice; they tick themselves off as you go.'
+            : 'A short path from a fresh install to your first invoice. Steps tick themselves off as you go.'
+        }
+      >
         {admin && data && (
           <Button variant="outline" onClick={() => dismiss.mutate(!data.dismissed)}>
             {data.dismissed ? 'Show on dashboard' : 'Hide from dashboard'}
