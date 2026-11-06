@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useMe } from '@/features/auth/api'
+import { useSetupPending } from '@/features/onboarding/api'
+import { SetupCard } from '@/features/onboarding/setup-card'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { date, money, num, relativeDays } from '@/lib/format'
@@ -65,6 +67,7 @@ export default function DashboardPage() {
   const { data: me } = useMe()
   const navigate = useNavigate()
   const { data } = useQuery({ queryKey: ['dashboard'], queryFn: () => api.get('/dashboard') })
+  const setupPending = useSetupPending()
 
   return (
     <>
@@ -76,6 +79,8 @@ export default function DashboardPage() {
           <Receipt /> Record payment
         </Button>
       </PageHeader>
+
+      <SetupCard />
 
       {!data ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -98,7 +103,7 @@ export default function DashboardPage() {
           </div>
 
           {data.counts.active + data.counts.due + data.counts.overdue === 0 ? (
-            <Card className="mt-6">
+            !setupPending && <Card className="mt-6">
               <EmptyState title="No members yet" description="Create your courses and plans, then add your first member.">
                 <Button onClick={() => navigate('/courses')}>Set up courses</Button>
               </EmptyState>
