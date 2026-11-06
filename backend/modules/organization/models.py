@@ -34,6 +34,7 @@ class Organization(Timestamps, Base):
     auto_remind: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     remind_before_days: Mapped[int] = mapped_column(Integer, default=3, server_default="3")
     remind_after_days: Mapped[int] = mapped_column(Integer, default=3, server_default="3")
+    onboarding_dismissed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     backup_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     backup_cadence: Mapped[str] = mapped_column(String(10), default="daily")
     backup_keep: Mapped[int] = mapped_column(Integer, default=7)
