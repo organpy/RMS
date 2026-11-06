@@ -1,7 +1,7 @@
 import * as D from '@radix-ui/react-dialog'
 import { useQuery } from '@tanstack/react-query'
 import { Command } from 'cmdk'
-import { Plus, Receipt, User } from 'lucide-react'
+import { Plus, Receipt, Rocket, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -74,6 +74,9 @@ export function CommandPalette({ open, onOpenChange }) {
                 </Command.Item>
                 <Command.Item className={item} onSelect={() => go('/payments?new=1')}>
                   <Receipt /> Record payment
+                </Command.Item>
+                <Command.Item className={item} onSelect={() => go('/getting-started')}>
+                  <Rocket /> Getting started guide
                 </Command.Item>
               </Command.Group>
               <Command.Group heading="Go to" className={group}>

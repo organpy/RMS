@@ -32,7 +32,7 @@ const STATUSES = [
 export default function MembersPage() {
   const [params, patch] = useParamsState()
   const [search, setSearch] = useState(params.q ?? '')
-  const [importing, setImporting] = useState(false)
+  const [importing, setImporting] = useState(params.import === '1')
   const q = useDebounced(search.trim())
   const { data: courses = [] } = useCourses()
   const page = Number(params.page ?? 1)
@@ -144,7 +144,13 @@ export default function MembersPage() {
       </Card>
 
       <MemberFormDialog open={!!params.new} onOpenChange={(o) => !o && patch({ new: null })} onSaved={(m) => patch({ open: m.id })} />
-      <ImportDialog open={importing} onOpenChange={setImporting} />
+      <ImportDialog
+        open={importing}
+        onOpenChange={(open) => {
+          setImporting(open)
+          if (!open) patch({ import: undefined })
+        }}
+      />
       <MemberSheet memberId={params.open ? Number(params.open) : null} onClose={() => patch({ open: null })} />
     </>
   )

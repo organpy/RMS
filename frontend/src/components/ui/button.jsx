@@ -14,17 +14,15 @@ const sizes = {
   icon: 'size-8',
 }
 
-export function Button({ variant = 'primary', size = 'md', className, type = 'button', ...props }) {
-  return (
-    <button
-      type={type}
-      className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-md font-medium whitespace-nowrap transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0',
-        variants[variant],
-        sizes[size],
-        className,
-      )}
-      {...props}
-    />
+/** Button classes, also for links that should look like buttons. */
+export const buttonClass = ({ variant = 'primary', size = 'md', className } = {}) =>
+  cn(
+    'inline-flex shrink-0 items-center justify-center rounded-md font-medium whitespace-nowrap transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0',
+    variants[variant],
+    sizes[size],
+    className,
   )
+
+export function Button({ variant, size, className, type = 'button', ...props }) {
+  return <button type={type} className={buttonClass({ variant, size, className })} {...props} />
 }
