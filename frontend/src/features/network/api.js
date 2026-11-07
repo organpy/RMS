@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 
 import { api } from '@/lib/api'
 
-export const useNetwork = () => useQuery({ queryKey: ['network'], queryFn: () => api.get('/network'), staleTime: 0 })
+export const useNetwork = (enabled = true) => useQuery({ queryKey: ['network'], queryFn: () => api.get('/network'), staleTime: 0, enabled })
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 

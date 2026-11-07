@@ -8,6 +8,7 @@ from backend.core.security import current_staff, require_admin
 from backend.modules.courses.models import Course
 from backend.modules.members.models import Member
 from backend.modules.messaging import providers
+from backend.modules.network import service as network
 from backend.modules.organization.service import get_org
 from backend.modules.payments.models import Payment
 from backend.modules.plans.models import Plan
@@ -48,6 +49,7 @@ def _state(db: Session) -> Onboarding:
         Step(id="backups", done=org.backup_enabled),
         Step(id="messaging", done=any(providers.configured().values()), optional=True),
         Step(id="staff", done=(db.scalar(select(func.count()).select_from(Staff)) or 0) > 1, optional=True),
+        Step(id="network", done=network.lan_enabled(), optional=True),
     ]
     return Onboarding(steps=steps, completed=sum(s.done for s in steps), total=len(steps), dismissed=org.onboarding_dismissed)
 

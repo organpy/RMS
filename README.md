@@ -250,13 +250,15 @@ RMS_TWILIO_WHATSAPP_FROM=+14155238886
 
 ## Run it on your network
 
-Bind to all interfaces so tablets or other computers can reach it:
+Phones, tablets and other computers on the same Wi-Fi or office network can use RMS. Nothing is opened to the internet, and no router setup is needed.
 
-```bash
-RMS_HOST=0.0.0.0 scripts/start.sh
-```
+1. As an admin, open **Settings → Network access** and tick **Let other devices on this network use RMS**. RMS switches over within a couple of seconds, without a restart.
+2. Scan the QR code with a phone, or type the address shown (for example `http://192.168.1.20:8000`) in any browser on the network. **Use on your phone** in the account menu shows the same code.
+3. On Windows, a firewall window appears the first time. Tick **Private networks** and click **Allow access**.
 
-Then open `http://<this-computer's-ip>:8000`. Only do this on networks you trust. If you put the app behind a reverse proxy with HTTPS, set `RMS_SECURE_COOKIES=true`. To keep it running after you close the terminal, run `python -m backend` from a service manager such as systemd.
+Everyone still signs in with their own account. Only turn it on at work or at home, not on public Wi-Fi.
+
+Advanced: `RMS_HOST=0.0.0.0` in `.env` does the same and takes precedence over the setting. If you put the app behind a reverse proxy with HTTPS, set `RMS_SECURE_COOKIES=true`. To keep it running after you close the terminal, run `python -m backend` from a service manager such as systemd.
 
 ## Development
 

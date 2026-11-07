@@ -40,7 +40,7 @@ export function PhoneAccess({ urls }) {
 }
 
 export function PhoneDialog({ open, onOpenChange }) {
-  const { data } = useNetwork()
+  const { data } = useNetwork(open)
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title="Use RMS on your phone" description="Phones and computers on the same network can sign in here." className="max-w-lg">

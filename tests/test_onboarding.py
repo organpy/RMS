@@ -8,8 +8,8 @@ def _steps(client):
 def test_steps_complete_as_data_appears(admin, monkeypatch):
     monkeypatch.setattr(providers, "configured", lambda: {"email": False, "sms": False, "whatsapp": False})
     r = admin.get("/api/onboarding").json()
-    assert r["completed"] == 0 and r["total"] == 8 and r["dismissed"] is False
-    assert {s["id"] for s in r["steps"] if s["optional"]} == {"messaging", "staff"}
+    assert r["completed"] == 0 and r["total"] == 9 and r["dismissed"] is False
+    assert {s["id"] for s in r["steps"] if s["optional"]} == {"messaging", "staff", "network"}
 
     admin.patch("/api/organization", json={"phone": "+1 555 0100"})
     course = admin.post("/api/courses", json={"name": "Judo"}).json()

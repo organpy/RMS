@@ -89,10 +89,14 @@ Linux
 7. USE IT FROM OTHER COMPUTERS OR PHONES ON YOUR NETWORK
 --------------------------------------------------------
 
-  Create a file named ".env" in the RMS folder containing:
-      RMS_HOST=0.0.0.0
-  Restart RMS, then open http://<this-computer's-IP>:8000 on the other device.
-  Only do this on a network you trust.
+  1. In RMS, go to Settings > Network access and tick
+     "Let other devices on this network use RMS".
+  2. Scan the QR code shown there with your phone's camera, or type the
+     address it shows (like http://192.168.1.20:8000) on the other device.
+  3. Windows asks about the firewall the first time: tick "Private
+     networks" and click "Allow access".
+  Everyone still signs in. Only do this at work or at home, never on
+  public Wi-Fi. Nothing is opened to the internet.
 
 
 TROUBLE?

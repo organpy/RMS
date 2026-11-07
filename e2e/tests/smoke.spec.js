@@ -9,7 +9,7 @@ test('first run through to an invoiced payment', async ({ page }) => {
   await page.getByLabel('Password').fill('very-secret-1')
   await page.getByRole('button', { name: 'Create organization' }).click()
   await expect(page.getByRole('heading', { name: 'Welcome, Sam' })).toBeVisible()
-  await expect(page.getByText('0 of 8 done')).toBeVisible()
+  await expect(page.getByText('0 of 9 done')).toBeVisible()
 
   await page.goto('/courses')
   await page.getByRole('button', { name: 'New course' }).first().click()
@@ -47,7 +47,7 @@ test('first run through to an invoiced payment', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByText('$39.00').first()).toBeVisible()
   await page.goto('/getting-started')
-  await expect(page.getByText('4 of 8 done')).toBeVisible() // course, plan, member, payment
+  await expect(page.getByText('4 of 9 done')).toBeVisible() // course, plan, member, payment
 })
 
 test('roster, attendance and a partial payment with its balance', async ({ page }) => {

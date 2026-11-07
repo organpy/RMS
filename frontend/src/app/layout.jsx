@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronsUpDown, Keyboard, LogOut, Rocket, Menu as MenuIcon, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Search, Sun } from 'lucide-react'
+import { ChevronRight, ChevronsUpDown, Keyboard, LogOut, Rocket, Smartphone, Menu as MenuIcon, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Search, Sun } from 'lucide-react'
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 
@@ -7,6 +7,7 @@ import { Sheet } from '@/components/ui/dialog'
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from '@/components/ui/dropdown'
 import { useLogout, useMe } from '@/features/auth/api'
 import { useStored } from '@/hooks/use-stored'
+import { PhoneDialog } from '@/features/network/phone-access'
 import { useSetupPending } from '@/features/onboarding/api'
 import { useLogoVersion, useOrg } from '@/features/organization/api'
 import { cn } from '@/lib/cn'
@@ -109,7 +110,7 @@ function SetupLink({ collapsed, onNavigate }) {
   )
 }
 
-function UserMenu({ collapsed, onShortcuts }) {
+function UserMenu({ collapsed, onShortcuts, onPhone }) {
   const { data: me } = useMe()
   const logout = useLogout()
   const [mode, setMode] = useState(getMode)
@@ -151,6 +152,9 @@ function UserMenu({ collapsed, onShortcuts }) {
           </MenuItem>
         ))}
         <MenuSeparator />
+        <MenuItem onSelect={onPhone}>
+          <Smartphone /> Use on your phone
+        </MenuItem>
         <MenuItem onSelect={onShortcuts}>
           <Keyboard /> Keyboard shortcuts
           <kbd className="ml-auto font-sans text-xs text-muted-foreground">?</kbd>
@@ -188,6 +192,7 @@ export function Layout() {
   const { pathname } = useLocation()
   const toggle = () => setCollapsed((c) => !c)
   const [help, setHelp] = useState(false)
+  const [phone, setPhone] = useState(false)
   const showHelp = useCallback(() => setHelp(true), [])
   useShortcuts(showHelp)
 
@@ -245,7 +250,7 @@ export function Layout() {
               </>
             )}
           </button>
-          <UserMenu collapsed={collapsed} onShortcuts={showHelp} />
+          <UserMenu collapsed={collapsed} onShortcuts={showHelp} onPhone={() => setPhone(true)} />
         </div>
       </aside>
 
@@ -264,7 +269,7 @@ export function Layout() {
           <Nav onNavigate={() => setMobileNav(false)} />
           <div className="mt-auto grid gap-1">
             <SetupLink onNavigate={() => setMobileNav(false)} />
-            <UserMenu onShortcuts={showHelp} />
+            <UserMenu onShortcuts={showHelp} onPhone={() => setPhone(true)} />
           </div>
         </div>
       </Sheet>
@@ -278,6 +283,7 @@ export function Layout() {
       </div>
       <CommandPalette open={palette} onOpenChange={setPalette} />
       <ShortcutsDialog open={help} onOpenChange={setHelp} />
+      <PhoneDialog open={phone} onOpenChange={setPhone} />
     </div>
   )
 }

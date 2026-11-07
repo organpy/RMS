@@ -1,4 +1,4 @@
-import { BookOpen, Building2, DatabaseBackup, MessageSquare, Receipt, Tags, UserPlus, Users } from 'lucide-react'
+import { BookOpen, Building2, DatabaseBackup, MessageSquare, Receipt, Smartphone, Tags, UserPlus, Users } from 'lucide-react'
 
 /** Copy and links for each checklist step; completion comes from GET /onboarding. */
 export const STEPS = {
@@ -53,6 +53,13 @@ export const STEPS = {
     title: 'Invite your team',
     body: 'Give each person their own sign-in so invoices show who received the payment and the activity log shows who changed what.',
     action: ['Manage staff', '/settings#staff'],
+    admin: true,
+  },
+  network: {
+    icon: Smartphone,
+    title: 'Use RMS on phones and other computers',
+    body: 'Open RMS to devices on the same Wi-Fi or office network, then scan the QR code with a phone. Nothing is opened to the internet.',
+    action: ['Open network settings', '/settings#network'],
     admin: true,
   },
 }
