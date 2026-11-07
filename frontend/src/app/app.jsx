@@ -59,7 +59,7 @@ export function App() {
           </Routes>
         </Suspense>
       </BrowserRouter>
-      <Toaster position="bottom-right" toastOptions={{ className: 'text-sm' }} />
+      <Toaster position="bottom-right" mobileOffset={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom))' }} toastOptions={{ className: 'text-sm' }} />
     </QueryClientProvider>
   )
 }

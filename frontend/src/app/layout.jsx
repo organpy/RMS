@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronsUpDown, Keyboard, LogOut, Rocket, Smartphone, Menu as MenuIcon, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Search, Sun } from 'lucide-react'
+import { BookOpen, ChevronRight, ChevronsUpDown, Keyboard, LayoutDashboard, LogOut, Menu as MenuIcon, Monitor, Moon, PanelLeftClose, PanelLeftOpen, Receipt, Rocket, Search, Smartphone, Sun, Users } from 'lucide-react'
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 
@@ -110,6 +110,38 @@ function SetupLink({ collapsed, onNavigate }) {
   )
 }
 
+const TABS = [
+  { to: '/', label: 'Home', icon: LayoutDashboard },
+  { to: '/members', label: 'Members', icon: Users },
+  { to: '/payments', label: 'Payments', icon: Receipt },
+  { to: '/courses', label: 'Courses', icon: BookOpen },
+]
+
+/** Phone and tablet navigation: the four busiest pages, everything else under More. */
+function TabBar({ onMore }) {
+  const tab = 'flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[11px] [&_svg]:size-5'
+  return (
+    <nav
+      aria-label="Main"
+      className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-background/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur print:hidden lg:hidden"
+    >
+      {TABS.map(({ to, label, icon: Icon }) => (
+        <NavLink
+          key={to}
+          to={to}
+          end={to === '/'}
+          className={({ isActive }) => cn(tab, isActive ? 'font-medium text-accent' : 'text-muted-foreground')}
+        >
+          <Icon /> {label}
+        </NavLink>
+      ))}
+      <button type="button" onClick={onMore} className={cn(tab, 'text-muted-foreground')}>
+        <MenuIcon /> More
+      </button>
+    </nav>
+  )
+}
+
 function UserMenu({ collapsed, onShortcuts, onPhone }) {
   const { data: me } = useMe()
   const logout = useLogout()
@@ -155,7 +187,7 @@ function UserMenu({ collapsed, onShortcuts, onPhone }) {
         <MenuItem onSelect={onPhone}>
           <Smartphone /> Use on your phone
         </MenuItem>
-        <MenuItem onSelect={onShortcuts}>
+        <MenuItem onSelect={onShortcuts} className="pointer-coarse:hidden">
           <Keyboard /> Keyboard shortcuts
           <kbd className="ml-auto font-sans text-xs text-muted-foreground">?</kbd>
         </MenuItem>
@@ -255,9 +287,6 @@ export function Layout() {
       </aside>
 
       <header className="sticky top-0 z-40 flex h-14 print:hidden items-center gap-3 border-b bg-background/80 px-4 backdrop-blur lg:hidden">
-        <Button variant="ghost" size="icon" onClick={() => setMobileNav(true)} aria-label="Open menu">
-          <MenuIcon />
-        </Button>
         <OrgMark org={org} />
         <span className="truncate font-semibold">{org?.name}</span>
         <Button variant="ghost" size="icon" className="ml-auto" onClick={() => setPalette(true)} aria-label="Search">
@@ -275,12 +304,13 @@ export function Layout() {
       </Sheet>
 
       <div className={cn('transition-[padding] duration-200 print:pl-0', collapsed ? 'lg:pl-14' : 'lg:pl-60')}>
-        <main className="mx-auto max-w-6xl px-4 py-8 sm:px-8 print:max-w-none print:p-0">
+        <main className="mx-auto max-w-6xl px-4 pt-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:px-8 lg:py-8 print:max-w-none print:p-0">
           <Suspense>
             <Outlet />
           </Suspense>
         </main>
       </div>
+      <TabBar onMore={() => setMobileNav(true)} />
       <CommandPalette open={palette} onOpenChange={setPalette} />
       <ShortcutsDialog open={help} onOpenChange={setHelp} />
       <PhoneDialog open={phone} onOpenChange={setPhone} />
