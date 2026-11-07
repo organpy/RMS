@@ -13,6 +13,8 @@ Courses, groups, plans, payments, invoices, attendance and reminders, running on
 ![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
+[![Download on Gumroad](https://img.shields.io/badge/Gumroad-Download%20Free-FF90E8?logo=gumroad&logoColor=black)](https://organfx.gumroad.com/l/rms)
+
 [Features](#features) · [Quick start](#quick-start) · [Daily workflow](#daily-workflow) · [Messaging setup](#messaging-setup) · [Your network](#run-it-on-your-network) · [Updating](#updating) · [Development](#development) · [Troubleshooting](#troubleshooting) · [License](#license)
 
 </div>
