@@ -10,6 +10,7 @@ import { Input, Select } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TD, TH, THead, TR } from '@/components/ui/table'
 import { useCourses } from '@/features/courses/api'
+import { usePlans } from '@/features/plans/api'
 import { useDebounced } from '@/hooks/use-debounced'
 import { useParamsState } from '@/hooks/use-params-state'
 import { download } from '@/lib/download'
@@ -36,15 +37,16 @@ export default function MembersPage() {
   const q = useDebounced(search.trim())
   const { data: courses = [] } = useCourses()
   const page = Number(params.page ?? 1)
-  const filters = { q, status: params.status, course_id: params.course_id, group_id: params.group_id, sort: params.sort }
+  const filters = { q, status: params.status, course_id: params.course_id, group_id: params.group_id, plan_id: params.plan_id, sort: params.sort }
   const { data, isPending } = useMembers({ ...filters, page, size: SIZE })
   const groups = courses.find((c) => String(c.id) === params.course_id)?.groups ?? []
+  const { data: plans = [] } = usePlans()
 
   useEffect(() => {
     if (q !== (params.q ?? '')) patch({ q, page: null })
   }, [q, params.q, patch])
 
-  const filtered = Boolean(q || params.status || params.course_id)
+  const filtered = Boolean(q || params.status || params.course_id || params.plan_id)
   const sortBy = (key) => patch({ sort: params.sort === key ? `-${key}` : key, page: null })
 
   return (
@@ -91,6 +93,14 @@ export default function MembersPage() {
             ))}
           </Select>
         )}
+        <Select className="w-36" value={params.plan_id ?? ''} onChange={(e) => patch({ plan_id: e.target.value, page: null })} aria-label="Plan">
+          <option value="">All plans</option>
+          {plans.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </Select>
       </div>
 
       <Card>

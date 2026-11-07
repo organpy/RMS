@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRightLeft, ClipboardCheck, MessageSquare, MoreHorizontal, Printer, Users } from 'lucide-react'
+import { ArrowLeft, ArrowRightLeft, ClipboardCheck, MessageSquare, MoreHorizontal, Plus, Printer, UserPlus, Users } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
@@ -9,11 +9,14 @@ import { Card } from '@/components/ui/card'
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuTrigger } from '@/components/ui/dropdown'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AttendanceDialog } from '@/features/attendance/attendance-dialog'
+import { AddMembersMenu } from '@/features/members/add-members'
 import { SendMessageDialog } from '@/features/messaging/send-dialog'
 import { cn } from '@/lib/cn'
 import { date } from '@/lib/format'
 
 import { useMoveMember, useRoster } from './api'
+import { GroupDialog } from './group-form'
+import { courseTarget } from './targets'
 
 function CapacityBar({ count, capacity }) {
   if (!capacity) return null
@@ -63,7 +66,7 @@ function MemberRow({ member, groups, currentGroupId }) {
   )
 }
 
-function GroupCard({ group, groups, onMessage, onAttendance }) {
+function GroupCard({ course, group, groups, onMessage, onAttendance }) {
   const over = group.capacity && group.member_count > group.capacity
   return (
     <Card className="break-inside-avoid">
@@ -77,16 +80,26 @@ function GroupCard({ group, groups, onMessage, onAttendance }) {
             {group.member_count}
             {group.capacity ? ` / ${group.capacity}` : ''}
           </span>
-          {group.id && group.members.length > 0 && (
-            <div className="-my-1 flex print:hidden">
-              <Button variant="ghost" size="icon" aria-label={`Take attendance for ${group.name}`} title="Take attendance" onClick={onAttendance}>
-                <ClipboardCheck />
-              </Button>
-              <Button variant="ghost" size="icon" aria-label={`Message ${group.name}`} title="Message group" onClick={onMessage}>
-                <MessageSquare />
-              </Button>
-            </div>
-          )}
+          <div className="-my-1 flex print:hidden">
+            <AddMembersMenu
+              target={courseTarget(course, group.id ? group : null)}
+              trigger={
+                <Button variant="ghost" size="icon" aria-label={`Add members to ${group.name}`} title="Add members">
+                  <UserPlus />
+                </Button>
+              }
+            />
+            {group.id && group.members.length > 0 && (
+              <>
+                <Button variant="ghost" size="icon" aria-label={`Take attendance for ${group.name}`} title="Take attendance" onClick={onAttendance}>
+                  <ClipboardCheck />
+                </Button>
+                <Button variant="ghost" size="icon" aria-label={`Message ${group.name}`} title="Message group" onClick={onMessage}>
+                  <MessageSquare />
+                </Button>
+              </>
+            )}
+          </div>
         </div>
         <CapacityBar count={group.member_count} capacity={group.capacity} />
       </div>
@@ -97,7 +110,15 @@ function GroupCard({ group, groups, onMessage, onAttendance }) {
           ))}
         </ul>
       ) : (
-        <p className="px-4 py-6 text-center text-[13px] text-muted-foreground">No members in this group.</p>
+        <AddMembersMenu
+          align="center"
+          target={courseTarget(course, group.id ? group : null)}
+          trigger={
+            <button type="button" className="w-full px-4 py-6 text-center text-[13px] text-muted-foreground hover:text-foreground print:hidden">
+              No members yet. <span className="font-medium text-accent">Add members</span>
+            </button>
+          }
+        />
       )}
     </Card>
   )
@@ -108,6 +129,7 @@ export default function RosterPage() {
   const { data, isPending, isError } = useRoster(courseId)
   const [target, setTarget] = useState(null)
   const [attendance, setAttendance] = useState(null)
+  const [group, setGroup] = useState(null)
 
   if (isError) return <p className="text-muted-foreground">Course not found.</p>
   if (isPending)
@@ -128,28 +150,55 @@ export default function RosterPage() {
         <ArrowLeft className="size-3.5" /> Courses
       </Link>
       <PageHeader title={course.name} description={[course.description, `${course.member_count} member${course.member_count === 1 ? '' : 's'}`].filter(Boolean).join(' · ')}>
-        <div className="flex gap-2 print:hidden">
+        <div className="flex flex-wrap gap-2 print:hidden">
+          <Button variant="outline" onClick={() => setGroup({ courseId: course.id })}>
+            <Plus /> Add group
+          </Button>
           <Button variant="outline" onClick={() => window.print()}>
             <Printer /> Print
           </Button>
           <Button variant="outline" disabled={!course.member_count} onClick={() => setTarget({ course_id: course.id, name: course.name })}>
             <MessageSquare /> Message course
           </Button>
+          <AddMembersMenu
+            target={courseTarget(course)}
+            trigger={
+              <Button>
+                <UserPlus /> Add members
+              </Button>
+            }
+          />
         </div>
       </PageHeader>
 
       {columns.length === 0 ? (
         <Card>
-          <EmptyState icon={Users} title="No members yet" description="Members enrolled in this course appear here, grouped by their group." />
+          <EmptyState icon={Users} title="No members yet" description="Split the course into groups such as levels or time slots if you need them, then add members.">
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button variant="outline" onClick={() => setGroup({ courseId: course.id })}>
+                <Plus /> Add group
+              </Button>
+              <AddMembersMenu
+                align="center"
+                target={courseTarget(course)}
+                trigger={
+                  <Button>
+                    <UserPlus /> Add members
+                  </Button>
+                }
+              />
+            </div>
+          </EmptyState>
         </Card>
       ) : (
         <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3 print:block print:columns-2 print:[&>*]:mb-4">
           {columns.map((g) => (
-            <GroupCard key={g.id ?? 'none'} group={g} groups={groups} onMessage={() => setTarget({ group_id: g.id, name: `${course.name} · ${g.name}` })} onAttendance={() => setAttendance(g)} />
+            <GroupCard key={g.id ?? 'none'} course={course} group={g} groups={groups} onMessage={() => setTarget({ group_id: g.id, name: `${course.name} · ${g.name}` })} onAttendance={() => setAttendance(g)} />
           ))}
         </div>
       )}
 
+      <GroupDialog group={group} onOpenChange={(o) => !o && setGroup(null)} />
       <AttendanceDialog group={attendance} onOpenChange={(o) => !o && setAttendance(null)} />
       <SendMessageDialog
         open={!!target}

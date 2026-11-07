@@ -1,7 +1,7 @@
-import { Archive, ArchiveRestore, BookOpen, MoreHorizontal, Pencil, Plus, Trash2, Users } from 'lucide-react'
+import { Archive, ArchiveRestore, BookOpen, MoreHorizontal, Pencil, Plus, Trash2, UserPlus, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { EmptyState, PageHeader } from '@/components/page'
 import { Badge } from '@/components/ui/badge'
@@ -11,9 +11,12 @@ import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/components/ui/dropdown'
 import { Field, Input, Textarea } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { AddMembersMenu } from '@/features/members/add-members'
 import { cn } from '@/lib/cn'
 
-import { useCourses, useDeleteCourse, useDeleteGroup, useSaveCourse, useSaveGroup } from './api'
+import { useCourses, useDeleteCourse, useDeleteGroup, useSaveCourse } from './api'
+import { GroupDialog } from './group-form'
+import { courseTarget } from './targets'
 
 function CourseForm({ course, onDone }) {
   const save = useSaveCourse()
@@ -29,36 +32,6 @@ function CourseForm({ course, onDone }) {
       <DialogFooter>
         <Button type="submit" disabled={save.isPending}>
           {course ? 'Save' : 'Create course'}
-        </Button>
-      </DialogFooter>
-    </form>
-  )
-}
-
-function GroupForm({ group, courseId, onDone }) {
-  const save = useSaveGroup()
-  const { register, handleSubmit } = useForm({ defaultValues: { name: group?.name ?? '', schedule: group?.schedule ?? '', capacity: group?.capacity ?? '' } })
-  const submit = (v) =>
-    save.mutate(
-      { id: group?.id, course_id: courseId, name: v.name.trim(), schedule: v.schedule.trim() || null, capacity: v.capacity ? Number(v.capacity) : null },
-      { onSuccess: onDone },
-    )
-  return (
-    <form className="grid gap-4" onSubmit={handleSubmit(submit)}>
-      <Field label="Name">
-        <Input autoFocus required placeholder="e.g. Morning, Group B" {...register('name')} />
-      </Field>
-      <div className="grid grid-cols-[1fr_7rem] gap-3">
-        <Field label="Schedule" hint="Free text, e.g. Mon & Wed 18:00">
-          <Input {...register('schedule')} />
-        </Field>
-        <Field label="Capacity">
-          <Input type="number" min={1} {...register('capacity')} />
-        </Field>
-      </div>
-      <DialogFooter>
-        <Button type="submit" disabled={save.isPending}>
-          {group ? 'Save' : 'Add group'}
         </Button>
       </DialogFooter>
     </form>
@@ -86,6 +59,14 @@ function CourseCard({ course, onEdit, onGroup }) {
             <Users className="size-3.5" /> {course.member_count} members · View roster
           </Link>
         </div>
+        <AddMembersMenu
+          target={courseTarget(course)}
+          trigger={
+            <Button variant="ghost" size="icon" aria-label={`Add members to ${course.name}`} title="Add members">
+              <UserPlus />
+            </Button>
+          }
+        />
         <Menu>
           <MenuTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="Course actions">
@@ -120,7 +101,15 @@ function CourseCard({ course, onEdit, onGroup }) {
               {g.member_count}
               {g.capacity ? ` / ${g.capacity}` : ''}
             </span>
-            <div className="flex w-0 overflow-hidden group-hover:w-auto focus-within:w-auto">
+            <div className="flex w-0 overflow-hidden group-hover:w-auto focus-within:w-auto pointer-coarse:w-auto">
+              <AddMembersMenu
+                target={courseTarget(course, g)}
+                trigger={
+                  <Button variant="ghost" size="icon" aria-label={`Add members to ${g.name}`} title="Add members">
+                    <UserPlus />
+                  </Button>
+                }
+              />
               <Button variant="ghost" size="icon" aria-label={`Edit ${g.name}`} onClick={() => onGroup(g)}>
                 <Pencil />
               </Button>
@@ -148,6 +137,7 @@ function CourseCard({ course, onEdit, onGroup }) {
 }
 
 export default function CoursesPage() {
+  const navigate = useNavigate()
   const [archived, setArchived] = useState(false)
   const { data: courses, isPending } = useCourses(archived)
   const [course, setCourse] = useState(null)
@@ -185,13 +175,17 @@ export default function CoursesPage() {
       )}
 
       <Dialog open={!!course} onOpenChange={(o) => !o && setCourse(null)}>
-        <DialogContent title={course?.id ? 'Edit course' : 'New course'}>{course && <CourseForm course={course.id ? course : null} onDone={() => setCourse(null)} />}</DialogContent>
+        <DialogContent title={course?.id ? 'Edit course' : 'New course'}>{course && (
+            <CourseForm
+              course={course.id ? course : null}
+              onDone={(saved) => {
+                setCourse(null)
+                if (!course.id) navigate(`/courses/${saved.id}`) // next: groups and members, on the course's own page
+              }}
+            />
+          )}</DialogContent>
       </Dialog>
-      <Dialog open={!!group} onOpenChange={(o) => !o && setGroup(null)}>
-        <DialogContent title={group?.id ? 'Edit group' : 'New group'}>
-          {group && <GroupForm group={group.id ? group : null} courseId={group.courseId} onDone={() => setGroup(null)} />}
-        </DialogContent>
-      </Dialog>
+      <GroupDialog group={group} onOpenChange={(o) => !o && setGroup(null)} />
     </>
   )
 }

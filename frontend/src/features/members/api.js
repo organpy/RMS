@@ -3,9 +3,9 @@ import { useQuery } from '@tanstack/react-query'
 import { useMutate } from '@/hooks/use-mutate'
 import { api } from '@/lib/api'
 
-const ROOTS = ['members', 'dashboard', 'courses', 'reminders']
+const ROOTS = ['members', 'dashboard', 'courses', 'reminders', 'plans', 'roster', 'onboarding']
 
-export const useMembers = (params) => useQuery({ queryKey: ['members', params], queryFn: () => api.get('/members', params) })
+export const useMembers = (params, { enabled = true } = {}) => useQuery({ queryKey: ['members', params], queryFn: () => api.get('/members', params), enabled })
 
 export const useMember = (id) => useQuery({ queryKey: ['members', 'one', id], queryFn: () => api.get(`/members/${id}`), enabled: !!id, placeholderData: undefined })
 

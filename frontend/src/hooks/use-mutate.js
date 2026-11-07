@@ -8,7 +8,8 @@ export function useMutate(mutationFn, { invalidate = [], success, onSuccess } = 
     mutationFn,
     onSuccess: (data, vars) => {
       for (const key of invalidate) qc.invalidateQueries({ queryKey: [key] })
-      if (success) toast.success(typeof success === 'function' ? success(data, vars) : success)
+      const message = typeof success === 'function' ? success(data, vars) : success
+      if (message) toast.success(message)
       onSuccess?.(data, vars)
     },
     onError: (error) => toast.error(error.message),

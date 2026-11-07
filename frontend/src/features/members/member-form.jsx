@@ -12,41 +12,44 @@ import { useSaveMember } from './api'
 const toId = (v) => (v ? Number(v) : null)
 const blank = (v) => v?.trim() || null
 
-export function MemberFormDialog({ open, onOpenChange, member, onSaved }) {
+/**
+ * Create or edit a member. ``defaults`` pre-fills course, group and plan for new members
+ * (e.g. when adding from a course or plan), and ``description`` says where they will land.
+ */
+export function MemberFormDialog({ open, onOpenChange, member, onSaved, defaults, description }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title={member ? 'Edit member' : 'New member'} className="sm:max-w-lg">
-        {open && <MemberForm member={member} onDone={(m) => (onOpenChange(false), onSaved?.(m))} onCancel={() => onOpenChange(false)} />}
+      <DialogContent title={member ? 'Edit member' : 'New member'} description={member ? undefined : description} className="sm:max-w-lg">
+        {open && <MemberForm member={member} defaults={defaults} onDone={(m) => (onOpenChange(false), onSaved?.(m))} onCancel={() => onOpenChange(false)} />}
       </DialogContent>
     </Dialog>
   )
 }
 
-function MemberForm({ member, onDone, onCancel }) {
+function MemberForm({ member, defaults, onDone, onCancel }) {
   const save = useSaveMember()
   const { data: courses = [] } = useCourses()
-  const { register, handleSubmit, control, setValue, formState: { errors } } = useForm({
-    defaultValues: {
-      first_name: member?.first_name ?? '',
-      last_name: member?.last_name ?? '',
-      email: member?.email ?? '',
-      phone: member?.phone ?? '',
-      course_id: member?.course_id ?? '',
-      group_id: member?.group_id ?? '',
-      plan_id: member?.plan_id ?? '',
-      joined_on: member?.joined_on ?? today(),
-      notes: member?.notes ?? '',
-      discount_percent: member?.discount_percent ?? '',
-      guardian_name: member?.guardian_name ?? '',
-      guardian_phone: member?.guardian_phone ?? '',
-      guardian_email: member?.guardian_email ?? '',
-    },
-  })
+  const initial = {
+    first_name: member?.first_name ?? '',
+    last_name: member?.last_name ?? '',
+    email: member?.email ?? '',
+    phone: member?.phone ?? '',
+    course_id: member?.course_id ?? defaults?.course_id ?? '',
+    group_id: member?.group_id ?? defaults?.group_id ?? '',
+    plan_id: member?.plan_id ?? defaults?.plan_id ?? '',
+    joined_on: member?.joined_on ?? today(),
+    notes: member?.notes ?? '',
+    discount_percent: member?.discount_percent ?? '',
+    guardian_name: member?.guardian_name ?? '',
+    guardian_phone: member?.guardian_phone ?? '',
+    guardian_email: member?.guardian_email ?? '',
+  }
+  const { register, handleSubmit, control, setValue, reset, setFocus, formState: { errors } } = useForm({ defaultValues: initial })
   const courseId = toId(useWatch({ control, name: 'course_id' }))
   const groups = courses.find((c) => c.id === courseId)?.groups ?? []
   const { data: plans = [] } = usePlans(courseId ? { course_id: courseId } : {})
 
-  const submit = (v) =>
+  const submit = (v, another) =>
     save.mutate(
       {
         id: member?.id,
@@ -64,11 +67,18 @@ function MemberForm({ member, onDone, onCancel }) {
         plan_id: toId(v.plan_id),
         joined_on: v.joined_on || null,
       },
-      { onSuccess: onDone },
+      {
+        onSuccess: (saved) => {
+          if (!another) return onDone(saved)
+          // Keep course, group, plan and date so a whole class can be entered in a row.
+          reset({ ...initial, course_id: v.course_id, group_id: v.group_id, plan_id: v.plan_id, joined_on: v.joined_on })
+          setFocus('first_name')
+        },
+      },
     )
 
   return (
-    <form className="grid gap-4" onSubmit={handleSubmit(submit)}>
+    <form className="grid gap-4" onSubmit={(e) => handleSubmit((v) => submit(v, e.nativeEvent.submitter?.value === 'another'))(e)}>
       <div className="grid grid-cols-2 gap-3">
         <Field label="First name" error={errors.first_name && 'Required'}>
           <Input autoFocus {...register('first_name', { required: true, validate: (v) => !!v.trim() })} />
@@ -83,7 +93,8 @@ function MemberForm({ member, onDone, onCancel }) {
           <Input type="tel" {...register('phone')} />
         </Field>
         <Field label="Course">
-          <Select {...register('course_id', { onChange: () => (setValue('group_id', ''), setValue('plan_id', '')) })}>
+          {/* Keyed on the options so a pre-filled value shows once they have loaded. */}
+          <Select key={courses.length} {...register('course_id', { onChange: () => (setValue('group_id', ''), setValue('plan_id', '')) })}>
             <option value="">None</option>
             {courses.map((c) => (
               <option key={c.id} value={c.id}>
@@ -93,7 +104,7 @@ function MemberForm({ member, onDone, onCancel }) {
           </Select>
         </Field>
         <Field label="Group">
-          <Select disabled={!groups.length} {...register('group_id')}>
+          <Select key={`${courseId}-${groups.length}`} disabled={!groups.length} {...register('group_id')}>
             <option value="">None</option>
             {groups.map((g) => (
               <option key={g.id} value={g.id}>
@@ -103,7 +114,7 @@ function MemberForm({ member, onDone, onCancel }) {
           </Select>
         </Field>
         <Field label="Plan">
-          <Select {...register('plan_id')}>
+          <Select key={plans.length} {...register('plan_id')}>
             <option value="">None</option>
             {plans.map((p) => (
               <option key={p.id} value={p.id}>
@@ -141,6 +152,11 @@ function MemberForm({ member, onDone, onCancel }) {
         <Button variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
+        {!member && (
+          <Button type="submit" variant="outline" value="another" disabled={save.isPending}>
+            Save & add another
+          </Button>
+        )}
         <Button type="submit" disabled={save.isPending}>
           {member ? 'Save changes' : 'Add member'}
         </Button>
