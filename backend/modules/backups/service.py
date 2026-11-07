@@ -7,6 +7,7 @@ import os
 import re
 import sqlite3
 import tempfile
+import time
 import zipfile
 from contextlib import closing
 from dataclasses import dataclass
@@ -102,6 +103,17 @@ def _validate_db(path: Path) -> str:
     return revision[0]
 
 
+def _replace(src: Path, dst: Path, attempts: int = 20) -> None:
+    """os.replace, retried briefly: on Windows a background job may still hold the file for a moment."""
+    for attempt in range(attempts):
+        try:
+            return os.replace(src, dst)
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise AppError("The database is busy; close other RMS windows and try the restore again") from None
+            time.sleep(0.25)
+
+
 def restore(upload: BinaryIO) -> None:
     """Validate an uploaded archive, snapshot the current state, then swap the database in."""
     limit = get_settings().max_upload_mb * 1024 * 1024
@@ -138,7 +150,7 @@ def restore(upload: BinaryIO) -> None:
         db.engine.dispose()
         for suffix in ("-wal", "-shm"):
             Path(f"{target}{suffix}").unlink(missing_ok=True)
-        os.replace(new_db, target)
+        _replace(new_db, target)
         logo_path = get_settings().logo_path
         if logo is None:
             logo_path.unlink(missing_ok=True)

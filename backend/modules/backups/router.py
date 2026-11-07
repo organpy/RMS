@@ -66,7 +66,8 @@ def update_schedule(body: Schedule, db: Session = Depends(get_db), staff=Depends
 
 
 @router.post("/restore", status_code=204)
-def restore_backup(file: UploadFile, staff=Depends(require_admin)) -> None:
+def restore_backup(file: UploadFile, staff=Depends(require_admin), db: Session = Depends(get_db)) -> None:
+    db.close()  # release this request's connection: Windows cannot replace a database file that is still open
     service.restore(file.file)
     _log(staff, "restored", file.filename or "uploaded backup")  # written to the restored database
 
