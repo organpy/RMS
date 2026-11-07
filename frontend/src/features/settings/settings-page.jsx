@@ -1,9 +1,11 @@
+import { useQuery } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 
 import { PageHeader } from '@/components/page'
 import { useMe } from '@/features/auth/api'
 import { useOrg } from '@/features/organization/api'
+import { api } from '@/lib/api'
 
 import { AccountSection } from './account-section'
 import { AuditSection } from './audit-section'
@@ -20,6 +22,7 @@ export default function SettingsPage() {
   const { data: org } = useOrg()
   const { hash } = useLocation()
   const admin = me?.role === 'admin'
+  const { data: health } = useQuery({ queryKey: ['health'], queryFn: () => api.get('/health'), staleTime: Infinity })
 
   useEffect(() => {
     if (org && hash) document.getElementById(hash.slice(1))?.scrollIntoView()
@@ -44,6 +47,7 @@ export default function SettingsPage() {
             </>
           )}
           <AccountSection />
+          {health && <p className="pb-4 text-xs text-muted-foreground">RMS {health.version === 'dev' ? 'development build' : `version ${health.version}`}</p>}
         </div>
       )}
     </>

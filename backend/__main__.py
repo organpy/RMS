@@ -84,6 +84,11 @@ def main() -> None:
     parser.add_argument("--open", action="store_true", help="open the browser and pick a free port if needed")
     args = parser.parse_args()
 
+    from backend.modules.backups import service as backups
+
+    if backups.data_is_newer():  # say it plainly instead of failing inside the server's startup
+        raise SystemExit(backups.NEWER_DATA)
+
     host, port = network.bind_host(), get_settings().port
 
     if args.open:

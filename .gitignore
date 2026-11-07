@@ -38,3 +38,6 @@ Thumbs.db
 
 # Release zips (python -m scripts.package)
 /release/
+
+# Written into release zips by scripts/package.py
+/VERSION

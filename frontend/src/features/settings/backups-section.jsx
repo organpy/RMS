@@ -15,7 +15,7 @@ import { date } from '@/lib/format'
 import { Section } from './section'
 
 const size = (bytes) => (bytes > 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.ceil(bytes / 1e3)} KB`)
-const KIND = { manual: 'Manual', scheduled: 'Scheduled', 'pre-restore': 'Before restore' }
+const KIND = { manual: 'Manual', scheduled: 'Scheduled', 'pre-restore': 'Before restore', 'pre-upgrade': 'Before update' }
 
 function Schedule() {
   const { data } = useQuery({ queryKey: ['backups', 'schedule'], queryFn: () => api.get('/backups/schedule') })

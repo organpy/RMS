@@ -19,7 +19,7 @@ from backend.core import db, migrate
 from backend.core.config import get_settings
 from backend.core.errors import AppError, Conflict, NotFound
 
-NAME = re.compile(r"^rms-\d{8}-\d{6}-(manual|scheduled|pre-restore)\.zip$")
+NAME = re.compile(r"^rms-\d{8}-\d{6}-(manual|scheduled|pre-restore|pre-upgrade)\.zip$")
 
 
 @dataclass
@@ -72,13 +72,36 @@ def create(kind: str = "manual") -> BackupFile:
         with closing(sqlite3.connect(source)) as src, closing(sqlite3.connect(snapshot)) as dst:
             src.backup(dst)
         logo = get_settings().logo_path
-        manifest = {"app": "rms", "revision": migrate.head_revision(), "created_at": now.isoformat()}
+        with closing(sqlite3.connect(snapshot)) as con:
+            revision = con.execute("SELECT version_num FROM alembic_version").fetchone()
+        manifest = {"app": "rms", "revision": revision[0] if revision else None, "version": migrate.app_version(), "created_at": now.isoformat()}
         with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.write(snapshot, "rms.db")
             if logo.exists():
                 zf.write(logo, "logo")
             zf.writestr("manifest.json", json.dumps(manifest))
     return _describe(target)
+
+
+NEWER_DATA = (
+    "\n  This data was created by a newer version of RMS than this one.\n"
+    "  Start that newer version instead (or a later one); your data has not been changed.\n"
+)
+
+
+def data_is_newer() -> bool:
+    current = migrate.current_revision(db.engine)
+    return current is not None and current not in migrate.known_revisions()
+
+
+def before_upgrade() -> BackupFile | None:
+    """Snapshot an existing database that is about to be migrated, so an update can be undone."""
+    if data_is_newer():
+        raise SystemExit(NEWER_DATA)
+    current = migrate.current_revision(db.engine)
+    if current is None or current == migrate.head_revision() or db.engine.url.get_backend_name() != "sqlite":
+        return None
+    return create("pre-upgrade")
 
 
 def prune(keep: int, kind: str = "scheduled") -> None:
@@ -114,8 +137,8 @@ def _replace(src: Path, dst: Path, attempts: int = 20) -> None:
             time.sleep(0.25)
 
 
-def restore(upload: BinaryIO) -> None:
-    """Validate an uploaded archive, snapshot the current state, then swap the database in."""
+def restore(upload: BinaryIO, snapshot: bool = True) -> None:
+    """Validate an uploaded archive, snapshot the current state (unless it is an empty install), then swap the database in."""
     limit = get_settings().max_upload_mb * 1024 * 1024
     target = _db_path()
     with tempfile.TemporaryDirectory(dir=target.parent) as tmp:
@@ -146,7 +169,8 @@ def restore(upload: BinaryIO) -> None:
             finally:
                 engine.dispose()
 
-        create("pre-restore")
+        if snapshot:
+            create("pre-restore")
         db.engine.dispose()
         for suffix in ("-wal", "-shm"):
             Path(f"{target}{suffix}").unlink(missing_ok=True)

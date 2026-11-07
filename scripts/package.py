@@ -55,6 +55,7 @@ def main() -> None:
         for path in files:
             _add(zf, path, f"RMS/{path.relative_to(ROOT).as_posix()}")
         _add(zf, ROOT / "scripts" / "release" / "START-HERE.txt", "RMS/START-HERE.txt")
+        zf.writestr("RMS/VERSION", f"{version}\n")  # shown in Settings and stored in backups
     print(f"{out.relative_to(ROOT)}  ({len(files) + 1} files, {out.stat().st_size / 1e6:.1f} MB)")
 
 

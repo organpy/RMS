@@ -4,6 +4,7 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import Engine
 
@@ -23,6 +24,18 @@ def head_revision() -> str:
 
 def known_revisions() -> set[str]:
     return {r.revision for r in ScriptDirectory.from_config(_config()).walk_revisions()}
+
+
+def current_revision(engine: Engine) -> str | None:
+    """Schema revision of the database, or None for a brand-new one."""
+    with engine.connect() as connection:
+        return MigrationContext.configure(connection).get_current_revision()
+
+
+def app_version() -> str:
+    """Release version written by ``scripts/package.py``; ``dev`` when running from source."""
+    path = ROOT / "VERSION"
+    return path.read_text().strip() if path.exists() else "dev"
 
 
 def upgrade(engine: Engine) -> None:

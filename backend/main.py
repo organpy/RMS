@@ -15,6 +15,7 @@ from .modules.attendance.router import router as attendance_router
 from .modules.audit.router import router as audit_router
 from .modules.auth.router import router as auth_router
 from .modules.backups import schedule as backup_schedule
+from .modules.backups import service as backup_service
 from .modules.backups.router import router as backups_router
 from .modules.courses.router import router as courses_router
 from .modules.dashboard.router import router as dashboard_router
@@ -71,6 +72,7 @@ ROUTERS = (
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    backup_service.before_upgrade()
     migrate.upgrade(db.engine)
     jobs.start()
     yield
@@ -88,7 +90,7 @@ def create_app() -> FastAPI:
 
     @api.get("/health", tags=["health"])
     def health() -> dict[str, str]:
-        return {"status": "ok"}
+        return {"status": "ok", "version": migrate.app_version()}
 
     for router in ROUTERS:
         api.include_router(router)
