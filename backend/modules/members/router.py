@@ -135,8 +135,12 @@ def update_member(member_id: int, body: MemberUpdate, db: Session = Depends(get_
         member.archived_at = datetime.now(timezone.utc) if archived else None
         action = "archived" if archived else "restored"
     changed = ", ".join(sorted(data)) or "status"
-    if "course_id" in data and "group_id" not in data and data["course_id"] != member.course_id:
-        member.group_id = None
+    if "course_id" in data and data["course_id"] != member.course_id:
+        # Changing course drops what belonged to the old one: its group, and a plan only it offers.
+        if "group_id" not in data:
+            member.group_id = None
+        if "plan_id" not in data and member.plan is not None and member.plan.course_id not in (None, data["course_id"]):
+            member.plan_id = None
     for key, value in data.items():
         setattr(member, key, value)
     service.validate_links(db, member)

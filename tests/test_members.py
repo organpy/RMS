@@ -71,3 +71,16 @@ def test_export_csv(admin):
     r = admin.get("/api/members/export.csv")
     assert r.headers["content-type"].startswith("text/csv")
     assert "Zed,Haddad" in r.text
+
+
+def test_moving_course_drops_a_plan_only_the_old_course_offers(admin):
+    judo = admin.post("/api/courses", json={"name": "Judo"}).json()
+    chess = admin.post("/api/courses", json={"name": "Chess"}).json()
+    judo_plan = admin.post("/api/plans", json={"name": "Judo term", "price": "90", "interval_days": 90, "course_id": judo["id"]}).json()
+    general = admin.post("/api/plans", json={"name": "Monthly", "price": "30", "interval_days": 30}).json()
+    a = admin.post("/api/members", json={"first_name": "A", "last_name": "X", "course_id": judo["id"], "plan_id": judo_plan["id"]}).json()
+    b = admin.post("/api/members", json={"first_name": "B", "last_name": "X", "course_id": judo["id"], "plan_id": general["id"]}).json()
+
+    moved = admin.patch(f"/api/members/{a['id']}", json={"course_id": chess["id"], "group_id": None})
+    assert moved.status_code == 200 and moved.json()["plan_id"] is None
+    assert admin.patch(f"/api/members/{b['id']}", json={"course_id": chess["id"]}).json()["plan_id"] == general["id"]  # kept

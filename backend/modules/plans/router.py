@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from backend.core.db import get_db
@@ -9,6 +9,7 @@ from backend.core.errors import NotFound
 from backend.core.security import current_staff
 from backend.modules.audit.service import audit
 from backend.modules.courses.models import Course
+from backend.modules.members.models import Member
 
 from .models import Plan
 from .schemas import PlanIn, PlanOut, PlanUpdate
@@ -16,9 +17,18 @@ from .schemas import PlanIn, PlanOut, PlanUpdate
 router = APIRouter(prefix="/plans", tags=["plans"], dependencies=[Depends(current_staff)])
 
 
-def _out(plan: Plan) -> PlanOut:
+def _counts(db: Session) -> dict[int, int]:
+    stmt = select(Member.plan_id, func.count()).where(Member.archived_at.is_(None), Member.plan_id.is_not(None)).group_by(Member.plan_id)
+    return dict(db.execute(stmt).all())
+
+
+def _out(plan: Plan, counts: dict[int, int] | None = None) -> PlanOut:
     return PlanOut.model_validate(plan).model_copy(
-        update={"course_name": plan.course.name if plan.course else None, "archived": plan.archived_at is not None}
+        update={
+            "course_name": plan.course.name if plan.course else None,
+            "archived": plan.archived_at is not None,
+            "member_count": (counts or {}).get(plan.id, 0),
+        }
     )
 
 
@@ -37,7 +47,8 @@ def list_plans(
         stmt = stmt.where(Plan.archived_at.is_(None))
     if course_id is not None:
         stmt = stmt.where(or_(Plan.course_id == course_id, Plan.course_id.is_(None)))
-    return [_out(p) for p in db.scalars(stmt)]
+    counts = _counts(db)
+    return [_out(p, counts) for p in db.scalars(stmt)]
 
 
 @router.post("", response_model=PlanOut, status_code=201)
@@ -49,7 +60,7 @@ def create_plan(body: PlanIn, db: Session = Depends(get_db), staff=Depends(curre
     audit(db, staff, "created", "plan", plan.id, plan.name)
     db.commit()
     db.refresh(plan)
-    return _out(plan)
+    return _out(plan, _counts(db))
 
 
 @router.patch("/{plan_id}", response_model=PlanOut)
@@ -71,4 +82,4 @@ def update_plan(plan_id: int, body: PlanUpdate, db: Session = Depends(get_db), s
     audit(db, staff, action, "plan", plan.id, f"{plan.name} ({changed})" if changed else plan.name)
     db.commit()
     db.refresh(plan)
-    return _out(plan)
+    return _out(plan, _counts(db))

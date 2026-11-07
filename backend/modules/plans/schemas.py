@@ -25,3 +25,4 @@ class PlanOut(PlanIn):
     id: int
     course_name: Optional[str] = None
     archived: bool = False
+    member_count: int = 0  # current (non-archived) members on this plan

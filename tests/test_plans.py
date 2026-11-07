@@ -19,3 +19,13 @@ def test_archive_plan(admin):
 def test_rejects_invalid(admin):
     assert admin.post("/api/plans", json={"name": "x", "price": "-1", "interval_days": 30}).status_code == 422
     assert admin.post("/api/plans", json={"name": "x", "price": "1", "interval_days": 30, "course_id": 99}).status_code == 404
+
+
+def test_plans_count_their_current_members(admin):
+    plan = admin.post("/api/plans", json={"name": "Monthly", "price": "30", "interval_days": 30}).json()
+    assert plan["member_count"] == 0
+    for name in ("Ana", "Bob"):
+        admin.post("/api/members", json={"first_name": name, "last_name": "X", "plan_id": plan["id"]})
+    gone = admin.post("/api/members", json={"first_name": "Cy", "last_name": "X", "plan_id": plan["id"]}).json()
+    admin.patch(f"/api/members/{gone['id']}", json={"archived": True})
+    assert [p["member_count"] for p in admin.get("/api/plans").json()] == [2]
