@@ -1,6 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel
 
+from backend.core.config import get_settings
 from backend.core.db import get_db
 from backend.core.security import current_staff, require_admin
 from backend.modules.audit.service import audit
@@ -25,8 +26,10 @@ class NetworkIn(BaseModel):
 
 def _out(request: Request) -> NetworkOut:
     state = request.app.state
-    port = getattr(state, "port", request.url.port or 80)
+    port = getattr(state, "port", None) or get_settings().port  # not the request's port: Vite's dev proxy is on another one
     listening = getattr(state, "listening", None)
+    if listening is None:  # started without the launcher: find out instead of assuming
+        listening = service.ALL if service.answers_on_lan(port) else service.LOOPBACK
     reachable = listening not in (None, service.LOOPBACK, "localhost")
     return NetworkOut(
         enabled=service.lan_enabled(),

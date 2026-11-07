@@ -66,3 +66,15 @@ def lan_addresses() -> list[str]:
     except OSError:
         pass
     return list(dict.fromkeys(ip for ip in found if _private(ip)))
+
+
+def answers_on_lan(port: int) -> bool:
+    """Whether this server can be reached on a network address: used when it was not started by
+    ``python -m backend`` (plain uvicorn, the dev script), so the bind host is unknown."""
+    for ip in lan_addresses():
+        try:
+            with socket.create_connection((ip, port), timeout=0.3):
+                return True
+        except OSError:
+            continue
+    return False
