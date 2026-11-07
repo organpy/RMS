@@ -5,19 +5,29 @@ RMS runs on your own computer. Your data never leaves it, there is no account
 to create and nothing to pay.
 
 
+ABOUT THE SECURITY WARNING
+  "Start RMS.bat" is a plain-text script, not a signed program, so Windows
+  SmartScreen warns about it the first time you run it. Nothing is hidden:
+  right-click the file and choose "Edit" (or open it in Notepad) to read
+  every step it takes. It only installs Python packages into the RMS folder
+  and starts the app on your own computer.
+
+
 1. INSTALL AND START
 --------------------
 
 Windows
-  1. Right-click the zip you downloaded and choose "Extract All...".
+  1. Right-click the zip you downloaded, choose Properties, tick "Unblock"
+     at the bottom and click OK. (This avoids the security warning below.)
+  2. Right-click the zip again and choose "Extract All...".
      Put the folder somewhere permanent, for example Documents\RMS.
-  2. Open the folder and double-click "Start RMS.bat".
+  3. Open the folder and double-click "Start RMS.bat".
      - If Windows shows "Windows protected your PC", click "More info",
-       then "Run anyway". The file is a plain text script you can read.
+       then "Run anyway".
      - If Python is missing, the window offers to install it for you.
        Say Y, or install it from https://www.python.org/downloads/
        (tick "Add python.exe to PATH").
-  3. The first start takes a minute or two (it needs internet once).
+  4. The first start takes a minute or two (it needs internet once).
      Your browser then opens RMS, and an "RMS" shortcut appears on your desktop.
 
 macOS
@@ -91,3 +101,10 @@ TROUBLE?
     itself and opens the right address.
   - Forgot the admin password: see "Troubleshooting" in README.md.
   - Anything else: the black window shows what went wrong.
+
+
+LICENSE
+-------
+
+  RMS is free software under the MIT license (see the LICENSE file).
+  It comes without warranty, so keep regular backups.

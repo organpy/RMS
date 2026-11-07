@@ -11,8 +11,9 @@ Courses, groups, plans, payments, invoices, attendance and reminders, running on
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite&logoColor=white)
 ![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
-[Features](#features) · [Quick start](#quick-start) · [Daily workflow](#daily-workflow) · [Messaging setup](#messaging-setup) · [Your network](#run-it-on-your-network) · [Development](#development) · [Troubleshooting](#troubleshooting)
+[Features](#features) · [Quick start](#quick-start) · [Daily workflow](#daily-workflow) · [Messaging setup](#messaging-setup) · [Your network](#run-it-on-your-network) · [Development](#development) · [Troubleshooting](#troubleshooting) · [License](#license)
 
 </div>
 
@@ -36,6 +37,20 @@ RMS is for anyone who runs **courses**, splits them into **groups**, and charges
 | **Backups** | One-click or scheduled snapshots, and a validated restore that also accepts backups made by older versions. |
 
 ## Quick start
+
+### Download (Windows, macOS, Linux)
+
+Get the ready-to-run zip, which needs only **Python 3.11+** (on Windows the launcher offers to install it for you).
+
+1. Extract the zip somewhere permanent, such as `Documents\RMS`.
+2. Double-click **`Start RMS.bat`** on Windows, or right-click **`Start RMS.command`** → **Open** on macOS. On Linux, run `./"Start RMS.command"`.
+3. The first start sets everything up (a minute or two, internet needed once) and opens RMS in your browser. On Windows, it also adds an **RMS** shortcut to your desktop.
+
+Keep the launcher window open while you use RMS; closing it stops the app. `START-HERE.txt` in the zip covers updates, backups and network access.
+
+> **Windows shows "Windows protected your PC".** The launcher is a plain-text script, not a signed program, so SmartScreen warns about it the first time. Click **More info** → **Run anyway**. To skip the warning entirely, right-click the zip **before extracting** → **Properties** → tick **Unblock** → **OK**. You can open `Start RMS.bat` in Notepad to read exactly what it does.
+
+### From source
 
 Requires **Python 3.11+** and **Node 20+**.
 
@@ -282,7 +297,11 @@ docs/assets/    README images (banner.png)
 
 ## Troubleshooting
 
-**The port is already in use.** Set another one: `RMS_PORT=8010 scripts/start.sh`.
+**Windows says "Windows protected your PC" or "Unknown publisher".** The launcher is an unsigned script. Click **More info** → **Run anyway**, or unblock the zip in its **Properties** before extracting it (see [Download](#download-windows-macos-linux)). The launcher clears the flag on itself after its first run, so the warning does not come back.
+
+**macOS says the file "cannot be opened because it is from an unidentified developer".** Right-click `Start RMS.command` → **Open** → **Open**. macOS remembers the choice.
+
+**The port is already in use.** The double-click launchers move to the next free port by themselves. With `scripts/start.sh`, set one: `RMS_PORT=8010 scripts/start.sh`.
 
 **A channel says "not connected" in Settings → Messaging.** Check the variable names in `.env`, make sure the file sits in the folder you start the app from, and restart. The app lists which variables each channel needs.
 
@@ -302,3 +321,7 @@ PY
 ```
 
 **A restore was refused.** The file must be a backup made by this app, and not from a newer version. Update the app first if the backup came from a newer install.
+
+## License
+
+[MIT](LICENSE). Free to use, change and share, including commercially. The software comes without warranty, so keep regular backups.

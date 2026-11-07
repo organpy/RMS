@@ -2,6 +2,8 @@
 rem Double-click to install (first run only) and start RMS, then open it in the browser.
 rem Everything stays inside this folder: Python packages in .venv, your data in data\.
 rem Written with goto instead of ( ) blocks so folder names like "RMS (1)" do not break it.
+rem This script is not signed, so Windows SmartScreen warns the first time it runs from a
+rem download; after a successful first run it removes the download mark from itself.
 setlocal EnableExtensions
 title RMS
 cd /d "%~dp0"
@@ -73,6 +75,8 @@ goto shortcut
 :shortcut
 if not defined FIRST_RUN goto run
 set "RMS_DIR=%CD%"
+rem Clear the "downloaded from the internet" mark so the warning does not come back.
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Unblock-File -LiteralPath (Join-Path $env:RMS_DIR 'Start RMS.bat')" >nul 2>nul
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$d=[Environment]::GetFolderPath('Desktop'); $s=(New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $d 'RMS.lnk')); $s.TargetPath=(Join-Path $env:RMS_DIR 'Start RMS.bat'); $s.WorkingDirectory=$env:RMS_DIR; $s.IconLocation=(Join-Path $env:SystemRoot 'System32\shell32.dll')+',165'; $s.Save()" >nul 2>nul
 if not errorlevel 1 echo   Added an "RMS" shortcut to your desktop.
 
