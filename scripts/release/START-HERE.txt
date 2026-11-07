@@ -28,7 +28,8 @@ Windows
        Say Y, or install it from https://www.python.org/downloads/
        (tick "Add python.exe to PATH").
   4. The first start takes a minute or two (it needs internet once).
-     Your browser then opens RMS, and an "RMS" shortcut appears on your desktop.
+     Your browser then opens RMS, and "RMS" appears on your desktop and
+     in the Start menu.
 
 macOS
   1. Double-click the zip to extract it, and move the folder to Documents.
@@ -53,7 +54,7 @@ Linux
 3. EVERY DAY
 ------------
 
-  - Start RMS with the desktop shortcut (or "Start RMS.bat").
+  - Start RMS from the desktop or Start menu (or "Start RMS.bat").
   - Keep the black window open while you work. Closing it stops RMS.
   - Starting it again while it runs just opens it in your browser.
 

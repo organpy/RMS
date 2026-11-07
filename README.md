@@ -44,7 +44,7 @@ Get the ready-to-run zip, which needs only **Python 3.11+** (on Windows the laun
 
 1. Extract the zip somewhere permanent, such as `Documents\RMS`.
 2. Double-click **`Start RMS.bat`** on Windows, or right-click **`Start RMS.command`** → **Open** on macOS. On Linux, run `./"Start RMS.command"`.
-3. The first start sets everything up (a minute or two, internet needed once) and opens RMS in your browser. On Windows, it also adds an **RMS** shortcut to your desktop.
+3. The first start sets everything up (a minute or two, internet needed once) and opens RMS in your browser. On Windows, it also adds **RMS** to your desktop and Start menu.
 
 Keep the launcher window open while you use RMS; closing it stops the app. `START-HERE.txt` in the zip covers updates, backups and network access.
 

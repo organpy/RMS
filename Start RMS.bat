@@ -73,12 +73,16 @@ popd
 goto shortcut
 
 :shortcut
+rem First run: add desktop and Start menu shortcuts. Later runs refresh the existing ones,
+rem so after an update they point at the new folder.
+set "SC_ARGS="
+if defined FIRST_RUN set "SC_ARGS=-Create"
+powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\windows\shortcuts.ps1" %SC_ARGS% >nul 2>nul
+if defined FIRST_RUN if not errorlevel 1 echo   Added "RMS" to your desktop and Start menu.
 if not defined FIRST_RUN goto run
 set "RMS_DIR=%CD%"
 rem Clear the "downloaded from the internet" mark so the warning does not come back.
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Unblock-File -LiteralPath (Join-Path $env:RMS_DIR 'Start RMS.bat')" >nul 2>nul
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$d=[Environment]::GetFolderPath('Desktop'); $s=(New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $d 'RMS.lnk')); $s.TargetPath=(Join-Path $env:RMS_DIR 'Start RMS.bat'); $s.WorkingDirectory=$env:RMS_DIR; $s.IconLocation=(Join-Path $env:SystemRoot 'System32\shell32.dll')+',165'; $s.Save()" >nul 2>nul
-if not errorlevel 1 echo   Added an "RMS" shortcut to your desktop.
 
 :run
 "%VPY%" -m backend --open
