@@ -16,6 +16,7 @@ import { applyBrand, applyMode, getMode } from '@/lib/theme'
 
 import { CommandPalette } from './command-palette'
 import { SECTIONS } from './nav'
+import { preloadPages } from './pages'
 import { ShortcutsDialog, useShortcuts } from './shortcuts'
 
 function OrgMark({ org }) {
@@ -123,7 +124,7 @@ function TabBar({ onMore }) {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-background/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur print:hidden lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-background px-1 pb-[env(safe-area-inset-bottom)] print:hidden lg:hidden"
     >
       {TABS.map(({ to, label, icon: Icon }) => (
         <NavLink
@@ -223,6 +224,7 @@ export function Layout() {
   const [collapsed, setCollapsed] = useStored('rms-sidebar-collapsed', false)
   const { pathname } = useLocation()
   const toggle = () => setCollapsed((c) => !c)
+  useEffect(preloadPages, [])
   const [help, setHelp] = useState(false)
   const [phone, setPhone] = useState(false)
   const showHelp = useCallback(() => setHelp(true), [])
@@ -286,7 +288,7 @@ export function Layout() {
         </div>
       </aside>
 
-      <header className="sticky top-0 z-40 flex h-14 print:hidden items-center gap-3 border-b bg-background/80 px-4 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-40 flex h-14 print:hidden items-center gap-3 border-b bg-background px-4 lg:hidden">
         <OrgMark org={org} />
         <span className="truncate font-semibold">{org?.name}</span>
         <Button variant="ghost" size="icon" className="ml-auto" onClick={() => setPalette(true)} aria-label="Search">

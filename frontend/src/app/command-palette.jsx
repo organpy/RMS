@@ -45,7 +45,7 @@ export function CommandPalette({ open, onOpenChange }) {
   return (
     <D.Root open={open} onOpenChange={onOpenChange}>
       <D.Portal>
-        <D.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]" />
+        <D.Overlay className="fixed inset-0 z-50 bg-black/50" />
         <D.Content className="fixed top-[15vh] left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 overflow-hidden rounded-xl border bg-background shadow-2xl outline-none">
           <D.Title className="sr-only">Command palette</D.Title>
           <D.Description className="sr-only">Search members, pages and actions</D.Description>

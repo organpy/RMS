@@ -55,6 +55,8 @@
   html {
     -webkit-font-smoothing: antialiased;
     font-feature-settings: 'cv11', 'ss01';
+    touch-action: manipulation; /* no double-tap zoom wait on taps */
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-background text-foreground text-sm;

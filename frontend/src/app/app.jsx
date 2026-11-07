@@ -1,30 +1,31 @@
-import { QueryClientProvider } from '@tanstack/react-query'
-import { lazy, Suspense } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import { Toaster } from 'sonner'
+import { QueryClientProvider } from "@tanstack/react-query";
+import { Suspense } from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { Toaster } from "sonner";
 
-import { RequireAuth } from '@/features/auth/require-auth'
-import { queryClient } from '@/lib/query'
+import { RequireAuth } from "@/features/auth/require-auth";
+import { queryClient } from "@/lib/query";
 
-import { Layout } from './layout'
-
-const LoginPage = lazy(() => import('@/features/auth/login-page'))
-const SetupPage = lazy(() => import('@/features/auth/setup-page'))
-const DashboardPage = lazy(() => import('@/features/dashboard/dashboard-page'))
-const MembersPage = lazy(() => import('@/features/members/members-page'))
-const CoursesPage = lazy(() => import('@/features/courses/courses-page'))
-const RosterPage = lazy(() => import('@/features/courses/roster-page'))
-const PlansPage = lazy(() => import('@/features/plans/plans-page'))
-const PaymentsPage = lazy(() => import('@/features/payments/payments-page'))
-const DailyReportPage = lazy(() => import('@/features/payments/daily-report-page'))
-const ExpensesPage = lazy(() => import('@/features/expenses/expenses-page'))
-const RemindersPage = lazy(() => import('@/features/reminders/reminders-page'))
-const AnalyticsPage = lazy(() => import('@/features/analytics/analytics-page'))
-const SettingsPage = lazy(() => import('@/features/settings/settings-page'))
-const GuidePage = lazy(() => import('@/features/onboarding/guide-page'))
+import { Layout } from "./layout";
+import {
+  LoginPage,
+  SetupPage,
+  DashboardPage,
+  MembersPage,
+  CoursesPage,
+  RosterPage,
+  PlansPage,
+  PaymentsPage,
+  DailyReportPage,
+  ExpensesPage,
+  RemindersPage,
+  AnalyticsPage,
+  SettingsPage,
+  GuidePage,
+} from "./pages";
 
 function NotFound() {
-  return <p className="text-muted-foreground">Page not found.</p>
+  return <p className="text-muted-foreground">Page not found.</p>;
 }
 
 export function App() {
@@ -59,7 +60,11 @@ export function App() {
           </Routes>
         </Suspense>
       </BrowserRouter>
-      <Toaster position="bottom-right" mobileOffset={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom))' }} toastOptions={{ className: 'text-sm' }} />
+      <Toaster
+        position="bottom-right"
+        mobileOffset={{ bottom: "calc(4.5rem + env(safe-area-inset-bottom))" }}
+        toastOptions={{ className: "text-sm" }}
+      />
     </QueryClientProvider>
-  )
+  );
 }

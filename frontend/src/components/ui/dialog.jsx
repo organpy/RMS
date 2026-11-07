@@ -7,13 +7,22 @@ export const Dialog = D.Root
 export const DialogTrigger = D.Trigger
 export const DialogClose = D.Close
 
-const overlay = 'fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0'
+// On touch screens, focusing the first field pops the keyboard up while the sheet slides in; focus the sheet instead.
+const coarse = () => window.matchMedia?.('(pointer: coarse)').matches
+const noKeyboard = (e) => {
+  if (!coarse()) return
+  e.preventDefault()
+  e.currentTarget.focus({ preventScroll: true })
+}
+
+const overlay = 'fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0'
 
 export function DialogContent({ title, description, className, children }) {
   return (
     <D.Portal>
       <D.Overlay className={overlay} />
       <D.Content
+        onOpenAutoFocus={noKeyboard}
         className={cn(
           // Phones: a bottom sheet you can reach with a thumb. Larger screens: a centred dialog.
           'fixed inset-x-0 bottom-0 z-50 grid max-h-[92dvh] gap-5 overflow-y-auto rounded-t-2xl border-t bg-background p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-xl outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom',

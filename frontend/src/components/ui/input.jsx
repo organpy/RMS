@@ -5,8 +5,11 @@ import { cn } from '@/lib/cn'
 const base =
   'w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm placeholder:text-muted-foreground/70 focus-visible:outline-2 focus-visible:outline-offset-0 disabled:opacity-50 aria-invalid:border-danger'
 
-export function Input({ className, ...props }) {
-  return <input className={cn(base, 'h-9 pointer-coarse:h-10', className)} {...props} />
+// No keyboard popping up on its own on phones and tablets: it covers the form and jolts the opening sheet.
+const touch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
+
+export function Input({ className, autoFocus, ...props }) {
+  return <input className={cn(base, 'h-9 pointer-coarse:h-10', className)} autoFocus={autoFocus && !touch} {...props} />
 }
 
 export function Textarea({ className, ...props }) {
