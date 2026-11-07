@@ -31,6 +31,7 @@ def fresh_db(tmp_path):
     path = tmp_path / "rms.db"
     shutil.copy(_TEMPLATE, path)
     shutil.rmtree(get_settings().backups_dir, ignore_errors=True)  # backups must not leak between tests
+    (get_settings().data_dir / "network.json").unlink(missing_ok=True)
     db.rebind(db.make_engine(f"sqlite:///{path}"))
     throttle._failures.clear()
     yield path

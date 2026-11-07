@@ -23,6 +23,7 @@ from .modules.expenses.router import router as expenses_router
 from .modules.members.router import router as members_router
 from .modules.messaging import auto as auto_reminders
 from .modules.messaging.router import router as messaging_router
+from .modules.network.router import router as network_router
 from .modules.onboarding.router import router as onboarding_router
 from .modules.organization.router import router as organization_router
 from .modules.payments.router import router as payments_router
@@ -51,6 +52,7 @@ ROUTERS = (
     audit_router,
     organization_router,
     onboarding_router,
+    network_router,
     courses_router,
     attendance_router,
     plans_router,

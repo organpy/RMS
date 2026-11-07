@@ -16,6 +16,7 @@ import webbrowser
 import uvicorn
 
 from backend.core.config import get_settings
+from backend.modules.network import service as network
 
 PORT_TRIES = 20
 
@@ -57,13 +58,33 @@ def _open_when_ready(url: str) -> None:
     threading.Thread(target=wait, daemon=True).start()
 
 
+def serve(port: int, quiet: bool) -> None:
+    """Run the server; rebind and run again when the app asks (network access toggled in Settings)."""
+    from backend.main import app
+
+    while True:
+        host = network.bind_host()
+        server = uvicorn.Server(uvicorn.Config(app, host=host, port=port, proxy_headers=False, log_level="warning" if quiet else "info"))
+        restart = threading.Event()
+
+        def request_restart(server: uvicorn.Server = server, restart: threading.Event = restart) -> None:
+            restart.set()
+            server.should_exit = True
+
+        app.state.restart, app.state.listening, app.state.port = request_restart, host, port
+        server.run()
+        if not restart.is_set():
+            return
+        where = "other devices on this network too" if network.lan_enabled() else "this computer only"
+        print(f"  Restarting: RMS is now reachable from {where}.", flush=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m backend", description="Run RMS.")
     parser.add_argument("--open", action="store_true", help="open the browser and pick a free port if needed")
     args = parser.parse_args()
 
-    settings = get_settings()
-    host, port = settings.host, settings.port
+    host, port = network.bind_host(), get_settings().port
 
     if args.open:
         for candidate in range(port, port + PORT_TRIES):
@@ -82,7 +103,7 @@ def main() -> None:
         print(f"\n  RMS is starting at {url}\n  Keep this window open while you use it. Close it to stop RMS.\n", flush=True)
         _open_when_ready(url)
 
-    uvicorn.run("backend.main:app", host=host, port=port, proxy_headers=False, log_level="warning" if args.open else "info")
+    serve(port, quiet=args.open)
 
 
 if __name__ == "__main__":
