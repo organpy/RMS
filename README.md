@@ -13,7 +13,7 @@ Courses, groups, plans, payments, invoices, attendance and reminders, running on
 ![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
-[Features](#features) · [Quick start](#quick-start) · [Daily workflow](#daily-workflow) · [Messaging setup](#messaging-setup) · [Your network](#run-it-on-your-network) · [Development](#development) · [Troubleshooting](#troubleshooting) · [License](#license)
+[Features](#features) · [Quick start](#quick-start) · [Daily workflow](#daily-workflow) · [Messaging setup](#messaging-setup) · [Your network](#run-it-on-your-network) · [Updating](#updating) · [Development](#development) · [Troubleshooting](#troubleshooting) · [License](#license)
 
 </div>
 
@@ -259,6 +259,15 @@ Phones, tablets and other computers on the same Wi-Fi or office network can use 
 Everyone still signs in with their own account. Only turn it on at work or at home, not on public Wi-Fi.
 
 Advanced: `RMS_HOST=0.0.0.0` in `.env` does the same and takes precedence over the setting. If you put the app behind a reverse proxy with HTTPS, set `RMS_SECURE_COOKIES=true`. To keep it running after you close the terminal, run `python -m backend` from a service manager such as systemd.
+
+## Updating
+
+Your version is shown at the bottom of **Settings**. Extract each new version into its own folder, never over the old one, then bring your data along:
+
+- **Copy the data folder.** Close RMS, then copy `data/` (and `.env`, if you made one) from the old folder into the new one. Start the new version.
+- **Back up and restore.** In the old version, go to **Settings → Backups**, then **Back up now** and download the file. Start the new version and choose **Restore from a backup** on the first screen. This is also how you move RMS to another computer.
+
+The database upgrades itself on start. Before it changes anything, RMS saves a **Before update** backup that you can restore from **Settings → Backups** if something looks wrong. An older version refuses data from a newer one and leaves it untouched.
 
 ## Development
 

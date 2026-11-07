@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Request, Response, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from backend.core.db import get_db
 from backend.core.errors import Conflict, Unauthorized
 from backend.core.security import clear_session, current_staff, hash_password, set_session, throttle, verify_password
+from backend.modules.backups import service as backups
 from backend.modules.organization.models import Organization
 from backend.modules.staff.models import Staff
 from backend.modules.staff.schemas import Password, StaffOut, Username
@@ -52,6 +53,18 @@ def setup(body: SetupIn, response: Response, db: Session = Depends(get_db)) -> S
     db.commit()
     set_session(response, admin.id)
     return admin
+
+
+@router.post("/setup/restore", status_code=204)
+def setup_from_backup(file: UploadFile, db: Session = Depends(get_db)) -> None:
+    """Start a fresh install from a backup made by this or an older version (e.g. when updating or moving computers).
+
+    Only allowed before anyone has set the install up; afterwards restores need an admin.
+    """
+    if not _needs_setup(db):
+        raise Conflict("Setup already completed")
+    db.close()  # Windows cannot replace a database file that is still open
+    backups.restore(file.file, snapshot=False)
 
 
 @router.post("/login", response_model=StaffOut)
