@@ -1,0 +1,4 @@
+# Windows launchers need CRLF; shell launchers must stay LF.
+*.bat text eol=crlf
+*.command text eol=lf
+*.sh text eol=lf
