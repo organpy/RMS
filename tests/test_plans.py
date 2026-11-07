@@ -29,3 +29,16 @@ def test_plans_count_their_current_members(admin):
     gone = admin.post("/api/members", json={"first_name": "Cy", "last_name": "X", "plan_id": plan["id"]}).json()
     admin.patch(f"/api/members/{gone['id']}", json={"archived": True})
     assert [p["member_count"] for p in admin.get("/api/plans").json()] == [2]
+
+
+def test_a_course_plan_can_take_members_from_another_course_and_its_plan(admin):
+    piano = admin.post("/api/courses", json={"name": "Piano"}).json()
+    judo = admin.post("/api/courses", json={"name": "Judo"}).json()
+    group = admin.post(f"/api/courses/{judo['id']}/groups", json={"name": "Kids"}).json()
+    judo_term = admin.post("/api/plans", json={"name": "Judo term", "price": "90", "interval_days": 90, "course_id": judo["id"]}).json()
+    piano_term = admin.post("/api/plans", json={"name": "Piano term", "price": "120", "interval_days": 90, "course_id": piano["id"]}).json()
+    m = admin.post("/api/members", json={"first_name": "Ana", "last_name": "X", "course_id": judo["id"], "group_id": group["id"], "plan_id": judo_term["id"]}).json()
+
+    r = admin.patch(f"/api/members/{m['id']}", json={"plan_id": piano_term["id"], "course_id": piano["id"]})  # what "Add to Piano term" sends
+    assert r.status_code == 200, r.text
+    assert (r.json()["course_id"], r.json()["group_id"], r.json()["plan_id"]) == (piano["id"], None, piano_term["id"])

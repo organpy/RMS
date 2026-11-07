@@ -62,8 +62,10 @@ function useEnroll(target) {
 
 function where(m, target, planCourse) {
   const course = target.assign.course_id
+  if (course && m.course_id !== course && !m.course_id) return `Joins ${target.courseName ?? 'the course'}`
   if (course && m.course_id && m.course_id !== course) {
-    const drops = planCourse[m.plan_id] && planCourse[m.plan_id] !== course // the server clears plans only the old course offers
+    // the server clears a plan only the old course offers, unless this target sets the plan itself
+    const drops = !target.assign.plan_id && planCourse[m.plan_id] && planCourse[m.plan_id] !== course
     return `Moves from ${m.course_name}${drops ? `; ${m.plan_name} is cleared, as only ${m.course_name} offers it` : ''}`
   }
   return [m.course_name && [m.course_name, m.group_name].filter(Boolean).join(' · '), m.plan_name].filter(Boolean).join(' — ') || 'No course or plan'
