@@ -14,7 +14,7 @@ import { SendMessageDialog } from '@/features/messaging/send-dialog'
 import { cn } from '@/lib/cn'
 import { date } from '@/lib/format'
 
-import { useMoveMember, useRoster } from './api'
+import { openRosterPdf, useMoveMember, useRoster } from './api'
 import { GroupDialog } from './group-form'
 import { courseTarget } from './targets'
 
@@ -89,6 +89,11 @@ function GroupCard({ course, group, groups, onMessage, onAttendance }) {
                 </Button>
               }
             />
+            {group.members.length > 0 && (
+              <Button variant="ghost" size="icon" aria-label={`Print ${group.name} member list`} title="Print member list (PDF)" onClick={() => openRosterPdf(course.id, group.id)}>
+                <Printer />
+              </Button>
+            )}
             {group.id && group.members.length > 0 && (
               <>
                 <Button variant="ghost" size="icon" aria-label={`Take attendance for ${group.name}`} title="Take attendance" onClick={onAttendance}>
@@ -154,8 +159,8 @@ export default function RosterPage() {
           <Button variant="outline" onClick={() => setGroup({ courseId: course.id })}>
             <Plus /> Add group
           </Button>
-          <Button variant="outline" onClick={() => window.print()}>
-            <Printer /> Print
+          <Button variant="outline" disabled={!course.member_count} onClick={() => openRosterPdf(course.id)}>
+            <Printer /> Print list
           </Button>
           <Button variant="outline" disabled={!course.member_count} onClick={() => setTarget({ course_id: course.id, name: course.name })}>
             <MessageSquare /> Message course

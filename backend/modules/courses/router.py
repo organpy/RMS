@@ -1,9 +1,11 @@
+import re
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from backend.core.config import get_settings
 from backend.core.db import get_db
 from backend.core.errors import Conflict, NotFound
 from backend.core.security import current_staff
@@ -11,8 +13,10 @@ from backend.modules.audit.service import audit
 from backend.modules.attendance.service import rates as attendance_rates
 from backend.modules.members.models import Member
 from backend.modules.members.service import status_expr
+from backend.modules.organization.service import get_org
 
 from .models import Course, Group
+from .render import render_roster
 from .schemas import CourseIn, CourseOut, CourseUpdate, GroupIn, GroupOut, Roster, RosterGroup, RosterMember
 
 router = APIRouter(tags=["courses"], dependencies=[Depends(current_staff)])
@@ -88,6 +92,35 @@ def roster(course_id: int, db: Session = Depends(get_db)) -> Roster:
         groups.append(RosterGroup.model_validate(g).model_copy(update={"members": members, "member_count": len(members)}))
     unassigned = [m for members in by_group.values() for m in members]  # no group, or a group of another course
     return Roster(course=_single(db, course), groups=groups, unassigned=sorted(unassigned, key=lambda m: m.full_name))
+
+
+@router.get("/courses/{course_id}/roster.pdf")
+def roster_pdf(course_id: int, group_id: int | None = None, unassigned: bool = False, db: Session = Depends(get_db)) -> Response:
+    """Printable member list: the whole course (one page per group), one group, or the unassigned members."""
+    data = roster(course_id, db)
+    name = data.course.name
+    leftover = (("Unassigned" if data.groups else name), None, data.unassigned)
+    if group_id is not None:
+        group = next((g for g in data.groups if g.id == group_id), None)
+        if group is None:
+            raise NotFound("Group not found")
+        sections, part = [(group.name, group.schedule, group.members)], group.name
+    elif unassigned:
+        sections, part = [leftover], "unassigned"
+    else:
+        sections = [(g.name, g.schedule, g.members) for g in data.groups if g.members]
+        if data.unassigned or not sections:
+            sections.append(leftover)
+        part = None
+    org = get_org(db)
+    logo_path = get_settings().logo_path
+    logo = logo_path.read_bytes() if org.logo_mime and logo_path.exists() else None
+    filename = re.sub(r"[^A-Za-z0-9]+", "-", " ".join(filter(None, [name, part]))).strip("-").lower() or "members"
+    return Response(
+        render_roster(name, sections, org, logo),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}.pdf"'},
+    )
 
 
 @router.post("/courses", response_model=CourseOut, status_code=201)

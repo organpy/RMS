@@ -24,6 +24,11 @@ export const useSaveGroup = () =>
 
 export const useDeleteGroup = () => useMutate((id) => api.del(`/groups/${id}`), { invalidate: ROOTS, success: 'Group deleted' })
 
+/** Printable member list (PDF): the whole course, one group, or ``group: null`` for members without a group. */
+export const rosterPdfUrl = (courseId, group) =>
+  `/api/courses/${courseId}/roster.pdf${group === undefined ? '' : group === null ? '?unassigned=true' : `?group_id=${group}`}`
+export const openRosterPdf = (courseId, group) => window.open(rosterPdfUrl(courseId, group), '_blank', 'noopener')
+
 export const useRoster = (courseId) => useQuery({ queryKey: ['roster', courseId], queryFn: () => api.get(`/courses/${courseId}/roster`), placeholderData: undefined })
 
 export const useMoveMember = () =>
