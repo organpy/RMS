@@ -1,10 +1,9 @@
 <div align="center">
 
-<img src="docs/assets/banner.png" alt="RMS banner" width="100%">
-
-# RMS
+<img src="rmsbanner.svg" alt="RMS banner" width="80%">
 
 **Membership and subscription management for schools, gyms, studios and clubs.**
+
 Courses, groups, plans, payments, invoices, attendance and reminders, running on your own computer.
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
