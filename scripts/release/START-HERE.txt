@@ -1,0 +1,93 @@
+RMS - memberships, payments and invoices for your school, gym or studio
+=======================================================================
+
+RMS runs on your own computer. Your data never leaves it, there is no account
+to create and nothing to pay.
+
+
+1. INSTALL AND START
+--------------------
+
+Windows
+  1. Right-click the zip you downloaded and choose "Extract All...".
+     Put the folder somewhere permanent, for example Documents\RMS.
+  2. Open the folder and double-click "Start RMS.bat".
+     - If Windows shows "Windows protected your PC", click "More info",
+       then "Run anyway". The file is a plain text script you can read.
+     - If Python is missing, the window offers to install it for you.
+       Say Y, or install it from https://www.python.org/downloads/
+       (tick "Add python.exe to PATH").
+  3. The first start takes a minute or two (it needs internet once).
+     Your browser then opens RMS, and an "RMS" shortcut appears on your desktop.
+
+macOS
+  1. Double-click the zip to extract it, and move the folder to Documents.
+  2. Install Python 3.11 or newer from https://www.python.org/downloads/
+  3. Right-click "Start RMS.command" and choose "Open" (needed only the first
+     time, because the file was downloaded from the internet).
+
+Linux
+  Run  ./"Start RMS.command"  from the extracted folder (needs python3 and
+  python3-venv).
+
+
+2. FIRST STEPS
+--------------
+
+  - Create your organization and your admin account.
+  - The "Getting started" guide then walks you through courses, plans,
+    members and your first invoice. Each step ticks itself off.
+  - Press ? inside the app to see the keyboard shortcuts.
+
+
+3. EVERY DAY
+------------
+
+  - Start RMS with the desktop shortcut (or "Start RMS.bat").
+  - Keep the black window open while you work. Closing it stops RMS.
+  - Starting it again while it runs just opens it in your browser.
+
+
+4. YOUR DATA AND BACKUPS
+------------------------
+
+  Everything is stored in the "data" folder inside the RMS folder.
+  Turn on automatic backups in Settings > Backups, and download a backup
+  now and then to keep a copy on a USB stick or cloud drive.
+
+
+5. UPDATING TO A NEW VERSION
+----------------------------
+
+  1. Close the RMS window.
+  2. Extract the new version to a new folder.
+  3. Copy the "data" folder (and ".env" if you created one) from the old
+     folder into the new one.
+  4. Start the new version. Your data is upgraded automatically.
+
+
+6. OPTIONAL: EMAIL, SMS AND WHATSAPP
+------------------------------------
+
+  Without setup, reminders open in your own mail app or WhatsApp.
+  To send them from RMS itself, copy ".env.example" to ".env", fill in your
+  SMTP (email) or Twilio (SMS / WhatsApp) details and restart RMS.
+  README.md explains each setting.
+
+
+7. USE IT FROM OTHER COMPUTERS OR PHONES ON YOUR NETWORK
+--------------------------------------------------------
+
+  Create a file named ".env" in the RMS folder containing:
+      RMS_HOST=0.0.0.0
+  Restart RMS, then open http://<this-computer's-IP>:8000 on the other device.
+  Only do this on a network you trust.
+
+
+TROUBLE?
+--------
+
+  - "Port 8000 is used by another program": RMS picks the next free port by
+    itself and opens the right address.
+  - Forgot the admin password: see "Troubleshooting" in README.md.
+  - Anything else: the black window shows what went wrong.

@@ -35,3 +35,6 @@ playwright-report/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Release zips (python -m scripts.package)
+/release/
