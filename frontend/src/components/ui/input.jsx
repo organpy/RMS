@@ -3,10 +3,10 @@ import { cloneElement, useId } from 'react'
 import { cn } from '@/lib/cn'
 
 const base =
-  'w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground/70 focus-visible:outline-2 focus-visible:outline-offset-0 disabled:opacity-50 aria-invalid:border-danger'
+  'w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm placeholder:text-muted-foreground/70 focus-visible:outline-2 focus-visible:outline-offset-0 disabled:opacity-50 aria-invalid:border-danger'
 
 export function Input({ className, ...props }) {
-  return <input className={cn(base, 'h-9', className)} {...props} />
+  return <input className={cn(base, 'h-9 pointer-coarse:h-10', className)} {...props} />
 }
 
 export function Textarea({ className, ...props }) {
@@ -15,7 +15,7 @@ export function Textarea({ className, ...props }) {
 
 export function Select({ className, children, ...props }) {
   return (
-    <select className={cn(base, 'h-9 appearance-none bg-[length:16px] bg-[right_0.6rem_center] bg-no-repeat pr-8', className)} style={{ backgroundImage: CHEVRON }} {...props}>
+    <select className={cn(base, 'h-9 pointer-coarse:h-10 appearance-none bg-[length:16px] bg-[right_0.6rem_center] bg-no-repeat pr-8', className)} style={{ backgroundImage: CHEVRON }} {...props}>
       {children}
     </select>
   )

@@ -88,7 +88,7 @@ export default function PaymentsPage() {
             <Table>
               <THead>
                 <TR>
-                  <TH>Date</TH>
+                  <TH className="hidden sm:table-cell">Date</TH>
                   <TH>Member</TH>
                   <TH className="hidden md:table-cell">Description</TH>
                   <TH className="hidden sm:table-cell">Method</TH>
@@ -99,11 +99,14 @@ export default function PaymentsPage() {
               <tbody>
                 {data.items.map((p) => (
                   <TR key={p.id} className={cn(p.refunded_at && 'text-muted-foreground')}>
-                    <TD className="whitespace-nowrap tabular">{date(p.paid_on)}</TD>
+                    <TD className="hidden whitespace-nowrap tabular sm:table-cell">{date(p.paid_on)}</TD>
                     <TD>
                       <Link to={`/members?open=${p.member_id}`} className="font-medium hover:underline">
                         {p.member_name}
                       </Link>
+                      <p className="text-xs text-muted-foreground tabular sm:hidden">
+                        {date(p.paid_on)} · {METHOD[p.method]}
+                      </p>
                     </TD>
                     <TD className="hidden md:table-cell">
                       <p>{p.description}</p>

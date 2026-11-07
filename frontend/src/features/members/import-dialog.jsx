@@ -86,7 +86,7 @@ function ImportFlow({ onDone }) {
 export function ImportDialog({ open, onOpenChange }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title="Import members" description="Upload a spreadsheet saved as CSV. Nothing is added until you confirm." className="max-w-lg">
+      <DialogContent title="Import members" description="Upload a spreadsheet saved as CSV. Nothing is added until you confirm." className="sm:max-w-lg">
         {open && <ImportFlow onDone={() => onOpenChange(false)} />}
       </DialogContent>
     </Dialog>

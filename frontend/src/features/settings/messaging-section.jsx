@@ -19,7 +19,7 @@ export function MessagingSection() {
 
   return (
     <Section id="messaging" title="Messaging" description="Email goes through your SMTP server, SMS and WhatsApp through Twilio. Credentials live in the .env file next to the app, never in the database.">
-      <div className="grid gap-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
         <ul className="divide-y rounded-lg border text-[13px]">
           {Object.entries(CHANNEL_LABELS).map(([c, label]) => (
             <li key={c} className="flex items-center gap-3 px-3 py-2.5">
@@ -27,13 +27,13 @@ export function MessagingSection() {
                 {status?.[c] ? <Check className="size-3" /> : <X className="size-3" />}
               </span>
               <span className="font-medium">{label}</span>
-              <span className="ml-auto truncate text-xs text-muted-foreground">{status?.[c] ? 'Connected' : `Set ${ENV[c]}`}</span>
+              <span className="ml-auto min-w-0 truncate text-xs text-muted-foreground">{status?.[c] ? 'Connected' : `Set ${ENV[c]}`}</span>
             </li>
           ))}
         </ul>
         {connected.length > 0 && (
           <form
-            className="grid grid-cols-[8rem_1fr_auto] items-end gap-3"
+            className="grid items-end gap-3 sm:grid-cols-[8rem_1fr_auto]"
             onSubmit={(e) => {
               e.preventDefault()
               test.mutate({ channel, to: form.to })

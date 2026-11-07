@@ -71,7 +71,7 @@ export function ShortcutsDialog({ open, onOpenChange }) {
   )
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title="Keyboard shortcuts" description="Work faster without leaving the keyboard." className="max-w-lg">
+      <DialogContent title="Keyboard shortcuts" description="Work faster without leaving the keyboard." className="sm:max-w-lg">
         <div className="grid gap-6 sm:grid-cols-2">
           <section>
             <h3 className="mb-1 text-xs font-medium text-muted-foreground">General</h3>

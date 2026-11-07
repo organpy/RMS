@@ -186,7 +186,7 @@ export function PaymentDialog({ open, onOpenChange, memberId }) {
       <DialogContent
         title={recorded ? `Invoice ${recorded.invoice_number}` : 'Record payment'}
         description={recorded ? `${money(recorded.amount)} from ${recorded.member_name}` : undefined}
-        className={recorded ? 'max-w-2xl' : 'max-w-md'}
+        className={recorded ? 'sm:max-w-2xl' : 'sm:max-w-md'}
       >
         {recorded ? (
           <Receipt payment={recorded} onDone={close} />

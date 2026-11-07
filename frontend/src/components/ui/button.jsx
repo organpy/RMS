@@ -10,8 +10,8 @@ const variants = {
 
 const sizes = {
   sm: 'h-8 px-3 gap-1.5 text-[13px]',
-  md: 'h-9 px-3.5 gap-2',
-  icon: 'size-8',
+  md: 'h-9 px-3.5 gap-2 pointer-coarse:h-10',
+  icon: 'size-8 pointer-coarse:size-10',
 }
 
 /** Button classes, also for links that should look like buttons. */

@@ -167,7 +167,7 @@ export default function AnalyticsPage() {
         <p className="text-[13px] text-muted-foreground">Choose a start and end date.</p>
       ) : !data ? (
         <div className="grid gap-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {Array.from({ length: 8 }, (_, i) => (
               <Skeleton key={i} className="h-24 rounded-xl" />
             ))}
@@ -176,7 +176,7 @@ export default function AnalyticsPage() {
         </div>
       ) : (
         <div className="grid gap-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Kpi label="Collected" value={money(k.collected)} current={k.collected} previous={k.collected_prev} />
             <Kpi label="Expenses" value={money(k.expenses)} current={k.expenses} previous={k.expenses_prev} goodWhen="down" />
             <Kpi label="Profit" value={money(k.profit)} current={k.profit} previous={k.profit_prev} />

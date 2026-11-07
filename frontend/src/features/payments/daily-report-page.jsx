@@ -61,7 +61,7 @@ export default function DailyReportPage() {
         <Skeleton className="h-64 rounded-xl" />
       ) : (
         <div className="grid gap-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5 [&>:first-child]:col-span-2 lg:[&>:first-child]:col-span-1">
             <Card className="p-4 lg:col-span-1">
               <p className="text-xs text-muted-foreground">Collected</p>
               <p className="tabular mt-1 text-xl font-semibold">{money(data.total)}</p>

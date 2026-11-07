@@ -77,7 +77,7 @@ export function AttendanceDialog({ group, onOpenChange }) {
   const [day, setDay] = useState(today())
   return (
     <Dialog open={!!group} onOpenChange={onOpenChange}>
-      <DialogContent title={`Attendance · ${group?.name ?? ''}`} description={group?.schedule} className="max-w-lg">
+      <DialogContent title={`Attendance · ${group?.name ?? ''}`} description={group?.schedule} className="sm:max-w-lg">
         {group && (
           <>
             <div className="flex items-end gap-2">

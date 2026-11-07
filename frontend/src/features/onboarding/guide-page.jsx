@@ -92,13 +92,13 @@ export default function GuidePage() {
           </Card>
           <Card>
             <ol className="divide-y">
-              {data.steps.map((step, i) => (
+              {data.steps.filter((s) => STEPS[s.id]).map((step, i) => (
                 <Step key={step.id} index={i} step={step} admin={admin} />
               ))}
             </ol>
           </Card>
           <p className="text-[13px] text-muted-foreground">
-            Tip: press <kbd className="rounded border bg-surface px-1.5 font-sans text-xs">?</kbd> any time to see keyboard shortcuts.
+            <span className="pointer-coarse:hidden">Tip: press <kbd className="rounded border bg-surface px-1.5 font-sans text-xs">?</kbd> any time to see keyboard shortcuts.</span>
           </p>
         </div>
       )}

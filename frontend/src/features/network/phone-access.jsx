@@ -43,7 +43,7 @@ export function PhoneDialog({ open, onOpenChange }) {
   const { data } = useNetwork(open)
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title="Use RMS on your phone" description="Phones and computers on the same network can sign in here." className="max-w-lg">
+      <DialogContent title="Use RMS on your phone" description="Phones and computers on the same network can sign in here." className="sm:max-w-lg">
         {data?.listening && data.listening !== '127.0.0.1' ? (
           <PhoneAccess urls={data.urls} />
         ) : (

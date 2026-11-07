@@ -23,7 +23,7 @@ function Stat({ label, value, hint, to, tone }) {
   return (
     <Link to={to} className="group rounded-xl border p-4 transition-colors hover:bg-surface">
       <p className="text-[13px] text-muted-foreground">{label}</p>
-      <p className={cn('mt-1 text-2xl font-semibold tracking-tight tabular', tone)}>{value}</p>
+      <p className={cn('mt-1 text-xl font-semibold sm:text-2xl tracking-tight tabular', tone)}>{value}</p>
       <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
     </Link>
   )
@@ -83,14 +83,14 @@ export default function DashboardPage() {
       <SetupCard />
 
       {!data ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
         </div>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             <Stat
               label="Revenue this month"
               value={money(data.revenue_month)}

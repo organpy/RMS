@@ -15,7 +15,7 @@ const blank = (v) => v?.trim() || null
 export function MemberFormDialog({ open, onOpenChange, member, onSaved }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title={member ? 'Edit member' : 'New member'} className="max-w-lg">
+      <DialogContent title={member ? 'Edit member' : 'New member'} className="sm:max-w-lg">
         {open && <MemberForm member={member} onDone={(m) => (onOpenChange(false), onSaved?.(m))} onCancel={() => onOpenChange(false)} />}
       </DialogContent>
     </Dialog>

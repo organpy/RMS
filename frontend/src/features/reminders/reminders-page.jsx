@@ -134,7 +134,7 @@ export default function RemindersPage() {
                   </TH>
                   <TH>Member</TH>
                   <TH className="hidden md:table-cell">Plan</TH>
-                  <TH>Ended</TH>
+                  <TH className="hidden sm:table-cell">Ended</TH>
                   <TH className="hidden sm:table-cell">Last reminded</TH>
                   <TH className="text-right">Send</TH>
                 </TR>
@@ -149,13 +149,14 @@ export default function RemindersPage() {
                       <Link to={`/members?open=${i.member_id}`} className="font-medium hover:underline">
                         {i.full_name}
                       </Link>
-                      <div className="mt-0.5">
+                      <div className="mt-0.5 flex items-center gap-1.5">
                         <StatusBadge status={i.status} />
+                        <span className="text-xs whitespace-nowrap text-muted-foreground sm:hidden">{i.paid_until ? relativeDays(i.paid_until) : 'Never paid'}</span>
                       </div>
                     </TD>
                     <TD className="hidden text-muted-foreground md:table-cell">{i.plan_name ? `${i.plan_name} · ${money(i.amount)}` : '—'}
                       {i.balance > 0 && <span className="block text-xs text-danger">owes {money(i.balance)}</span>}</TD>
-                    <TD className="whitespace-nowrap">
+                    <TD className="hidden whitespace-nowrap sm:table-cell">
                       {i.paid_until ? (
                         <>
                           <p className="tabular">{date(i.paid_until)}</p>
